@@ -762,7 +762,7 @@ function showEditorTab(tab) {
     document.getElementById(`editor-${tab}`).classList.remove('hidden');
 }
 
-// ==================== GOOGLE SHEETS ====================
+// ==================== GOOGLE SHEETS (CORRIGIDO) ====================
 async function enviarParaSheets(formularioId, respostaId, respostaData) {
     const form = forms.find(f => f.id === formularioId);
     if (!form) return false;
@@ -775,18 +775,130 @@ async function enviarParaSheets(formularioId, respostaId, respostaData) {
     };
     
     try {
-        await fetch(SHEETS_URL, {
+        const resposta = await fetch(SHEETS_URL, {
             method: 'POST',
-            mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(dados)
         });
-        console.log(`✅ Enviado: ${form.name}`);
+        const resultado = await resposta.json();
+        console.log(`✅ Enviado: ${form.name}`, resultado);
         return true;
     } catch (erro) {
         console.error(`❌ Erro:`, erro);
         return false;
     }
+}
+
+async function buscarDoSheets(formularioId) {
+    try {
+        const dados = { action: 'getResponses', formId: formularioId };
+        const resposta = await fetch(SHEETS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dados)
+        });
+        const resultado = await resposta.json();
+        return resultado;
+    } catch (erro) {
+        console.error('❌ Erro ao buscar:', erro);
+        return null;
+    }
+}
+
+// ==================== SALVAR FORMULÁRIO NA NUVEM (CORRIGIDO) ====================
+async function salvarFormularioNaNuvem(formId, formName, questions, themeColor) {
+    const dados = {
+        action: 'saveNewForm',
+        formId: formId,
+        formName: formName,
+        questions: questions,
+        themeColor: themeColor
+    };
+    
+    try {
+        const resposta = await fetch(SHEETS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dados)
+        });
+        const resultado = await resposta.json();
+        console.log('✅ Formulário salvo na nuvem:', formName, resultado);
+        return true;
+    } catch (erro) {
+        console.error('❌ Erro ao salvar formulário:', erro);
+        return false;
+    }
+}
+
+async function salvarFormularioLocalNaNuvem(formId) {
+    const form = forms.find(f => f.id === formId);
+    if (!form) return false;
+    
+    const dados = {
+        action: 'saveNewForm',
+        formId: form.id,
+        formName: form.name,
+        questions: form.form.questions,
+        themeColor: form.form.theme.primary || '#4f46e5'
+    };
+    
+    try {
+        const resposta = await fetch(SHEETS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dados)
+        });
+        const resultado = await resposta.json();
+        console.log('✅ Formulário atualizado na nuvem:', form.name, resultado);
+        showToast(`✅ "${form.name}" salvo na nuvem!`, 'success');
+        return true;
+    } catch (erro) {
+        console.error('❌ Erro:', erro);
+        showToast(`❌ Erro ao salvar "${form.name}"`, 'error');
+        return false;
+    }
+}
+
+// ==================== CARREGAR VIA URL (CORRIGIDO - ADICIONE ISSO) ====================
+async function checkUrlForForm() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const formIdFromUrl = urlParams.get('form');
+    
+    if (formIdFromUrl) {
+        // Limpa a URL para não recarregar
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Tenta encontrar o formulário localmente
+        let form = forms.find(f => f.id === formIdFromUrl);
+        
+        if (form) {
+            // Se existe localmente, abre para responder
+            openResponseForm(formIdFromUrl);
+        } else {
+            // Se não existe, busca da nuvem
+            showToast('Buscando formulário da nuvem...', 'success');
+            await buscarTudoDaNuvem();
+            
+            form = forms.find(f => f.id === formIdFromUrl);
+            if (form) {
+                openResponseForm(formIdFromUrl);
+            } else {
+                showToast('Formulário não encontrado', 'error');
+            }
+        }
+    }
+}
+
+// ==================== FUNÇÃO PARA ABRIR FORMULÁRIO PARA RESPOSTA (ADICIONE) ====================
+function openResponseForm(formId) {
+    const formData = forms.find(f => f.id === formId);
+    if (!formData) return;
+    
+    currentFormId = formId;
+    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+    document.getElementById('view-responses').classList.remove('hidden');
+    document.getElementById('responses-form-title').textContent = formData.name;
+    renderResponsesDashboard();
 }
 
 async function buscarDoSheets(formularioId) {
@@ -2387,7 +2499,7 @@ async function sincronizarFormularioAtual() {
     atualizarProgresso(100, '✅ Sincronização concluída!');
     setTimeout(() => fecharProgresso(), 2000);
 }
-loadData();
+loadData().then(() => checkUrlForForm());
 </script>
 </body>
 </html>
