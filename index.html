@@ -775,12 +775,11 @@ async function enviarParaSheets(formularioId, respostaId, respostaData) {
     };
     
     try {
-        await fetch(SHEETS_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
+await fetch(SHEETS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+});
         console.log(`✅ Enviado: ${form.name}`);
         return true;
     } catch (erro) {
@@ -879,36 +878,27 @@ async function sincronizarTudoParaNuvem() {
 }
 
 async function buscarTudoDaNuvem() {
-    mostrarProgresso('📥 Buscando TUDO da Nuvem...');
-    atualizarProgresso(10, 'Conectando...');
+    mostrarProgresso('📥 Buscando da Nuvem...');
+    atualizarProgresso(30, 'Conectando...');
     
-    // Criar um script JSONP dinâmico
-    const script = document.createElement('script');
-    const callbackName = 'jsonp_callback_' + Date.now();
-    
-    window[callbackName] = function(data) {
-        delete window[callbackName];
-        document.body.removeChild(script);
+    try {
+        const resposta = await fetch(SHEETS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'getForms' })
+        });
+        const dados = await resposta.json();
         
-        if (data.success && data.forms) {
+        if (dados.success && dados.forms) {
             let importados = 0;
-            for (const formCloud of data.forms) {
-                const formLocal = forms.find(f => f.id === formCloud.id);
-                if (!formLocal) {
+            for (const formCloud of dados.forms) {
+                const existe = forms.some(f => f.id === formCloud.id);
+                if (!existe) {
                     forms.push({
                         id: formCloud.id,
                         name: formCloud.name,
-                        createdAt: formCloud.createdAt || new Date().toISOString(),
-                        form: {
-                            title: formCloud.name,
-                            subtitle: '',
-                            description: '',
-                            banner: '',
-                            footer: '',
-                            questions: formCloud.questions || [],
-                            theme: { primary: formCloud.themeColor || '#4f46e5' },
-                            config: { showProgress: true }
-                        },
+                        createdAt: formCloud.createdAt,
+                        form: { title: formCloud.name, questions: [], theme: { primary: '#4f46e5' } },
                         responses: []
                     });
                     importados++;
@@ -918,25 +908,13 @@ async function buscarTudoDaNuvem() {
             renderFormsList();
             atualizarProgresso(100, `✅ ${importados} formulários importados!`);
             showToast(`📥 ${importados} formulários carregados!`, 'success');
-        } else {
-            atualizarProgresso(100, 'ℹ️ Nenhum formulário encontrado');
         }
-        setTimeout(() => fecharProgresso(), 2000);
-    };
-    
-    const url = `${SHEETS_URL}?action=getForms&callback=${callbackName}`;
-    script.src = url;
-    document.body.appendChild(script);
-    
-    setTimeout(() => {
-        if (window[callbackName]) {
-            delete window[callbackName];
-            document.body.removeChild(script);
-            atualizarProgresso(100, '❌ Timeout');
-            showToast('❌ Erro de conexão', 'error');
-            setTimeout(() => fecharProgresso(), 2000);
-        }
-    }, 10000);
+    } catch (erro) {
+        console.error(erro);
+        atualizarProgresso(100, '❌ Erro de conexão');
+        showToast('❌ Erro ao buscar da nuvem', 'error');
+    }
+    setTimeout(() => fecharProgresso(), 2000);
 }
 async function sincronizarParaNuvem() {
     const formData = getCurrentForm();
