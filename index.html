@@ -2194,12 +2194,11 @@ async function salvarFormularioNaNuvem(formId, formName, questions, themeColor) 
     };
     
     try {
-        await fetch(SHEETS_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
+await fetch(SHEETS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+});
         console.log('✅ Formulário salvo na nuvem:', formName);
         return true;
     } catch (erro) {
@@ -2285,12 +2284,11 @@ async function salvarFormularioLocalNaNuvem(formId) {
     };
     
     try {
-        await fetch(SHEETS_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
+await fetch(SHEETS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+});
         console.log('✅ Formulário atualizado na nuvem:', form.name);
         showToast(`✅ "${form.name}" salvo na nuvem!`, 'success');
         return true;
