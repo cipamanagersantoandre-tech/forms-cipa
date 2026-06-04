@@ -681,7 +681,7 @@ body {
 <script>
 // ==================== ESTADO ====================
 const STORAGE_KEY = 'formcraft_v1';
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbywJSKnM5ZZbdD0bRta5E0zVHE-CHDw2izDOuoNPxIShYqALUZEfPwy-eNzYwWNuUvkmQ/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwV2j9gkGI5Ea06qv5Kg2AhKLkLJArAFFG3uQpFWkcFsnNQ0Q_aNeOXDpZ3_16KotEfUg/exec';
 
 let forms = [];
 let currentFormId = null;
@@ -943,50 +943,36 @@ async function sincronizarTudoParaNuvem() {
     mostrarProgresso('☁️ Enviando TUDO para a Nuvem...');
     atualizarProgresso(0, 'Preparando...');
     
-    // 1. Primeiro: Enviar todos os formulários (estrutura)
-    atualizarProgresso(5, 'Enviando estrutura dos formulários...');
-    
-    let formulariosEnviados = 0;
-    for (const form of forms) {
-        const sucesso = await salvarFormularioLocalNaNuvem(form.id);
-        if (sucesso) formulariosEnviados++;
+    let enviados = 0;
+    for (let i = 0; i < forms.length; i++) {
+        const form = forms[i];
+        const dados = {
+            action: 'saveNewForm',
+            formId: form.id,
+            formName: form.name,
+            questions: form.form.questions,
+            themeColor: form.form.theme.primary || '#4f46e5'
+        };
+        
+        try {
+            const resposta = await fetch(SHEETS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados)
+            });
+            const resultado = await resposta.json();
+            if (resultado.success) enviados++;
+            console.log(`Formulário ${form.name}:`, resultado);
+        } catch (erro) {
+            console.error(`Erro ao enviar ${form.name}:`, erro);
+        }
+        
+        atualizarProgresso(Math.round((i + 1) / forms.length * 100), `Enviando ${form.name}...`);
         await new Promise(r => setTimeout(r, 100));
     }
     
-    // 2. Segundo: Contar e enviar todas as respostas
-    let totalRespostas = 0;
-    for (const form of forms) {
-        totalRespostas += form.responses.length;
-    }
-    
-    if (totalRespostas === 0) {
-        atualizarProgresso(100, `✅ ${formulariosEnviados} formulários enviados! Nenhuma resposta.`);
-        showToast(`✅ ${formulariosEnviados} formulários enviados!`, 'success');
-        setTimeout(() => fecharProgresso(), 3000);
-        return;
-    }
-    
-    atualizarProgresso(10, `Enviando ${totalRespostas} respostas...`);
-    
-    let respostasEnviadas = 0;
-    let errosRespostas = 0;
-    
-    for (const form of forms) {
-        for (const resposta of form.responses) {
-            const sucesso = await enviarParaSheets(form.id, resposta.id, resposta.data);
-            if (sucesso) {
-                respostasEnviadas++;
-            } else {
-                errosRespostas++;
-            }
-            const percentual = 10 + Math.round((respostasEnviadas + errosRespostas) / totalRespostas * 80);
-            atualizarProgresso(percentual, `Respostas: ${respostasEnviadas} enviadas, ${errosRespostas} erros`);
-            await new Promise(r => setTimeout(r, 30));
-        }
-    }
-    
-    atualizarProgresso(100, `✅ Concluído! ${formulariosEnviados} formulários e ${respostasEnviadas} respostas enviadas!`);
-    showToast(`✅ ${formulariosEnviados} formulários e ${respostasEnviadas} respostas enviadas!`, 'success');
+    atualizarProgresso(100, `✅ ${enviados} de ${forms.length} formulários enviados!`);
+    showToast(`✅ ${enviados} formulários enviados!`, 'success');
     setTimeout(() => fecharProgresso(), 3000);
 }
 
@@ -994,29 +980,29 @@ async function buscarTudoDaNuvem() {
     mostrarProgresso('📥 Buscando TUDO da Nuvem...');
     atualizarProgresso(0, 'Preparando...');
     
-    // 1. Primeiro: Buscar todos os formulários da nuvem
-    atualizarProgresso(5, 'Buscando formulários na nuvem...');
-    
     try {
-        const dados = { action: 'getForms' };
+        // CORREÇÃO: Enviar como POST com o formato correto
+        const dados = { action: 'getAllForms' };
+        
         const resposta = await fetch(SHEETS_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(dados)
         });
-        const resultado = await resposta.json();
         
-        let formulariosNovos = 0;
-        let formulariosAtualizados = 0;
+        const resultado = await resposta.json();
+        console.log('Resposta da nuvem:', resultado);
         
         if (resultado.success && resultado.forms && resultado.forms.length > 0) {
-            atualizarProgresso(20, `Encontrados ${resultado.forms.length} formulários na nuvem...`);
+            atualizarProgresso(50, `Encontrados ${resultado.forms.length} formulários na nuvem...`);
+            let importados = 0;
+            let atualizados = 0;
             
             for (const formCloud of resultado.forms) {
                 const formLocal = forms.find(f => f.id === formCloud.id);
-                
                 if (!formLocal) {
-                    // Formulário novo - importar
                     forms.push({
                         id: formCloud.id,
                         name: formCloud.name,
@@ -1024,7 +1010,7 @@ async function buscarTudoDaNuvem() {
                         form: {
                             title: formCloud.name,
                             subtitle: '',
-                            description: '',
+                            description: formCloud.description || '',
                             banner: '',
                             footer: '',
                             questions: formCloud.questions || [],
@@ -1033,71 +1019,30 @@ async function buscarTudoDaNuvem() {
                         },
                         responses: []
                     });
-                    formulariosNovos++;
+                    importados++;
                 } else {
-                    // Formulário já existe - atualizar estrutura se tiver perguntas
                     if (formCloud.questions && formCloud.questions.length > 0) {
                         formLocal.form.questions = formCloud.questions;
                         formLocal.form.theme.primary = formCloud.themeColor || '#4f46e5';
-                        formulariosAtualizados++;
+                        atualizados++;
                     }
                 }
             }
             
             saveData();
             renderFormsList();
+            atualizarProgresso(100, `✅ Concluído! ${importados} novos, ${atualizados} atualizados`);
+            showToast(`📥 ${importados} formulários importados da nuvem!`, 'success');
+        } else {
+            atualizarProgresso(100, 'ℹ️ Nenhum formulário encontrado na nuvem');
+            showToast('ℹ️ Nenhum formulário encontrado na nuvem', 'info');
         }
-        
-        // 2. Segundo: Buscar respostas de cada formulário
-        atualizarProgresso(40, 'Buscando respostas da nuvem...');
-        
-        let totalRespostasNovas = 0;
-        let formulariosProcessados = 0;
-        
-        for (const form of forms) {
-            const percentual = 40 + Math.round(formulariosProcessados / forms.length * 50);
-            atualizarProgresso(percentual, `Buscando respostas de: ${form.name}...`);
-            
-            const dadosRespostas = await buscarDoSheets(form.id);
-            
-            if (dadosRespostas && dadosRespostas.respostas && dadosRespostas.respostas.length > 0) {
-                const idsExistentes = new Set(form.responses.map(r => r.id));
-                let novasAqui = 0;
-                
-                for (const respostaNova of dadosRespostas.respostas) {
-                    if (!idsExistentes.has(respostaNova.id)) {
-                        form.responses.push(respostaNova);
-                        novasAqui++;
-                    }
-                }
-                
-                if (novasAqui > 0) {
-                    totalRespostasNovas += novasAqui;
-                    atualizarProgresso(percentual, `${form.name}: +${novasAqui} novas respostas`);
-                }
-            }
-            
-            formulariosProcessados++;
-        }
-        
-        if (totalRespostasNovas > 0) {
-            saveData();
-            renderFormsList();
-            if (document.getElementById('view-responses') && !document.getElementById('view-responses').classList.contains('hidden')) {
-                renderResponsesDashboard();
-            }
-        }
-        
-        atualizarProgresso(100, `✅ Concluído! ${formulariosNovos} novos formulários, ${formulariosAtualizados} atualizados, ${totalRespostasNovas} novas respostas!`);
-        showToast(`📥 ${formulariosNovos} formulários e ${totalRespostasNovas} respostas baixadas!`, 'success');
-        
     } catch (erro) {
-        console.error('❌ Erro:', erro);
-        atualizarProgresso(100, '❌ Erro na sincronização');
-        showToast('❌ Erro ao sincronizar com a nuvem', 'error');
+        console.error('❌ Erro ao carregar formulários:', erro);
+        atualizarProgresso(100, '❌ Erro ao carregar da nuvem');
+        showToast('❌ Erro ao carregar: ' + erro.message, 'error');
     }
-    
-    setTimeout(() => fecharProgresso(), 4000);
+    setTimeout(() => fecharProgresso(), 3000);
 }
 
 async function sincronizarParaNuvem() {
