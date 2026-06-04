@@ -2311,30 +2311,170 @@ function drop(e) {
     showToast('Pergunta reposicionada!', 'success');
 }
 
-// ==================== INICIALIZAR ====================
-// ==================== SALVAR FORMULÁRIO NA NUVEM ====================
-async function salvarFormularioNaNuvem(formId, formName, questions, themeColor) {
-    const dados = {
-        action: 'saveNewForm',
-        formId: formId,
-        formName: formName,
-        questions: questions,
-        themeColor: themeColor
-    };
-    
+// ==================== FUNÇÕES DE SINCRONIZAÇÃO (PADRÃO CIPA MANAGER) ====================
+async function salvarNaNuvem(aba, id, dados) {
     try {
-        await fetch(SHEETS_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
-        console.log('✅ Formulário salvo na nuvem:', formName);
-        return true;
-    } catch (erro) {
-        console.error('❌ Erro ao salvar formulário:', erro);
+        const dadosStr = JSON.stringify(dados);
+        const url = `${SHEETS_URL}?acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&dados=${encodeURIComponent(dadosStr)}`;
+        
+        const resposta = await fetch(url);
+        const resultado = await resposta.json();
+        return resultado.status === 'sucesso';
+    } catch (e) {
+        console.error('Erro ao salvar:', e);
         return false;
     }
+}
+
+async function carregarDaNuvem(aba, id) {
+    try {
+        const url = `${SHEETS_URL}?acao=carregar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`;
+        const resposta = await fetch(url);
+        const resultado = await resposta.json();
+        if (resultado.status === 'sucesso' && resultado.dados) {
+            return JSON.parse(resultado.dados);
+        }
+        return null;
+    } catch (e) {
+        console.error('Erro ao carregar:', e);
+        return null;
+    }
+}
+
+async function carregarTudoDaNuvem(aba) {
+    try {
+        const url = `${SHEETS_URL}?acao=carregarTudo&aba=${encodeURIComponent(aba)}`;
+        const resposta = await fetch(url);
+        const resultado = await resposta.json();
+        if (resultado.status === 'sucesso' && resultado.dados) {
+            return resultado.dados.map(item => {
+                try {
+                    return JSON.parse(item.dados);
+                } catch(e) {
+                    return null;
+                }
+            }).filter(item => item !== null);
+        }
+        return [];
+    } catch (e) {
+        console.error('Erro ao carregar todos:', e);
+        return [];
+    }
+}
+
+async function excluirDaNuvem(aba, id) {
+    try {
+        const url = `${SHEETS_URL}?acao=excluir&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`;
+        const resposta = await fetch(url);
+        const resultado = await resposta.json();
+        return resultado.status === 'sucesso';
+    } catch (e) {
+        console.error('Erro ao excluir:', e);
+        return false;
+    }
+}
+
+// ===== SINCRONIZAR TUDO (SUBSTITUA sincronizarTudoParaNuvem) =====
+async function sincronizarTudoParaNuvem() {
+    if (forms.length === 0) {
+        showToast('Nenhum formulário para enviar', 'info');
+        return;
+    }
+    
+    mostrarProgresso('☁️ Enviando para Nuvem...');
+    atualizarProgresso(0, 'Preparando...');
+    
+    let enviados = 0;
+    for (let i = 0; i < forms.length; i++) {
+        const form = forms[i];
+        const sucesso = await salvarNaNuvem('forms', form.id, form);
+        if (sucesso) enviados++;
+        atualizarProgresso(Math.round((i + 1) / forms.length * 100), `Enviando ${form.name}...`);
+        await new Promise(r => setTimeout(r, 100));
+    }
+    
+    atualizarProgresso(100, `✅ ${enviados} de ${forms.length} enviados!`);
+    showToast(`✅ ${enviados} formulários enviados!`, 'success');
+    setTimeout(() => fecharProgresso(), 2000);
+}
+
+// ===== BUSCAR TUDO (SUBSTITUA buscarTudoDaNuvem) =====
+async function buscarTudoDaNuvem() {
+    mostrarProgresso('📥 Buscando da Nuvem...');
+    atualizarProgresso(30, 'Conectando...');
+    
+    try {
+        const formsNuvem = await carregarTudoDaNuvem('forms');
+        
+        if (formsNuvem && formsNuvem.length > 0) {
+            let importados = 0;
+            
+            for (const formCloud of formsNuvem) {
+                const existe = forms.some(f => f.id === formCloud.id);
+                if (!existe) {
+                    forms.push(formCloud);
+                    importados++;
+                }
+            }
+            
+            saveData();
+            renderFormsList();
+            atualizarProgresso(100, `✅ ${importados} formulários importados!`);
+            showToast(`📥 ${importados} formulários carregados!`, 'success');
+        } else {
+            atualizarProgresso(100, 'ℹ️ Nenhum formulário encontrado');
+            showToast('ℹ️ Nenhum formulário na nuvem', 'info');
+        }
+    } catch (erro) {
+        console.error('❌ Erro:', erro);
+        atualizarProgresso(100, '❌ Erro de conexão');
+        showToast('❌ Erro: ' + erro.message, 'error');
+    }
+    setTimeout(() => fecharProgresso(), 3000);
+}
+
+// ===== SALVAR FORMULÁRIO ATUAL NA NUVEM (SUBSTITUA salvarFormularioLocalNaNuvem) =====
+async function salvarFormularioLocalNaNuvem(formId) {
+    const form = forms.find(f => f.id === formId);
+    if (!form) return false;
+    
+    mostrarProgresso('☁️ Salvando...');
+    atualizarProgresso(50, `Salvando "${form.name}"...`);
+    
+    const sucesso = await salvarNaNuvem('forms', form.id, form);
+    
+    atualizarProgresso(100, sucesso ? '✅ Salvo!' : '❌ Erro!');
+    showToast(sucesso ? `✅ "${form.name}" salvo!` : `❌ Erro ao salvar`, sucesso ? 'success' : 'error');
+    setTimeout(() => fecharProgresso(), 2000);
+    return sucesso;
+}
+
+// ===== SINCRONIZAR FORMULÁRIO ATUAL (mantenha o nome, substitua o conteúdo) =====
+async function sincronizarFormularioAtual() {
+    const formData = getCurrentForm();
+    if (!formData) {
+        showToast('Nenhum formulário aberto', 'error');
+        return;
+    }
+    
+    mostrarProgresso('☁️ Sincronizando...');
+    atualizarProgresso(50, `Salvando "${formData.name}"...`);
+    
+    const sucesso = await salvarNaNuvem('forms', formData.id, formData);
+    
+    if (sucesso) {
+        atualizarProgresso(100, '✅ Sincronizado!');
+        showToast(`✅ "${formData.name}" sincronizado!`, 'success');
+    } else {
+        atualizarProgresso(100, '❌ Erro!');
+        showToast(`❌ Erro ao sincronizar`, 'error');
+    }
+    setTimeout(() => fecharProgresso(), 2000);
+}
+
+// Mantenha a função carregarFormulariosDaNuvem existente (ela chama buscarTudoDaNuvem)
+async function carregarFormulariosDaNuvem() {
+    await buscarTudoDaNuvem();
 }
 
 async function carregarFormulariosDaNuvem() {
