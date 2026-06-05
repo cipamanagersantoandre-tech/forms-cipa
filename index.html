@@ -681,7 +681,7 @@ body {
 <script>
 // ==================== ESTADO ====================
 const STORAGE_KEY = 'formcraft_v1';
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzZbl56Q85Mj4_Wr4JxO_lQ_oiU4R1eO2Wk15BGKo-CIcxYDB5s1oyvjr8R6H-Qc1v-Hw/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbylVLdvjoCt-2oTjixYZMdMmZ7FmZsHs-MSJNPNTyhlWVI3UJY0fP7cmA7ZMoTDOAFK0g/exec';
 
 let forms = [];
 let currentFormId = null;
@@ -2473,117 +2473,49 @@ async function sincronizarFormularioAtual() {
 }
 
 // Mantenha a função carregarFormulariosDaNuvem existente (ela chama buscarTudoDaNuvem)
+
+// ===== CARREGAR FORMULÁRIOS DA NUVEM =====
 async function carregarFormulariosDaNuvem() {
     await buscarTudoDaNuvem();
 }
 
-async function carregarFormulariosDaNuvem() {
-    mostrarProgresso('📥 Carregando formulários da nuvem...');
-    atualizarProgresso(10, 'Conectando ao Google Sheets...');
+// ===== CARREGAR VIA URL =====
+async function checkUrlForForm() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const formIdFromUrl = urlParams.get('form');
     
-    try {
-        const dados = { action: 'getForms' };
-        const resposta = await fetch(SHEETS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
-        const resultado = await resposta.json();
+    if (formIdFromUrl) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        let form = forms.find(f => f.id === formIdFromUrl);
         
-        if (resultado.success && resultado.forms && resultado.forms.length > 0) {
-            atualizarProgresso(50, `Encontrados ${resultado.forms.length} formulários na nuvem...`);
-            let importados = 0;
-            let atualizados = 0;
-            
-            for (const formCloud of resultado.forms) {
-                const formLocal = forms.find(f => f.id === formCloud.id);
-                if (!formLocal) {
-                    forms.push({
-                        id: formCloud.id,
-                        name: formCloud.name,
-                        createdAt: formCloud.createdAt || new Date().toISOString(),
-                        form: {
-                            title: formCloud.name,
-                            subtitle: '',
-                            description: '',
-                            banner: '',
-                            footer: '',
-                            questions: formCloud.questions || [],
-                            theme: { primary: formCloud.themeColor || '#4f46e5' },
-                            config: { showProgress: true }
-                        },
-                        responses: []
-                    });
-                    importados++;
-                } else {
-                    if (formCloud.questions && formCloud.questions.length > 0) {
-                        formLocal.form.questions = formCloud.questions;
-                        formLocal.form.theme.primary = formCloud.themeColor || '#4f46e5';
-                        atualizados++;
-                    }
-                }
-            }
-            
-            atualizarProgresso(90, `Importados: ${importados}, Atualizados: ${atualizados}`);
-            saveData();
-            renderFormsList();
-            atualizarProgresso(100, `✅ Concluído! ${importados} novos, ${atualizados} atualizados`);
-            showToast(`📥 ${importados} formulários importados da nuvem!`, 'success');
+        if (form) {
+            openResponseForm(formIdFromUrl);
         } else {
-            atualizarProgresso(100, 'ℹ️ Nenhum formulário encontrado na nuvem');
-            showToast('ℹ️ Nenhum formulário encontrado na nuvem', 'info');
+            showToast('Buscando formulário da nuvem...', 'success');
+            await buscarTudoDaNuvem();
+            form = forms.find(f => f.id === formIdFromUrl);
+            if (form) {
+                openResponseForm(formIdFromUrl);
+            } else {
+                showToast('Formulário não encontrado', 'error');
+            }
         }
-    } catch (erro) {
-        console.error('❌ Erro ao carregar formulários:', erro);
-        atualizarProgresso(100, '❌ Erro ao carregar da nuvem');
-        showToast('❌ Erro ao carregar formulários da nuvem', 'error');
-    }
-    setTimeout(() => fecharProgresso(), 3000);
-}
-
-async function salvarFormularioLocalNaNuvem(formId) {
-    const form = forms.find(f => f.id === formId);
-    if (!form) return false;
-    
-    const dados = {
-        action: 'saveNewForm',
-        formId: form.id,
-        formName: form.name,
-        questions: form.form.questions,
-        themeColor: form.form.theme.primary || '#4f46e5'
-    };
-    
-    try {
-        await fetch(SHEETS_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
-        console.log('✅ Formulário atualizado na nuvem:', form.name);
-        showToast(`✅ "${form.name}" salvo na nuvem!`, 'success');
-        return true;
-    } catch (erro) {
-        console.error('❌ Erro:', erro);
-        showToast(`❌ Erro ao salvar "${form.name}"`, 'error');
-        return false;
     }
 }
 
-async function sincronizarFormularioAtual() {
-    const formData = getCurrentForm();
-    if (!formData) {
-        showToast('Nenhum formulário aberto', 'error');
-        return;
-    }
-    mostrarProgresso('☁️ Sincronizando formulário...');
-    atualizarProgresso(30, `Salvando "${formData.name}" na nuvem...`);
-    await salvarFormularioLocalNaNuvem(currentFormId);
-    atualizarProgresso(70, 'Buscando respostas da nuvem...');
-    await sincronizarDaNuvem();
-    atualizarProgresso(100, '✅ Sincronização concluída!');
-    setTimeout(() => fecharProgresso(), 2000);
+// ===== FUNÇÃO PARA ABRIR FORMULÁRIO PARA RESPOSTA =====
+function openResponseForm(formId) {
+    const formData = forms.find(f => f.id === formId);
+    if (!formData) return;
+    
+    currentFormId = formId;
+    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+    document.getElementById('view-responses').classList.remove('hidden');
+    document.getElementById('responses-form-title').textContent = formData.name;
+    renderResponsesDashboard();
 }
+
+// ===== INICIALIZAR =====
 loadData().then(() => checkUrlForForm());
 </script>
 </body>
