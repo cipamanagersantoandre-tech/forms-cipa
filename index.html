@@ -730,7 +730,7 @@ body {
 <script>
 // ==================== ESTADO ====================
 const STORAGE_KEY = 'formcraft_v1';
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycby_OPElvMLdJYa9aD3YJ2L5mTEfsSgDaAIbcgWLs-qEsFoVO1CkXdAlS_3jCEmVmD-Prw/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwESdcjbOO6je2JmeyQhCrD-M5A2UECuvpZPkm-hWw2gCU9MdCOEDuk3X8qTzN11n169Q/exec';
 
 // CONFIGURAÇÃO
 const CONFIG = {
@@ -2216,34 +2216,94 @@ function fecharProgresso() {
 
 // ===== CARREGAR VIA URL =====
 // ===== CARREGAR VIA URL (MODO PÚBLICO) =====
+// ===== CARREGAR VIA URL (MODO PÚBLICO - BUSCA APENAS O FORMULÁRIO ESPECÍFICO) =====
 async function checkUrlForForm() {
     const urlParams = new URLSearchParams(window.location.search);
     const formIdFromUrl = urlParams.get('form');
     
     if (formIdFromUrl) {
+        console.log('🔍 URL com formulário detectado:', formIdFromUrl);
+        
         // Esconde o header e o app normal
-        document.querySelector('.header').style.display = 'none';
-        document.querySelector('.bottom-sheet').style.display = 'none';
+        const header = document.querySelector('.header');
+        const bottomSheet = document.querySelector('.bottom-sheet');
+        if (header) header.style.display = 'none';
+        if (bottomSheet) bottomSheet.style.display = 'none';
         
         // Limpa a URL para não mostrar o parâmetro
         window.history.replaceState({}, document.title, window.location.pathname);
         
+        // Mostra progresso
+        mostrarProgresso('🔍 Carregando formulário...');
+        atualizarProgresso(20, 'Buscando na nuvem...');
+        
+        // 1. Primeiro, tenta encontrar no localStorage (já carregado)
         let form = forms.find(f => f.id === formIdFromUrl);
         
+        // 2. Se não encontrou, busca da nuvem
         if (!form) {
-            showToast('Buscando formulário...', 'info');
-            await buscarTudoDaNuvem();
-            form = forms.find(f => f.id === formIdFromUrl);
+            console.log('📥 Buscando formulário específico da nuvem...');
+            
+            try {
+                // Buscar formulário específico por ID
+                const url = `${CONFIG.googleApiUrl}?acao=buscarUm&aba=forms&id=${encodeURIComponent(formIdFromUrl)}`;
+                console.log('📡 Consultando:', url);
+                
+                const response = await fetch(url);
+                const result = await response.json();
+                console.log('📦 Resposta:', result);
+                
+                if (result.status === 'sucesso' && result.dados) {
+                    form = result.dados;
+                    // Adiciona aos forms locais e salva
+                    forms.push(form);
+                    saveData();
+                    console.log('✅ Formulário encontrado na nuvem!', form.name);
+                    atualizarProgresso(80, 'Formulário carregado!');
+                } else {
+                    console.log('❌ Formulário não encontrado na nuvem');
+                }
+            } catch (erro) {
+                console.error('❌ Erro na busca:', erro);
+            }
         }
         
+        atualizarProgresso(100, 'Concluído!');
+        setTimeout(() => fecharProgresso(), 500);
+        
+        // 3. Se encontrou o formulário, abre no modo público
         if (form) {
-            // Abre o modo público
+            console.log('✅ Abrindo formulário público:', form.name);
             abrirModoPublico(form);
         } else {
-            showToast('Formulário não encontrado', 'error');
-            goToHome();
+            // 4. Se não encontrou, mostra mensagem amigável
+            console.log('❌ Formulário NÃO encontrado:', formIdFromUrl);
+            mostrarErroFormularioNaoEncontrado();
+            fecharProgresso();
         }
     }
+}
+
+// Função para mostrar erro amigável quando formulário não é encontrado
+function mostrarErroFormularioNaoEncontrado() {
+    // Esconde todas as views
+    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+    
+    // Mostra a view pública com mensagem de erro
+    const viewPublic = document.getElementById('view-public');
+    viewPublic.classList.remove('hidden');
+    
+    const container = document.getElementById('public-form-container');
+    container.innerHTML = `
+        <div class="card" style="padding: 40px; text-align: center;">
+            <div style="font-size: 64px; margin-bottom: 20px;">🔍</div>
+            <h2 style="margin-bottom: 16px;">Formulário não encontrado</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">
+                O formulário que você está tentando acessar não existe ou foi removido.
+            </p>
+            <button class="btn btn-primary" onclick="goToHome()">Voltar para início</button>
+        </div>
+    `;
 }
 
 // Abrir formulário em modo público (só para responder)
