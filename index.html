@@ -2378,25 +2378,31 @@ function fecharProgresso() {
 }
 
 // ===== CARREGAR VIA URL =====
+// ===== CARREGAR VIA URL =====
 async function checkUrlForForm() {
     const urlParams = new URLSearchParams(window.location.search);
     const formIdFromUrl = urlParams.get('form');
     
     if (formIdFromUrl) {
+        // Limpa a URL para não recarregar
         window.history.replaceState({}, document.title, window.location.pathname);
+        
+        showToast('Carregando formulário...', 'info');
+        
+        // Buscar da nuvem se necessário
         let form = forms.find(f => f.id === formIdFromUrl);
         
-        if (form) {
-            openResponseForm(formIdFromUrl);
-        } else {
-            showToast('Buscando formulário da nuvem...', 'success');
+        if (!form) {
             await buscarTudoDaNuvem();
             form = forms.find(f => f.id === formIdFromUrl);
-            if (form) {
-                openResponseForm(formIdFromUrl);
-            } else {
-                showToast('Formulário não encontrado', 'error');
-            }
+        }
+        
+        if (form) {
+            // ✅ CORRIGIDO: chamar openResponsesView (com S)
+            openResponsesView(formIdFromUrl);
+        } else {
+            showToast('Formulário não encontrado', 'error');
+            goToHome();
         }
     }
 }
