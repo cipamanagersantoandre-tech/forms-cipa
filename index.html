@@ -1052,14 +1052,74 @@ function duplicateForm(formId) {
     showToast('Duplicado!', 'success');
 }
 
+async function excluirDaNuvem(aba, id) {
+    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return false;
+    
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        const url = CONFIG.googleApiUrl;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `acao=excluir&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const result = await response.json();
+        console.log('Resposta da exclusão:', result);
+        return result.status === 'sucesso';
+    } catch (e) {
+        console.error('Erro ao excluir do Google Sheets:', e);
+        return false;
+    }
+}
+
 function deleteForm(formId) {
-    confirmAction('Excluir', 'Excluir formulário? Todas as respostas serão perdidas.', () => {
+    confirmAction('Excluir', 'Excluir formulário? Todas as respostas serão perdidas.', async () => {
+        // Mostrar progresso
+        mostrarProgresso('🗑️ Excluindo da nuvem...');
+        atualizarProgresso(30, 'Removendo da planilha...');
+        
+        // 1. Excluir da nuvem (Google Sheets)
+        const sucesso = await excluirDaNuvem('forms', formId);
+        
+        if (sucesso) {
+            atualizarProgresso(70, 'Removido da nuvem!');
+            showToast('✅ Formulário excluído da nuvem!', 'success');
+        } else {
+            atualizarProgresso(70, 'Erro na nuvem, removendo local...');
+            showToast('⚠️ Erro ao excluir da nuvem, mas removendo localmente', 'warning');
+        }
+        
+        // 2. Excluir localmente (memória e localStorage)
         forms = forms.filter(f => f.id !== formId);
         if (currentFormId === formId) currentFormId = null;
         saveData();
+        
+        // 3. Recarregar listas
         renderFormsList();
-        goToHome();
-        showToast('Excluído', 'success');
+        
+        // 4. Se estava na home, já atualizou. Se não, vai para home
+        if (document.getElementById('view-home').classList.contains('hidden')) {
+            goToHome();
+        } else {
+            renderFormsList();
+        }
+        
+        atualizarProgresso(100, '✅ Concluído!');
+        setTimeout(() => fecharProgresso(), 1500);
+        
+        // 5. Sincronizar com outros usuários (opcional)
+        setTimeout(() => {
+            buscarTudoDaNuvemSilencioso();
+        }, 1000);
     });
 }
 
