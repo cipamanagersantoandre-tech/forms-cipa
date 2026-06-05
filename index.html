@@ -938,7 +938,7 @@ function openResponsesView(formId) {
     const formData = forms.find(f => f.id === formId);
     if (!formData) return;
     
-    // Verificar se veio de um link compartilhado (modo público)
+    // Verificar se veio de um link compartilhado
     const urlParams = new URLSearchParams(window.location.search);
     const isPublic = urlParams.get('form') !== null;
     
@@ -947,11 +947,15 @@ function openResponsesView(formId) {
     document.getElementById('view-responses').classList.remove('hidden');
     document.getElementById('responses-form-title').textContent = formData.name;
     
+    console.log('Modo público?', isPublic);
+    
     if (isPublic) {
         // Modo público: mostrar apenas o formulário para responder
+        console.log('✅ Abrindo modo PÚBLICO (responder)');
         renderPublicForm();
     } else {
         // Modo admin: mostrar dashboard de respostas
+        console.log('✅ Abrindo modo ADMIN (editar)');
         renderResponsesDashboard();
     }
 }
@@ -2378,18 +2382,16 @@ function fecharProgresso() {
 }
 
 // ===== CARREGAR VIA URL =====
-// ===== CARREGAR VIA URL =====
 async function checkUrlForForm() {
     const urlParams = new URLSearchParams(window.location.search);
     const formIdFromUrl = urlParams.get('form');
     
     if (formIdFromUrl) {
-        // Limpa a URL para não recarregar
-        window.history.replaceState({}, document.title, window.location.pathname);
+        console.log('🔗 Link detectado! ID:', formIdFromUrl);
         
+        window.history.replaceState({}, document.title, window.location.pathname);
         showToast('Carregando formulário...', 'info');
         
-        // Buscar da nuvem se necessário
         let form = forms.find(f => f.id === formIdFromUrl);
         
         if (!form) {
@@ -2398,7 +2400,6 @@ async function checkUrlForForm() {
         }
         
         if (form) {
-            // ✅ CORRIGIDO: chamar openResponsesView (com S)
             openResponsesView(formIdFromUrl);
         } else {
             showToast('Formulário não encontrado', 'error');
