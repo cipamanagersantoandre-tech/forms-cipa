@@ -935,14 +935,28 @@ function openFormEditor(formId) {
 }
 
 function openResponsesView(formId) {
-    currentFormId = formId;
     const formData = forms.find(f => f.id === formId);
     if (!formData) return;
+    
+    // Verificar se veio de um link compartilhado (modo público)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isPublic = urlParams.get('form') !== null;
+    
+    currentFormId = formId;
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
     document.getElementById('view-responses').classList.remove('hidden');
     document.getElementById('responses-form-title').textContent = formData.name;
-    renderResponsesDashboard();
+    
+    if (isPublic) {
+        // Modo público: mostrar apenas o formulário para responder
+        renderPublicForm();
+    } else {
+        // Modo admin: mostrar dashboard de respostas
+        renderResponsesDashboard();
+    }
 }
+
+
 
 function openNewFormModal() {
     document.getElementById('new-form-name').value = '';
@@ -1612,6 +1626,215 @@ function submitTestForm() {
         setupTestConditions(formData);
         closeModal();
     }
+}
+
+function renderPublicForm() {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const container = document.getElementById('responses-content');
+    const f = formData.form;
+    
+    // Esconder botões de admin (CSV, Limpar)
+    const headerActions = document.querySelector('#view-responses > div > div:first-child > div:last-child');
+    if (headerActions) headerActions.style.display = 'none';
+    
+    // Montar o formulário
+    let html = `
+        <div class="card" style="max-width: 800px; margin: 0 auto;">
+            ${f.banner ? `<div style="width:100%; aspect-ratio:16/9; overflow:hidden; border-radius:12px; margin-bottom:20px;">
+                <img src="${f.banner}" style="width:100%; height:100%; object-fit:cover;">
+            </div>` : ''}
+            
+            <h2 style="color: var(--primary); margin-bottom: 8px;">${escapeHtml(f.title)}</h2>
+            ${f.subtitle ? `<p style="color: var(--text-muted); margin-bottom: 24px;">${escapeHtml(f.subtitle)}</p>` : ''}
+            ${f.description ? `<div style="background: var(--bg-elev-2); padding: 16px; border-radius: 12px; margin-bottom: 24px;">${escapeHtml(f.description)}</div>` : ''}
+            
+            <form id="public-response-form" onsubmit="return false;">
+                <div id="public-questions-container"></div>
+                <button type="button" class="btn btn-primary" onclick="submitPublicResponse()" style="width:100%; justify-content:center; margin-top:20px;">
+                    📤 Enviar Resposta
+                </button>
+            </form>
+            
+            ${f.footer ? `<div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border); text-align: center; font-size: 13px; color: var(--text-muted);">
+                ${escapeHtml(f.footer)}
+            </div>` : ''}
+        </div>
+    `;
+    
+    container.innerHTML = html;
+    renderPublicQuestions();
+}
+
+function renderPublicQuestions() {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const container = document.getElementById('public-questions-container');
+    if (!container) return;
+    
+    function updateQuestions() {
+        const form = document.getElementById('public-response-form');
+        if (!form) return;
+        
+        const answers = {};
+        form.querySelectorAll('input, select, textarea').forEach(inp => {
+            if (inp.name?.startsWith('q_')) {
+                const qid = inp.name.replace('q_', '');
+                if (inp.type === 'radio' && inp.checked) answers[qid] = inp.value;
+                else if (inp.type === 'checkbox') {
+                    if (!answers[qid]) answers[qid] = [];
+                    if (inp.checked) answers[qid].push(inp.value);
+                } else if (inp.type !== 'radio') answers[qid] = inp.value;
+            }
+        });
+        
+        const visible = formData.form.questions.filter(q => {
+            if (!q.condition?.dependsOn) return true;
+            const dep = answers[q.condition.dependsOn];
+            if (!dep) return false;
+            if (Array.isArray(dep)) return dep.includes(q.condition.expectedValue);
+            return dep === q.condition.expectedValue;
+        });
+        
+        container.innerHTML = visible.map(q => `
+            <div class="form-group" data-qid="${q.id}" style="margin-bottom: 24px;">
+                <label class="label" style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">
+                    ${escapeHtml(q.title)}
+                    ${q.required ? '<span style="color: var(--error);"> *</span>' : ''}
+                </label>
+                ${renderPublicInput(q)}
+            </div>
+        `).join('');
+        
+        attachPublicEvents();
+    }
+    
+    function attachPublicEvents() {
+        const form = document.getElementById('public-response-form');
+        if (!form) return;
+        form.querySelectorAll('input, select, textarea').forEach(inp => {
+            inp.removeEventListener('change', updateQuestions);
+            inp.removeEventListener('input', updateQuestions);
+            inp.addEventListener('change', updateQuestions);
+            inp.addEventListener('input', updateQuestions);
+        });
+    }
+    
+    updateQuestions();
+}
+
+function renderPublicInput(q) {
+    const name = `q_${q.id}`;
+    switch (q.type) {
+        case 'text': return `<input type="text" class="input" name="${name}" placeholder="Digite sua resposta..." style="font-size: 16px; padding: 14px;">`;
+        case 'email': return `<input type="email" class="input" name="${name}" placeholder="seu@email.com" style="font-size: 16px; padding: 14px;">`;
+        case 'number': return `<input type="number" class="input" name="${name}" placeholder="0" style="font-size: 16px; padding: 14px;">`;
+        case 'textarea': return `<textarea class="textarea" name="${name}" rows="4" placeholder="Digite sua resposta..." style="font-size: 16px;"></textarea>`;
+        case 'radio': return `<div class="radio-group">${q.options.map(opt => `
+            <label class="radio-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; margin-bottom: 8px;">
+                <input type="radio" name="${name}" value="${escapeHtml(opt)}" style="width: 18px; height: 18px;">
+                <span>${escapeHtml(opt)}</span>
+            </label>
+        `).join('')}</div>`;
+        case 'checkbox': return `<div class="checkbox-group">${q.options.map(opt => `
+            <label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; margin-bottom: 8px;">
+                <input type="checkbox" name="${name}" value="${escapeHtml(opt)}" style="width: 18px; height: 18px;">
+                <span>${escapeHtml(opt)}</span>
+            </label>
+        `).join('')}</div>`;
+        case 'select': return `<select class="select" name="${name}" style="font-size: 16px; padding: 14px;">
+            <option value="">Selecione...</option>
+            ${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
+        </select>`;
+        case 'date': return `<input type="date" class="input" name="${name}" style="font-size: 16px; padding: 14px;">`;
+        case 'time': return `<input type="time" class="input" name="${name}" style="font-size: 16px; padding: 14px;">`;
+        case 'scale': return `<div style="display: flex; gap: 12px; flex-wrap: wrap;">${[1,2,3,4,5].map(n => `
+            <label style="flex: 1; text-align: center; padding: 12px; background: var(--bg-elev-2); border-radius: 10px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="radio" name="${name}" value="${n}" style="display: none;"> 
+                <span style="font-size: 18px; font-weight: 600;">${n}</span>
+            </label>
+        `).join('')}</div>`;
+        default: return `<input type="text" class="input" name="${name}" placeholder="Digite sua resposta..." style="font-size: 16px; padding: 14px;">`;
+    }
+}
+
+async function submitPublicResponse() {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const form = document.getElementById('public-response-form');
+    if (!form) return;
+    
+    const fd = new FormData(form);
+    const response = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
+    let err = false;
+    
+    const visible = getVisiblePublicQuestions();
+    
+    for (const q of visible) {
+        const name = `q_${q.id}`;
+        let val = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
+        
+        if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
+            showToast(`Responda: ${q.title}`, 'error');
+            err = true;
+            break;
+        }
+        response.data[q.id] = val || '';
+    }
+    
+    if (!err) {
+        if (!formData.responses) formData.responses = [];
+        formData.responses.push(response);
+        saveData();
+        
+        await salvarNaNuvem('forms', formData.id, formData);
+        
+        createConfetti();
+        showToast('✅ Resposta enviada com sucesso!', 'success');
+        
+        form.reset();
+        renderPublicQuestions();
+        
+        setTimeout(() => {
+            if (confirm('Resposta enviada! Deseja enviar outra resposta?')) {
+                form.reset();
+                renderPublicQuestions();
+            } else {
+                goToHome();
+            }
+        }, 500);
+    }
+}
+
+function getVisiblePublicQuestions() {
+    const formData = getCurrentForm();
+    if (!formData) return [];
+    
+    const form = document.getElementById('public-response-form');
+    if (!form) return formData.form.questions;
+    
+    const answers = {};
+    form.querySelectorAll('input, select, textarea').forEach(inp => {
+        if (inp.name?.startsWith('q_')) {
+            const qid = inp.name.replace('q_', '');
+            if (inp.type === 'radio' && inp.checked) answers[qid] = inp.value;
+            else if (inp.type === 'checkbox') {
+                if (!answers[qid]) answers[qid] = [];
+                if (inp.checked) answers[qid].push(inp.value);
+            } else if (inp.type !== 'radio') answers[qid] = inp.value;
+        }
+    });
+    
+    return formData.form.questions.filter(q => {
+        if (!q.condition?.dependsOn) return true;
+        const dep = answers[q.condition.dependsOn];
+        if (!dep) return false;
+        if (Array.isArray(dep)) return dep.includes(q.condition.expectedValue);
+        return dep === q.condition.expectedValue;
+    });
 }
 
 // ==================== RESPOSTAS ====================
