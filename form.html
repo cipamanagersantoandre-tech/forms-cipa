@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Responder Formulário</title>
+<style>
+:root {
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --bg: #f8fafc;
+  --bg-elev: #ffffff;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --success: #10b981;
+  --error: #ef4444;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.container { max-width: 600px; margin: 0 auto; padding: 20px; }
+
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.btn {
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-hover); }
+
+.form-group { margin-bottom: 20px; }
+.label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+.input, .textarea, .select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  font-family: inherit;
+}
+
+.radio-group, .checkbox-group { display: flex; flex-direction: column; gap: 12px; }
+.radio-option, .checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.radio-option:hover, .checkbox-option:hover { background: var(--bg); border-color: var(--primary); }
+
+.banner-preview { width: 100%; aspect-ratio: 16/9; border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; background: var(--bg); }
+.banner-preview img { width: 100%; height: 100%; object-fit: cover; }
+
+.hidden { display: none; }
+
+.thankyou-screen {
+  text-align: center;
+  padding: 40px 20px;
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+}
+.thankyou-icon { font-size: 80px; }
+.thankyou-title { font-size: 28px; font-weight: 800; color: var(--primary); }
+.thankyou-message { color: var(--text-muted); }
+.thankyou-buttons { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.thankyou-buttons .btn { width: auto; }
+
+.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; }
+.toast { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-top: 8px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); animation: slideIn 0.3s ease; }
+@keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.loading { text-align: center; padding: 60px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div id="content"></div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script>
+// ==================== CONFIGURAÇÃO ====================
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwESdcjbOO6je2JmeyQhCrD-M5A2UECuvpZPkm-hWw2gCU9MdCOEDuk3X8qTzN11n169Q/exec';
+
+// ==================== FUNÇÕES ====================
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+}
+
+function showToast(msg, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `<span>${type === 'success' ? '✅' : '❌'}</span><span>${msg}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function createConfetti() {
+  for (let i = 0; i < 50; i++) {
+    setTimeout(() => {
+      const c = document.createElement('div');
+      c.style.position = 'fixed';
+      c.style.width = '10px';
+      c.style.height = '10px';
+      c.style.background = '#4f46e5';
+      c.style.left = Math.random() * 100 + '%';
+      c.style.top = '-10px';
+      c.style.borderRadius = '50%';
+      c.style.pointerEvents = 'none';
+      c.style.zIndex = '3000';
+      c.style.animation = `fall ${1 + Math.random() * 2}s linear forwards`;
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 3000);
+    }, i * 30);
+  }
+}
+
+// Adiciona animação de confetti
+const style = document.createElement('style');
+style.textContent = `@keyframes fall { to { transform: translateY(100vh) rotate(720deg); opacity: 0; } }`;
+document.head.appendChild(style);
+
+// ==================== BUSCAR FORMULÁRIO ====================
+async function buscarFormulario(formId) {
+  try {
+    const url = `${SHEETS_URL}?acao=buscarUm&aba=forms&id=${encodeURIComponent(formId)}`;
+    console.log('🔍 Buscando:', url);
+    const response = await fetch(url);
+    const result = await response.json();
+    console.log('📦 Resposta:', result);
+    
+    if (result.status === 'sucesso' && result.dados) {
+      return result.dados;
+    }
+    return null;
+  } catch (e) {
+    console.error('Erro:', e);
+    return null;
+  }
+}
+
+// ==================== SALVAR RESPOSTA ====================
+async function salvarResposta(formId, resposta) {
+  try {
+    // Primeiro, buscar o formulário atual
+    const urlBuscar = `${SHEETS_URL}?acao=buscarUm&aba=forms&id=${encodeURIComponent(formId)}`;
+    const responseBuscar = await fetch(urlBuscar);
+    const resultBuscar = await responseBuscar.json();
+    
+    if (resultBuscar.status === 'sucesso' && resultBuscar.dados) {
+      const form = resultBuscar.dados;
+      if (!form.responses) form.responses = [];
+      form.responses.push(resposta);
+      
+      // Salvar de volta
+      const urlSalvar = `${SHEETS_URL}?acao=salvar&aba=forms&id=${encodeURIComponent(formId)}&dados=${encodeURIComponent(JSON.stringify(form))}`;
+      const responseSalvar = await fetch(urlSalvar);
+      const resultSalvar = await responseSalvar.json();
+      return resultSalvar.status === 'sucesso';
+    }
+    return false;
+  } catch (e) {
+    console.error('Erro ao salvar:', e);
+    return false;
+  }
+}
+
+// ==================== RENDERIZAR FORMULÁRIO ====================
+function renderizarFormulario(form) {
+  const f = form.form;
+  const container = document.getElementById('content');
+  
+  container.innerHTML = `
+    <div class="card">
+      ${f.banner ? `<div class="banner-preview"><img src="${f.banner}" alt="Banner"></div>` : ''}
+      <h2 style="font-size: 24px; margin-bottom: 8px;">${escapeHtml(f.title || form.name)}</h2>
+      ${f.subtitle ? `<p style="color: var(--text-muted); margin-bottom: 16px;">${escapeHtml(f.subtitle)}</p>` : ''}
+      ${f.description ? `<div style="margin-bottom: 24px; color: var(--text-muted);">${escapeHtml(f.description)}</div>` : ''}
+      
+      <form id="resposta-form" onsubmit="return false;">
+        <div id="perguntas-container"></div>
+        <button type="button" class="btn btn-primary" onclick="enviarResposta('${form.id}')">
+          📤 Enviar resposta
+        </button>
+      </form>
+      
+      ${f.footer ? `<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--text-muted);">${escapeHtml(f.footer)}</div>` : ''}
+    </div>
+  `;
+  
+  renderizarPerguntas(form);
+}
+
+function renderizarPerguntas(form) {
+  const container = document.getElementById('perguntas-container');
+  const questions = form.form.questions || [];
+  
+  container.innerHTML = questions.map((q, idx) => `
+    <div class="form-group" data-qid="${q.id}" data-condition='${JSON.stringify(q.condition || null)}'>
+      <label class="label">${escapeHtml(q.title)}${q.required ? '<span style="color: var(--error); margin-left: 4px;">*</span>' : ''}</label>
+      ${renderizarInput(q, idx)}
+    </div>
+  `.replace(/&quot;/g, '"')).join('');
+  
+  // Aplicar condições após renderizar
+  aplicarCondicoes(form);
+}
+
+function renderizarInput(q, idx) {
+  const name = `resp_${q.id}`;
+  const id = `campo_${q.id}`;
+  
+  switch(q.type) {
+    case 'text': return `<input type="text" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
+    case 'email': return `<input type="email" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
+    case 'number': return `<input type="number" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
+    case 'textarea': return `<textarea class="textarea" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px; min-height: 100px;"></textarea>`;
+    case 'radio': return `<div class="radio-group" id="${id}">${(q.options||[]).map(opt => `
+      <label class="radio-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+        <input type="radio" name="${name}" value="${escapeHtml(opt)}"> 
+        <span>${escapeHtml(opt)}</span>
+      </label>
+    `).join('')}</div>`;
+    case 'checkbox': return `<div class="checkbox-group" id="${id}">${(q.options||[]).map(opt => `
+      <label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+        <input type="checkbox" name="${name}" value="${escapeHtml(opt)}"> 
+        <span>${escapeHtml(opt)}</span>
+      </label>
+    `).join('')}</div>`;
+    case 'select': return `<select class="select" name="${name}" id="${id}" style="width:100%; padding: 14px;">
+      <option value="">Selecione...</option>
+      ${(q.options||[]).map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
+    </select>`;
+    case 'scale': return `<div style="display: flex; gap: 8px; flex-wrap: wrap;" id="${id}">${[1,2,3,4,5].map(n => `
+      <label style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer;">
+        <input type="radio" name="${name}" value="${n}" style="display: none;"> ${n}
+      </label>
+    `).join('')}</div>`;
+    case 'date': return `<input type="date" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
+    case 'time': return `<input type="time" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
+    default: return `<input type="text" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
+  }
+}
+
+function aplicarCondicoes(form) {
+  const formEl = document.getElementById('resposta-form');
+  if (!formEl) return;
+  
+  function atualizarVisibilidade() {
+    const respostas = {};
+    formEl.querySelectorAll('input, select, textarea').forEach(inp => {
+      if (inp.name && inp.name.startsWith('resp_')) {
+        const qid = inp.name.replace('resp_', '');
+        if (inp.type === 'radio' && inp.checked) respostas[qid] = inp.value;
+        else if (inp.type === 'checkbox') {
+          if (!respostas[qid]) respostas[qid] = [];
+          if (inp.checked) respostas[qid].push(inp.value);
+        } else if (inp.type !== 'radio') {
+          respostas[qid] = inp.value;
+        }
+      }
+    });
+    
+    const perguntas = form.form.questions || [];
+    perguntas.forEach(q => {
+      const div = document.querySelector(`.form-group[data-qid="${q.id}"]`);
+      if (!div) return;
+      
+      if (!q.condition || !q.condition.dependsOn) {
+        div.style.display = 'block';
+      } else {
+        const valorDependencia = respostas[q.condition.dependsOn];
+        let mostrar = false;
+        if (valorDependencia) {
+          if (Array.isArray(valorDependencia)) {
+            mostrar = valorDependencia.includes(q.condition.expectedValue);
+          } else {
+            mostrar = String(valorDependencia) === String(q.condition.expectedValue);
+          }
+        }
+        div.style.display = mostrar ? 'block' : 'none';
+      }
+    });
+  }
+  
+  formEl.querySelectorAll('input, select, textarea').forEach(inp => {
+    inp.removeEventListener('change', atualizarVisibilidade);
+    inp.removeEventListener('input', atualizarVisibilidade);
+    inp.addEventListener('change', atualizarVisibilidade);
+    inp.addEventListener('input', atualizarVisibilidade);
+  });
+  
+  atualizarVisibilidade();
+}
+
+// ==================== ENVIAR RESPOSTA ====================
+async function enviarResposta(formId) {
+  const form = await buscarFormulario(formId);
+  if (!form) {
+    showToast('Erro ao carregar formulário', 'error');
+    return;
+  }
+  
+  const formEl = document.getElementById('resposta-form');
+  const fd = new FormData(formEl);
+  const resposta = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
+  let temErro = false;
+  
+  const perguntasVisiveis = [];
+  document.querySelectorAll('.form-group').forEach(div => {
+    if (div.style.display !== 'none') {
+      const qid = div.getAttribute('data-qid');
+      const pergunta = form.form.questions.find(q => q.id === qid);
+      if (pergunta) perguntasVisiveis.push(pergunta);
+    }
+  });
+  
+  for (const q of perguntasVisiveis) {
+    const name = `resp_${q.id}`;
+    let valor = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
+    
+    if (q.required && (!valor || (Array.isArray(valor) && valor.length === 0))) {
+      showToast(`Por favor, responda: ${q.title}`, 'error');
+      temErro = true;
+      break;
+    }
+    resposta.data[q.id] = valor || '';
+  }
+  
+  if (!temErro) {
+    const sucesso = await salvarResposta(formId, resposta);
+    if (sucesso) {
+      mostrarAgradecimento();
+      createConfetti();
+    } else {
+      showToast('Erro ao salvar resposta', 'error');
+    }
+  }
+}
+
+function mostrarAgradecimento() {
+  const container = document.getElementById('content');
+  container.innerHTML = `
+    <div class="card thankyou-screen">
+      <div class="thankyou-icon">🎉</div>
+      <div class="thankyou-title">Resposta enviada!</div>
+      <div class="thankyou-message">Obrigado por participar da nossa pesquisa. Sua opinião é muito importante!</div>
+      <div class="thankyou-buttons">
+        <button class="btn" onclick="recarregarFormulario()">📝 Responder novamente</button>
+        <button class="btn btn-primary" onclick="fecharPagina()">✕ Fechar</button>
+      </div>
+    </div>
+  `;
+}
+
+async function recarregarFormulario() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const formId = urlParams.get('id');
+  if (formId) {
+    document.getElementById('content').innerHTML = '<div class="loading">⏳ Carregando...</div>';
+    const form = await buscarFormulario(formId);
+    if (form) {
+      renderizarFormulario(form);
+    } else {
+      document.getElementById('content').innerHTML = '<div class="card" style="text-align:center;"><h3>Formulário não encontrado</h3></div>';
+    }
+  }
+}
+
+function fecharPagina() {
+  window.close();
+  // Se não conseguir fechar, mostra mensagem
+  document.getElementById('content').innerHTML = `
+    <div class="card" style="text-align:center;">
+      <h3>Obrigado!</h3>
+      <p>Você pode fechar esta página.</p>
+    </div>
+  `;
+}
+
+// ==================== INICIALIZAR ====================
+async function init() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const formId = urlParams.get('id');
+  
+  if (!formId) {
+    document.getElementById('content').innerHTML = `
+      <div class="card" style="text-align:center;">
+        <h3>Link inválido</h3>
+        <p>Nenhum formulário especificado.</p>
+      </div>
+    `;
+    return;
+  }
+  
+  document.getElementById('content').innerHTML = '<div class="loading">⏳ Carregando formulário...</div>';
+  
+  const form = await buscarFormulario(formId);
+  
+  if (form) {
+    renderizarFormulario(form);
+  } else {
+    document.getElementById('content').innerHTML = `
+      <div class="card" style="text-align:center;">
+        <div style="font-size:48px;">🔍</div>
+        <h3>Formulário não encontrado</h3>
+        <p>O formulário que você procura não existe ou foi removido.</p>
+      </div>
+    `;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
