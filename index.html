@@ -730,7 +730,7 @@ body {
 <script>
 // ==================== ESTADO ====================
 const STORAGE_KEY = 'formcraft_v1';
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwESdcjbOO6je2JmeyQhCrD-M5A2UECuvpZPkm-hWw2gCU9MdCOEDuk3X8qTzN11n169Q/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzSqAIhLNuhV0OQZmLwgbv42kgHSuKldiTdz_OZBVH7t9dV5XtYWSSop5xXc4WKKJm4Nw/exec';
 
 // CONFIGURAÇÃO
 const CONFIG = {
@@ -2519,15 +2519,10 @@ function closePublicForm() {
 }
 
 // ===== INICIALIZAR =====
-// Verifica URL ANTES de carregar os dados
 const urlHasForm = new URLSearchParams(window.location.search).get('form');
 if (urlHasForm) {
-    // Se tem formulário na URL, carrega dados e verifica
-    loadData().then(() => {
-        checkUrlForForm();
-    });
+    loadData().then(() => checkUrlForForm());
 } else {
-    // Modo normal
     loadData();
 }
 </script>
