@@ -399,7 +399,6 @@ body {
         <button class="btn btn-sm" onclick="openImportModal()">📂 Importar</button>
         <button class="btn btn-sm" onclick="sincronizarTudoParaNuvem()">☁️ Enviar Tudo</button>
         <button class="btn btn-sm btn-primary" onclick="buscarTudoDaNuvem()">📥 Buscar Tudo</button>
-	<button class="btn btn-sm" onclick="carregarFormulariosDaNuvem()">📂 Carregar Formulários</button>
       </nav>
     </div>
   </div>
@@ -430,9 +429,6 @@ body {
           <button class="btn btn-sm" onclick="previewFormModal()">👁️ Testar</button>
           <button class="btn btn-sm" onclick="openMobilePreview()">📱 Mobile</button>
           <button class="btn btn-sm" onclick="showQRCode(currentFormId)">📱 QR Code</button>
-          <button class="btn btn-sm btn-primary" onclick="sincronizarParaNuvem()">☁️ Enviar para Nuvem</button>
-	  <button class="btn btn-sm" onclick="sincronizarFormularioAtual()">🔄 Sincronizar Tudo</button>
-          <button class="btn btn-sm" onclick="sincronizarDaNuvem()">📥 Buscar da Nuvem</button>
         </div>
       </div>
 
@@ -683,7 +679,7 @@ body {
 const STORAGE_KEY = 'formcraft_v1';
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzGJMVyNEdAsRNsfZsIU_K8BoagEEYG0hC5rGnfv5GKKKiV2Q94B1VtSd8WSV2bss-_qA/exec';
 
-// 🔧 ADICIONE ESTAS 4 LINHAS:
+// CONFIGURAÇÃO
 const CONFIG = {
     googleApiUrl: SHEETS_URL,
     usarGoogleSheets: true
@@ -768,356 +764,74 @@ function showEditorTab(tab) {
     document.getElementById(`editor-${tab}`).classList.remove('hidden');
 }
 
-// ==================== GOOGLE SHEETS (CORRIGIDO) ====================
-async function enviarParaSheets(formularioId, respostaId, respostaData) {
-    const form = forms.find(f => f.id === formularioId);
-    if (!form) return false;
-    
-    const dados = {
-        action: 'saveResponse',
-        formId: formularioId,
-        respostaId: respostaId,
-        respostaData: respostaData
-    };
+// ==================== FUNÇÕES DE SINCRONIZAÇÃO ====================
+async function salvarNaNuvem(aba, id, dados) {
+    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return false;
     
     try {
-        const resposta = await fetch(SHEETS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
-        const resultado = await resposta.json();
-        console.log(`✅ Enviado: ${form.name}`, resultado);
-        return true;
-    } catch (erro) {
-        console.error(`❌ Erro:`, erro);
-        return false;
-    }
-}
-
-async function buscarDoSheets(formularioId) {
-    try {
-        const dados = { action: 'getResponses', formId: formularioId };
-        const resposta = await fetch(SHEETS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
-        const resultado = await resposta.json();
-        return resultado;
-    } catch (erro) {
-        console.error('❌ Erro ao buscar:', erro);
-        return null;
-    }
-}
-
-// ==================== SALVAR FORMULÁRIO NA NUVEM (CORRIGIDO) ====================
-async function salvarFormularioNaNuvem(formId, formName, questions, themeColor) {
-    const dados = {
-        action: 'saveNewForm',
-        formId: formId,
-        formName: formName,
-        questions: questions,
-        themeColor: themeColor
-    };
-    
-    try {
-        const resposta = await fetch(SHEETS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
-        const resultado = await resposta.json();
-        console.log('✅ Formulário salvo na nuvem:', formName, resultado);
-        return true;
-    } catch (erro) {
-        console.error('❌ Erro ao salvar formulário:', erro);
-        return false;
-    }
-}
-
-async function salvarFormularioLocalNaNuvem(formId) {
-    const form = forms.find(f => f.id === formId);
-    if (!form) return false;
-    
-    const dados = {
-        action: 'saveNewForm',
-        formId: form.id,
-        formName: form.name,
-        questions: form.form.questions,
-        themeColor: form.form.theme.primary || '#4f46e5'
-    };
-    
-    try {
-        const resposta = await fetch(SHEETS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
-        const resultado = await resposta.json();
-        console.log('✅ Formulário atualizado na nuvem:', form.name, resultado);
-        showToast(`✅ "${form.name}" salvo na nuvem!`, 'success');
-        return true;
-    } catch (erro) {
-        console.error('❌ Erro:', erro);
-        showToast(`❌ Erro ao salvar "${form.name}"`, 'error');
-        return false;
-    }
-}
-
-// ==================== CARREGAR VIA URL (CORRIGIDO - ADICIONE ISSO) ====================
-async function checkUrlForForm() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const formIdFromUrl = urlParams.get('form');
-    
-    if (formIdFromUrl) {
-        // Limpa a URL para não recarregar
-        window.history.replaceState({}, document.title, window.location.pathname);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         
-        // Tenta encontrar o formulário localmente
-        let form = forms.find(f => f.id === formIdFromUrl);
+        const dadosStr = JSON.stringify(dados);
+        const url = CONFIG.googleApiUrl;
         
-        if (form) {
-            // Se existe localmente, abre para responder
-            openResponseForm(formIdFromUrl);
-        } else {
-            // Se não existe, busca da nuvem
-            showToast('Buscando formulário da nuvem...', 'success');
-            await buscarTudoDaNuvem();
-            
-            form = forms.find(f => f.id === formIdFromUrl);
-            if (form) {
-                openResponseForm(formIdFromUrl);
-            } else {
-                showToast('Formulário não encontrado', 'error');
-            }
-        }
-    }
-}
-
-// ==================== FUNÇÃO PARA ABRIR FORMULÁRIO PARA RESPOSTA (ADICIONE) ====================
-function openResponseForm(formId) {
-    const formData = forms.find(f => f.id === formId);
-    if (!formData) return;
-    
-    currentFormId = formId;
-    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-    document.getElementById('view-responses').classList.remove('hidden');
-    document.getElementById('responses-form-title').textContent = formData.name;
-    renderResponsesDashboard();
-}
-
-async function buscarDoSheets(formularioId) {
-    try {
-        const url = `${SHEETS_URL}?acao=buscar_respostas&formulario_id=${formularioId}`;
-        const resposta = await fetch(url);
-        const dados = await resposta.json();
-        return dados;
-    } catch (erro) {
-        console.error('❌ Erro ao buscar:', erro);
-        return null;
-    }
-}
-
-// ==================== BARRA DE PROGRESSO ====================
-function mostrarProgresso(titulo) {
-    const container = document.getElementById('progress-container');
-    document.getElementById('progress-title').textContent = titulo;
-    document.getElementById('progress-percent').textContent = '0%';
-    document.getElementById('progress-bar-fill').style.width = '0%';
-    document.getElementById('progress-status').textContent = 'Preparando...';
-    container.classList.add('visible');
-}
-
-function atualizarProgresso(percentual, status) {
-    document.getElementById('progress-percent').textContent = `${percentual}%`;
-    document.getElementById('progress-bar-fill').style.width = `${percentual}%`;
-    if (status) document.getElementById('progress-status').textContent = status;
-}
-
-function fecharProgresso() {
-    document.getElementById('progress-container').classList.remove('visible');
-}
-
-// ==================== Sincronização com Barra de Progresso ====================
-async function sincronizarTudoParaNuvem() {
-    if (forms.length === 0) {
-        showToast('Nenhum formulário para enviar', 'info');
-        return;
-    }
-    
-    mostrarProgresso('☁️ Enviando TUDO para a Nuvem...');
-    atualizarProgresso(0, 'Preparando...');
-    
-    let enviados = 0;
-    for (let i = 0; i < forms.length; i++) {
-        const form = forms[i];
-        const dados = {
-            action: 'saveNewForm',
-            formId: form.id,
-            formName: form.name,
-            questions: form.form.questions,
-            themeColor: form.form.theme.primary || '#4f46e5'
-        };
-        
-        try {
-            const resposta = await fetch(SHEETS_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dados)
-            });
-            const resultado = await resposta.json();
-            if (resultado.success) enviados++;
-            console.log(`Formulário ${form.name}:`, resultado);
-        } catch (erro) {
-            console.error(`Erro ao enviar ${form.name}:`, erro);
-        }
-        
-        atualizarProgresso(Math.round((i + 1) / forms.length * 100), `Enviando ${form.name}...`);
-        await new Promise(r => setTimeout(r, 100));
-    }
-    
-    atualizarProgresso(100, `✅ ${enviados} de ${forms.length} formulários enviados!`);
-    showToast(`✅ ${enviados} formulários enviados!`, 'success');
-    setTimeout(() => fecharProgresso(), 3000);
-}
-
-async function buscarTudoDaNuvem() {
-    mostrarProgresso('📥 Buscando TUDO da Nuvem...');
-    atualizarProgresso(0, 'Preparando...');
-    
-    try {
-        // CORREÇÃO: Enviar como POST com o formato correto
-        const dados = { action: 'getAllForms' };
-        
-        const resposta = await fetch(SHEETS_URL, {
+        const response = await fetch(url, {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json'
+            signal: controller.signal,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: JSON.stringify(dados)
+            body: `acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&dados=${encodeURIComponent(dadosStr)}`
         });
         
-        const resultado = await resposta.json();
-        console.log('Resposta da nuvem:', resultado);
+        clearTimeout(timeoutId);
         
-        if (resultado.success && resultado.forms && resultado.forms.length > 0) {
-            atualizarProgresso(50, `Encontrados ${resultado.forms.length} formulários na nuvem...`);
-            let importados = 0;
-            let atualizados = 0;
-            
-            for (const formCloud of resultado.forms) {
-                const formLocal = forms.find(f => f.id === formCloud.id);
-                if (!formLocal) {
-                    forms.push({
-                        id: formCloud.id,
-                        name: formCloud.name,
-                        createdAt: formCloud.createdAt || new Date().toISOString(),
-                        form: {
-                            title: formCloud.name,
-                            subtitle: '',
-                            description: formCloud.description || '',
-                            banner: '',
-                            footer: '',
-                            questions: formCloud.questions || [],
-                            theme: { primary: formCloud.themeColor || '#4f46e5' },
-                            config: { showProgress: true }
-                        },
-                        responses: []
-                    });
-                    importados++;
-                } else {
-                    if (formCloud.questions && formCloud.questions.length > 0) {
-                        formLocal.form.questions = formCloud.questions;
-                        formLocal.form.theme.primary = formCloud.themeColor || '#4f46e5';
-                        atualizados++;
-                    }
+        const result = await response.json();
+        console.log('Resposta do servidor:', result);
+        return result.status === 'sucesso';
+    } catch (e) {
+        console.error('Erro ao salvar no Google Sheets:', e);
+        return false;
+    }
+}
+
+async function carregarTudoDaNuvem(aba) {
+    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return [];
+    
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        const url = CONFIG.googleApiUrl;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `acao=carregarTudo&aba=${encodeURIComponent(aba)}`
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const result = await response.json();
+        console.log('Resposta carregarTudo:', result);
+        
+        if (result.status === 'sucesso' && result.dados) {
+            return result.dados.map(item => {
+                try {
+                    return JSON.parse(item.dados);
+                } catch(e) {
+                    return item.dados;
                 }
-            }
-            
-            saveData();
-            renderFormsList();
-            atualizarProgresso(100, `✅ Concluído! ${importados} novos, ${atualizados} atualizados`);
-            showToast(`📥 ${importados} formulários importados da nuvem!`, 'success');
-        } else {
-            atualizarProgresso(100, 'ℹ️ Nenhum formulário encontrado na nuvem');
-            showToast('ℹ️ Nenhum formulário encontrado na nuvem', 'info');
+            }).filter(item => item !== null);
         }
-    } catch (erro) {
-        console.error('❌ Erro ao carregar formulários:', erro);
-        atualizarProgresso(100, '❌ Erro ao carregar da nuvem');
-        showToast('❌ Erro ao carregar: ' + erro.message, 'error');
+        return [];
+    } catch (e) {
+        console.error('Erro ao carregar todos do Google Sheets:', e);
+        return [];
     }
-    setTimeout(() => fecharProgresso(), 3000);
-}
-
-async function sincronizarParaNuvem() {
-    const formData = getCurrentForm();
-    if (!formData) {
-        showToast('Nenhum formulário aberto', 'error');
-        return;
-    }
-    
-    if (formData.responses.length === 0) {
-        showToast('Nenhuma resposta para enviar', 'info');
-        return;
-    }
-    
-    mostrarProgresso('☁️ Enviando Formulário');
-    atualizarProgresso(0, `0 de ${formData.responses.length} respostas...`);
-    
-    let enviados = 0;
-    for (const resposta of formData.responses) {
-        const sucesso = await enviarParaSheets(currentFormId, resposta.id, resposta.data);
-        if (sucesso) enviados++;
-        const percentual = Math.round(enviados / formData.responses.length * 100);
-        atualizarProgresso(percentual, `${enviados} de ${formData.responses.length} enviadas`);
-        await new Promise(r => setTimeout(r, 100));
-    }
-    
-    atualizarProgresso(100, `✅ Concluído! ${enviados} respostas enviadas!`);
-    showToast(`✅ ${enviados} respostas enviadas!`, 'success');
-    setTimeout(() => fecharProgresso(), 2000);
-}
-
-async function sincronizarDaNuvem() {
-    const formData = getCurrentForm();
-    if (!formData) {
-        showToast('Nenhum formulário aberto', 'error');
-        return;
-    }
-    
-    mostrarProgresso('📥 Buscando Formulário');
-    atualizarProgresso(30, `Buscando dados...`);
-    
-    const dados = await buscarDoSheets(currentFormId);
-    
-    if (dados && dados.respostas && dados.respostas.length > 0) {
-        const idsExistentes = new Set(formData.responses.map(r => r.id));
-        let novas = 0;
-        
-        for (const respostaNova of dados.respostas) {
-            if (!idsExistentes.has(respostaNova.id)) {
-                formData.responses.push(respostaNova);
-                novas++;
-            }
-        }
-        
-        if (novas > 0) {
-            saveData();
-            atualizarProgresso(100, `✅ ${novas} novas respostas baixadas!`);
-            showToast(`📥 ${novas} novas respostas baixadas!`, 'success');
-            renderResponsesDashboard();
-        } else {
-            atualizarProgresso(100, `✨ Nenhuma resposta nova encontrada`);
-            showToast(`✨ Nenhuma resposta nova`, 'success');
-        }
-    } else {
-        atualizarProgresso(100, `ℹ️ Nenhuma resposta encontrada`);
-        showToast(`ℹ️ Nenhuma resposta encontrada`, 'info');
-    }
-    
-    setTimeout(() => fecharProgresso(), 2000);
 }
 
 // ==================== FORMULÁRIOS ====================
@@ -1131,7 +845,7 @@ async function loadData() {
         } catch(e) { forms = []; }
     }
     
-    // 🔄 NOVO: Buscar da nuvem automaticamente
+    // Buscar da nuvem automaticamente
     await buscarTudoDaNuvemSilencioso();
     
     renderFormsList();
@@ -1148,35 +862,13 @@ async function buscarTudoDaNuvemSilencioso() {
                 const formLocal = forms.find(f => f.id === formCloud.id);
                 
                 if (!formLocal) {
-                    // Formulário novo na nuvem
                     forms.push(formCloud);
                     mudancas = true;
-                } else if (JSON.stringify(formLocal.form.questions) !== JSON.stringify(formCloud.form.questions)) {
-                    // Formulário foi editado - atualizar
-                    formLocal.form.questions = formCloud.form.questions;
-                    formLocal.form.title = formCloud.form.title;
-                    formLocal.name = formCloud.name;
-                    mudancas = true;
-                }
-                
-                // Sincronizar respostas também
-                if (formCloud.responses && formCloud.responses.length > 0) {
-                    const respostasExistentes = formLocal.responses.map(r => r.id);
-                    for (const novaResp of formCloud.responses) {
-                        if (!respostasExistentes.includes(novaResp.id)) {
-                            formLocal.responses.push(novaResp);
-                            mudancas = true;
-                        }
-                    }
                 }
             }
             
             if (mudancas) {
                 saveData();
-                if (currentFormId) {
-                    renderQuestionsList();
-                    renderLivePreview();
-                }
                 renderFormsList();
                 console.log('🔄 Sincronização silenciosa concluída');
             }
@@ -1202,7 +894,7 @@ function renderFormsList() {
             <div class="card form-card">
                 <div class="form-card-header">
                     <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
-                        ${form.responses.length} respostas
+                        ${form.responses ? form.responses.length : 0} respostas
                     </span>
                     <div style="display:flex;gap:4px;">
                         <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
@@ -1211,13 +903,13 @@ function renderFormsList() {
                 </div>
                 <div onclick="openFormEditor('${form.id}')">
                     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                        <div style="width:16px;height:16px;border-radius:50%;background:${form.form.theme?.primary || '#4f46e5'};border:1px solid var(--border);"></div>
+                        <div style="width:16px;height:16px;border-radius:50%;background:${form.form?.theme?.primary || '#4f46e5'};border:1px solid var(--border);"></div>
                         <h3 class="form-card-title">${escapeHtml(form.name)}</h3>
                     </div>
                     <p style="color:var(--text-muted);font-size:13px;">${new Date(form.createdAt).toLocaleDateString()}</p>
                     <div class="form-card-stats">
-                        <span>📝 ${form.form.questions.length}</span>
-                        <span>📊 ${form.responses.length}</span>
+                        <span>📝 ${form.form?.questions?.length || 0}</span>
+                        <span>📊 ${form.responses ? form.responses.length : 0}</span>
                     </div>
                 </div>
                 <div class="form-card-actions">
@@ -1239,7 +931,7 @@ function openFormEditor(formId) {
     document.getElementById('view-editor').classList.remove('hidden');
     document.getElementById('current-form-name').textContent = formData.name;
     document.getElementById('sidebar-form-name').value = formData.name;
-    const f = formData.form;
+    const f = formData.form || { title: '', subtitle: '', description: '', banner: '', footer: '', theme: { primary: '#4f46e5' }, questions: [] };
     document.getElementById('form-title').value = f.title || '';
     document.getElementById('form-subtitle').value = f.subtitle || '';
     document.getElementById('form-desc').value = f.description || '';
@@ -1324,14 +1016,19 @@ async function createFormWithTemplate(templateType) {
         },
         responses: []
     };
-  forms.push(newForm);
-  saveData();
-  
-  await salvarFormularioNaNuvem(newForm.id, newForm.name, newForm.form.questions, newForm.form.theme.primary);
-  
-  closeModal();
-  showToast(`"${name}" criado e salvo na nuvem!`, 'success');
-  openFormEditor(newForm.id);
+    forms.push(newForm);
+    saveData();
+    
+    // Salvar na nuvem
+    const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
+    if (sucesso) {
+        showToast(`"${name}" criado e salvo na nuvem!`, 'success');
+    } else {
+        showToast(`"${name}" criado localmente, mas erro na nuvem`, 'warning');
+    }
+    
+    closeModal();
+    openFormEditor(newForm.id);
 }
 
 function duplicateForm(formId) {
@@ -1449,6 +1146,7 @@ function getTypeLabel(type) {
 function addQuestion() {
     const formData = getCurrentForm();
     if (!formData) return;
+    if (!formData.form.questions) formData.form.questions = [];
     formData.form.questions.push({
         id: generateId(),
         type: 'text',
@@ -1467,7 +1165,7 @@ function renderQuestionsList() {
     const formData = getCurrentForm();
     const container = document.getElementById('questions-list');
     const empty = document.getElementById('empty-questions');
-    if (!formData || formData.form.questions.length === 0) {
+    if (!formData || !formData.form.questions || formData.form.questions.length === 0) {
         if (container) container.innerHTML = '';
         if (empty) empty.classList.remove('hidden');
         return;
@@ -1552,21 +1250,6 @@ function updateQuestion(id, field, value) {
         q[field] = value;
         saveData();
         renderLivePreview();
-        
-        // 🔄 NOVO: Salvar na nuvem automaticamente
-        salvarNaNuvemSilencioso(currentFormId);
-    }
-}
-
-async function salvarNaNuvemSilencioso(formId) {
-    const form = forms.find(f => f.id === formId);
-    if (!form) return;
-    
-    try {
-        await salvarNaNuvem('forms', form.id, form);
-        console.log(`💾 Salvo automaticamente: ${form.name}`);
-    } catch(e) {
-        console.error('Erro ao salvar automaticamente:', e);
     }
 }
 
@@ -1756,25 +1439,14 @@ async function submitDynamicPreview() {
         response.data[q.id] = val || '';
     }
     if (!err) {
+        if (!formData.responses) formData.responses = [];
         formData.responses.push(response);
         saveData();
-	// Enviar resposta para nuvem
-	await enviarRespostaParaNuvem(currentFormId, response);
-        enviarParaSheets(currentFormId, response.id, response.data);
         createConfetti();
         showToast('Resposta enviada! 🎉', 'success');
         form.reset();
         setupDynamicPreview();
     }
-}
-
-async function enviarRespostaParaNuvem(formId, resposta) {
-    const form = forms.find(f => f.id === formId);
-    if (!form) return;
-    
-    // Salvar formulário completo com a nova resposta
-    await salvarNaNuvem('forms', form.id, form);
-    console.log(`📝 Resposta salva na nuvem: ${resposta.id}`);
 }
 
 function getVisibleQuestionsFromPreview(form, formData) {
@@ -1893,6 +1565,7 @@ function submitTestForm() {
         response.data[q.id] = val || '';
     }
     if (!err) {
+        if (!formData.responses) formData.responses = [];
         formData.responses.push(response);
         saveData();
         createConfetti();
@@ -1908,7 +1581,7 @@ function renderResponsesDashboard() {
     const formData = getCurrentForm();
     const container = document.getElementById('responses-content');
     if (!formData || !container) return;
-    const responses = formData.responses;
+    const responses = formData.responses || [];
     if (responses.length === 0) {
         container.innerHTML = `
             <div class="empty-responses card">
@@ -1967,7 +1640,7 @@ function detectNameQuestion(questions) {
 
 function exportCurrentResponses() {
     const formData = getCurrentForm();
-    if (!formData || formData.responses.length === 0) { showToast('Nenhuma resposta', 'error'); return; }
+    if (!formData || !formData.responses || formData.responses.length === 0) { showToast('Nenhuma resposta', 'error'); return; }
     const headers = ['Data/Hora', ...formData.form.questions.map(q => q.title)];
     const rows = formData.responses.map(r => [
         new Date(r.timestamp).toLocaleString(),
@@ -1990,7 +1663,7 @@ function exportCurrentResponses() {
 function clearCurrentResponses() {
     const formData = getCurrentForm();
     if (!formData) return;
-    confirmAction('Limpar respostas', `Limpar TODAS as ${formData.responses.length} respostas?`, () => {
+    confirmAction('Limpar respostas', `Limpar TODAS as ${formData.responses ? formData.responses.length : 0} respostas?`, () => {
         formData.responses = [];
         saveData();
         renderResponsesDashboard();
@@ -2103,6 +1776,7 @@ function submitMobileTest() {
         response.data[q.id] = val || '';
     }
     if (!err) {
+        if (!formData.responses) formData.responses = [];
         formData.responses.push(response);
         saveData();
         createConfetti();
@@ -2127,7 +1801,7 @@ function openExportModal() {
                 <input type="checkbox" id="export-check-${idx}" value="${form.id}" onchange="toggleFormSelection('${form.id}', this.checked)">
                 <label style="flex:1;">
                     <strong>${escapeHtml(form.name)}</strong><br>
-                    <span style="font-size:12px;">📝 ${form.form.questions.length} perguntas | 📊 ${form.responses.length} respostas</span>
+                    <span style="font-size:12px;">📝 ${form.form?.questions?.length || 0} perguntas | 📊 ${form.responses?.length || 0} respostas</span>
                 </label>
             </div>
         `).join('')}
@@ -2226,7 +1900,7 @@ function confirmImport() {
         let newName = imp.name;
         let c = 1;
         while (forms.some(f => f.name === newName)) newName = `${imp.name} (cópia ${c++})`;
-        forms.push({
+        const newForm = {
             id: generateId(),
             name: newName,
             createdAt: new Date().toISOString(),
@@ -2236,7 +1910,7 @@ function confirmImport() {
                 description: imp.form.description || '',
                 banner: imp.form.banner || '',
                 footer: imp.form.footer || '',
-                questions: imp.form.questions.map(q => ({
+                questions: (imp.form.questions || []).map(q => ({
                     ...q,
                     id: generateId(),
                     condition: q.condition ? { ...q.condition, dependsOn: null } : null
@@ -2245,7 +1919,8 @@ function confirmImport() {
                 config: imp.form.config || { showProgress: true }
             },
             responses: []
-        });
+        };
+        forms.push(newForm);
         imported++;
     }
     saveData();
@@ -2362,133 +2037,7 @@ function drop(e) {
     showToast('Pergunta reposicionada!', 'success');
 }
 
-// ==================== FUNÇÕES DE SINCRONIZAÇÃO (PADRÃO CIPA MANAGER) ====================
-async function salvarNaNuvem(aba, id, dados) {
-    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return false;
-    
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-        
-        const dadosStr = JSON.stringify(dados);
-        const url = CONFIG.googleApiUrl;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&dados=${encodeURIComponent(dadosStr)}`
-        });
-        
-        clearTimeout(timeoutId);
-        
-        const result = await response.json();
-        return result.status === 'sucesso';
-    } catch (e) {
-        console.error('Erro ao salvar no Google Sheets:', e);
-        return false;
-    }
-}
-
-async function carregarDaNuvem(aba, id) {
-    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return null;
-    
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-        
-        const url = CONFIG.googleApiUrl;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `acao=carregar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`
-        });
-        
-        clearTimeout(timeoutId);
-        
-        const result = await response.json();
-        if (result.status === 'sucesso' && result.dados) {
-            return JSON.parse(result.dados);
-        }
-        return null;
-    } catch (e) {
-        console.error('Erro ao carregar do Google Sheets:', e);
-        return null;
-    }
-}
-
-async function carregarTudoDaNuvem(aba) {
-    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return [];
-    
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-        
-        const url = CONFIG.googleApiUrl;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `acao=carregarTudo&aba=${encodeURIComponent(aba)}`
-        });
-        
-        clearTimeout(timeoutId);
-        
-        const result = await response.json();
-        if (result.status === 'sucesso' && result.dados) {
-            return result.dados.map(item => {
-                try {
-                    return JSON.parse(item.dados);
-                } catch(e) {
-                    return null;
-                }
-            }).filter(item => item !== null);
-        }
-        return [];
-    } catch (e) {
-        console.error('Erro ao carregar todos do Google Sheets:', e);
-        return [];
-    }
-}
-
-async function excluirDaNuvem(aba, id) {
-    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return false;
-    
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
-        
-        const url = CONFIG.googleApiUrl;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `acao=excluir&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`
-        });
-        
-        clearTimeout(timeoutId);
-        
-        const result = await response.json();
-        return result.status === 'sucesso';
-    } catch (e) {
-        console.error('Erro ao excluir do Google Sheets:', e);
-        return false;
-    }
-}
-
-// ===== SINCRONIZAR TUDO (SUBSTITUA sincronizarTudoParaNuvem) =====
+// ===== SINCRONIZAR TUDO =====
 async function sincronizarTudoParaNuvem() {
     if (forms.length === 0) {
         showToast('Nenhum formulário para enviar', 'info');
@@ -2512,7 +2061,7 @@ async function sincronizarTudoParaNuvem() {
     setTimeout(() => fecharProgresso(), 2000);
 }
 
-// ===== BUSCAR TUDO (SUBSTITUA buscarTudoDaNuvem) =====
+// ===== BUSCAR TUDO =====
 async function buscarTudoDaNuvem() {
     mostrarProgresso('📥 Buscando da Nuvem...');
     atualizarProgresso(30, 'Conectando...');
@@ -2547,50 +2096,24 @@ async function buscarTudoDaNuvem() {
     setTimeout(() => fecharProgresso(), 3000);
 }
 
-// ===== SALVAR FORMULÁRIO ATUAL NA NUVEM (SUBSTITUA salvarFormularioLocalNaNuvem) =====
-async function salvarFormularioLocalNaNuvem(formId) {
-    const form = forms.find(f => f.id === formId);
-    if (!form) return false;
-    
-    mostrarProgresso('☁️ Salvando...');
-    atualizarProgresso(50, `Salvando "${form.name}"...`);
-    
-    const sucesso = await salvarNaNuvem('forms', form.id, form);
-    
-    atualizarProgresso(100, sucesso ? '✅ Salvo!' : '❌ Erro!');
-    showToast(sucesso ? `✅ "${form.name}" salvo!` : `❌ Erro ao salvar`, sucesso ? 'success' : 'error');
-    setTimeout(() => fecharProgresso(), 2000);
-    return sucesso;
+// ===== BARRA DE PROGRESSO =====
+function mostrarProgresso(titulo) {
+    const container = document.getElementById('progress-container');
+    document.getElementById('progress-title').textContent = titulo;
+    document.getElementById('progress-percent').textContent = '0%';
+    document.getElementById('progress-bar-fill').style.width = '0%';
+    document.getElementById('progress-status').textContent = 'Preparando...';
+    container.classList.add('visible');
 }
 
-// ===== SINCRONIZAR FORMULÁRIO ATUAL (mantenha o nome, substitua o conteúdo) =====
-async function sincronizarFormularioAtual() {
-    const formData = getCurrentForm();
-    if (!formData) {
-        showToast('Nenhum formulário aberto', 'error');
-        return;
-    }
-    
-    mostrarProgresso('☁️ Sincronizando...');
-    atualizarProgresso(50, `Salvando "${formData.name}"...`);
-    
-    const sucesso = await salvarNaNuvem('forms', formData.id, formData);
-    
-    if (sucesso) {
-        atualizarProgresso(100, '✅ Sincronizado!');
-        showToast(`✅ "${formData.name}" sincronizado!`, 'success');
-    } else {
-        atualizarProgresso(100, '❌ Erro!');
-        showToast(`❌ Erro ao sincronizar`, 'error');
-    }
-    setTimeout(() => fecharProgresso(), 2000);
+function atualizarProgresso(percentual, status) {
+    document.getElementById('progress-percent').textContent = `${percentual}%`;
+    document.getElementById('progress-bar-fill').style.width = `${percentual}%`;
+    if (status) document.getElementById('progress-status').textContent = status;
 }
 
-// Mantenha a função carregarFormulariosDaNuvem existente (ela chama buscarTudoDaNuvem)
-
-// ===== CARREGAR FORMULÁRIOS DA NUVEM =====
-async function carregarFormulariosDaNuvem() {
-    await buscarTudoDaNuvem();
+function fecharProgresso() {
+    document.getElementById('progress-container').classList.remove('visible');
 }
 
 // ===== CARREGAR VIA URL =====
@@ -2615,18 +2138,6 @@ async function checkUrlForForm() {
             }
         }
     }
-}
-
-// ===== FUNÇÃO PARA ABRIR FORMULÁRIO PARA RESPOSTA =====
-function openResponseForm(formId) {
-    const formData = forms.find(f => f.id === formId);
-    if (!formData) return;
-    
-    currentFormId = formId;
-    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-    document.getElementById('view-responses').classList.remove('hidden');
-    document.getElementById('responses-form-title').textContent = formData.name;
-    renderResponsesDashboard();
 }
 
 // ===== INICIALIZAR =====
