@@ -1124,40 +1124,10 @@ async function loadData() {
             currentFormId = parsed.currentFormId || null;
         } catch(e) { forms = []; }
     }
-    if (forms.length === 0) {
-        const q1 = {
-            id: generateId(),
-            type: 'radio',
-            title: 'Qual é o seu vínculo?',
-            required: true,
-            options: ['Efetivo', 'Terceirizado', 'Temporário', 'Eventual'],
-            condition: null
-        };
-        const q2 = {
-            id: generateId(),
-            type: 'text',
-            title: 'Número da chapa',
-            required: true,
-            options: [],
-            condition: { dependsOn: q1.id, expectedValue: 'Efetivo' }
-        };
-        forms.push({
-            id: generateId(),
-            name: 'Pesquisa SESC',
-            createdAt: new Date().toISOString(),
-            form: {
-                title: 'Pesquisa SESC',
-                subtitle: '',
-                description: '',
-                banner: '',
-                footer: '',
-                questions: [q1, q2],
-                theme: { primary: '#4f46e5' },
-                config: { showProgress: true }
-            },
-            responses: []
-        });
-    }
+if (forms.length === 0) {
+    // Não criar formulário padrão - apenas mostrar tela vazia
+    console.log('Nenhum formulário encontrado. Tela vazia.');
+}
     renderFormsList();
 }
 
