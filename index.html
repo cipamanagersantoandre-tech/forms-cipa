@@ -938,31 +938,38 @@ function openResponsesView(formId) {
     const formData = forms.find(f => f.id === formId);
     if (!formData) return;
     
-    // FORÇAR detecção do parâmetro
+    // Verificar se veio de um link compartilhado
     const urlParams = new URLSearchParams(window.location.search);
-    const hasFormParam = urlParams.has('form');
-    const formParamValue = urlParams.get('form');
-    const isPublic = hasFormParam && formParamValue === formId;
-    
-    console.log('🔍 DEBUG:', {
-        url: window.location.href,
-        hasFormParam: hasFormParam,
-        formParamValue: formParamValue,
-        formId: formId,
-        isPublic: isPublic
-    });
+    const isPublic = urlParams.get('form') !== null;
     
     currentFormId = formId;
-    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-    document.getElementById('view-responses').classList.remove('hidden');
-    document.getElementById('responses-form-title').textContent = formData.name;
     
     if (isPublic) {
-        console.log('✅ Modo PÚBLICO ativado');
-        renderPublicForm();
+        // ✅ MODO PÚBLICO: Abrir o Mobile Preview (igual ao botão 📱 Mobile)
+        console.log('📱 Abrindo modo PÚBLICO - Mobile Preview');
+        
+        // Esconder todas as telas e mostrar o modal de mobile preview
+        document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+        
+        // Chamar a função que abre o mobile preview
+        openMobilePreview();
     } else {
-        console.log('✅ Modo ADMIN ativado');
-        renderResponsesDashboard();
+        // Modo admin: mostrar editor normalmente
+        document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+        document.getElementById('view-editor').classList.remove('hidden');
+        document.getElementById('current-form-name').textContent = formData.name;
+        document.getElementById('sidebar-form-name').value = formData.name;
+        
+        const f = formData.form || { title: '', subtitle: '', description: '', banner: '', footer: '', theme: { primary: '#4f46e5' }, questions: [] };
+        document.getElementById('form-title').value = f.title || '';
+        document.getElementById('form-subtitle').value = f.subtitle || '';
+        document.getElementById('form-desc').value = f.description || '';
+        document.getElementById('form-footer').value = f.footer || '';
+        document.getElementById('theme-primary').value = f.theme?.primary || '#4f46e5';
+        document.documentElement.style.setProperty('--primary', f.theme?.primary || '#4f46e5');
+        renderBannerPreviewFromUrl(f.banner);
+        renderQuestionsList();
+        renderLivePreview();
     }
 }
 
