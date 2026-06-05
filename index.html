@@ -677,7 +677,7 @@ body {
 <script>
 // ==================== ESTADO ====================
 const STORAGE_KEY = 'formcraft_v1';
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbxJ0um0TlMoPXQd4qQtf4qo6dDBH6Ip1-BVtO16FDCQtn-4G8qvgU-qH-JuT2W8DMUWFg/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwueuVwGhV5Nvk8kNxmMJBHi7c6lX73aqP3G5cET9zrS465F5T3sAldQTmc7ip_3YOxLw/exec';
 
 // CONFIGURAÇÃO
 const CONFIG = {
@@ -769,28 +769,15 @@ async function salvarNaNuvem(aba, id, dados) {
     if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return false;
     
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-        
         const dadosStr = JSON.stringify(dados);
-        const url = CONFIG.googleApiUrl;
+        const url = `${CONFIG.googleApiUrl}?acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&dados=${encodeURIComponent(dadosStr)}`;
         
-        const response = await fetch(url, {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&dados=${encodeURIComponent(dadosStr)}`
-        });
-        
-        clearTimeout(timeoutId);
-        
+        const response = await fetch(url);
         const result = await response.json();
-        console.log('Resposta do servidor:', result);
+        console.log('Salvar resposta:', result);
         return result.status === 'sucesso';
     } catch (e) {
-        console.error('Erro ao salvar no Google Sheets:', e);
+        console.error('Erro ao salvar:', e);
         return false;
     }
 }
@@ -799,37 +786,18 @@ async function carregarTudoDaNuvem(aba) {
     if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return [];
     
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        const url = `${CONFIG.googleApiUrl}?acao=carregarTudo&aba=${encodeURIComponent(aba)}`;
         
-        const url = CONFIG.googleApiUrl;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `acao=carregarTudo&aba=${encodeURIComponent(aba)}`
-        });
-        
-        clearTimeout(timeoutId);
-        
+        const response = await fetch(url);
         const result = await response.json();
-        console.log('Resposta carregarTudo:', result);
+        console.log('Carregar resposta:', result);
         
         if (result.status === 'sucesso' && result.dados) {
-            return result.dados.map(item => {
-                try {
-                    return JSON.parse(item.dados);
-                } catch(e) {
-                    return item.dados;
-                }
-            }).filter(item => item !== null);
+            return result.dados;
         }
         return [];
     } catch (e) {
-        console.error('Erro ao carregar todos do Google Sheets:', e);
+        console.error('Erro ao carregar:', e);
         return [];
     }
 }
@@ -1056,22 +1024,14 @@ async function excluirDaNuvem(aba, id) {
     if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return false;
     
     try {
-        // Usar GET em vez de POST para teste (mais simples)
         const url = `${CONFIG.googleApiUrl}?acao=excluir&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`;
         
-        console.log('URL de exclusão:', url);
-        
-        const response = await fetch(url, {
-            method: 'GET',
-            mode: 'cors'
-        });
-        
+        const response = await fetch(url);
         const result = await response.json();
-        console.log('Resposta da exclusão:', result);
-        
+        console.log('Excluir resposta:', result);
         return result.status === 'sucesso';
     } catch (e) {
-        console.error('Erro ao excluir do Google Sheets:', e);
+        console.error('Erro ao excluir:', e);
         return false;
     }
 }
