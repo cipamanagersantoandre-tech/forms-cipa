@@ -677,7 +677,7 @@ body {
 <script>
 // ==================== ESTADO ====================
 const STORAGE_KEY = 'formcraft_v1';
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbw2KMw285Y-eU-85H-Nhr5dXYdoD585fja-H1JUK4IewPAujgPXHg5g3_bVfaeBk_W-RQ/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycby6fpHnSG2w-b1rEHD-8rHiH2nkVxJKeQpzMNHSPT1BqC8XCOUaXT6t_dmCbYQw5x9t0w/exec';
 
 // CONFIGURAÇÃO
 const CONFIG = {
@@ -1056,24 +1056,19 @@ async function excluirDaNuvem(aba, id) {
     if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return false;
     
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        // Usar GET em vez de POST para teste (mais simples)
+        const url = `${CONFIG.googleApiUrl}?acao=excluir&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`;
         
-        const url = CONFIG.googleApiUrl;
+        console.log('URL de exclusão:', url);
         
         const response = await fetch(url, {
-            method: 'POST',
-            signal: controller.signal,
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `acao=excluir&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`
+            method: 'GET',
+            mode: 'cors'
         });
-        
-        clearTimeout(timeoutId);
         
         const result = await response.json();
         console.log('Resposta da exclusão:', result);
+        
         return result.status === 'sucesso';
     } catch (e) {
         console.error('Erro ao excluir do Google Sheets:', e);
