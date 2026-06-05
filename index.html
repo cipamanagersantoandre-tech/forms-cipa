@@ -2050,21 +2050,17 @@ function downloadQRCode() {
     showToast('QR Code baixado!', 'success');
 }
 
-function copyFormLinkFromQR() {
-    if (!currentQRCodeFormId) return;
-    const form = forms.find(f => f.id === currentQRCodeFormId);
-    const url = `${window.location.href.split('#')[0]}?form=${currentQRCodeFormId}`;
-    navigator.clipboard.writeText(url).then(
-        () => showToast(`Link copiado!`, 'success')
-    ).catch(() => showToast(`Link: ${url}`, 'success'));
+function shareFormLink(formId) {
+    const url = `${window.location.href.split('/').slice(0, -1).join('/')}/form.html?id=${formId}`;
+    navigator.clipboard.writeText(url);
+    showToast('Link copiado!', 'success');
 }
 
-function shareFormLink(formId) {
+function showQRCode(formId) {
     const form = forms.find(f => f.id === formId);
-    const url = `${window.location.href.split('#')[0]}?form=${formId}`;
-    navigator.clipboard.writeText(url).then(
-        () => showToast(`Link de "${form.name}" copiado!`, 'success')
-    ).catch(() => showToast(`Link: ${url}`, 'success'));
+    if (!form) return;
+    const url = `${window.location.href.split('/').slice(0, -1).join('/')}/form.html?id=${formId}`;
+    // ... resto igual
 }
 
 // ==================== DRAG AND DROP ====================
