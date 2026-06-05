@@ -1124,11 +1124,60 @@ async function loadData() {
             currentFormId = parsed.currentFormId || null;
         } catch(e) { forms = []; }
     }
-if (forms.length === 0) {
-    // Não criar formulário padrão - apenas mostrar tela vazia
-    console.log('Nenhum formulário encontrado. Tela vazia.');
-}
+    
+    // 🔄 NOVO: Buscar da nuvem automaticamente
+    await buscarTudoDaNuvemSilencioso();
+    
     renderFormsList();
+}
+
+async function buscarTudoDaNuvemSilencioso() {
+    try {
+        const formsNuvem = await carregarTudoDaNuvem('forms');
+        
+        if (formsNuvem && formsNuvem.length > 0) {
+            let mudancas = false;
+            
+            for (const formCloud of formsNuvem) {
+                const formLocal = forms.find(f => f.id === formCloud.id);
+                
+                if (!formLocal) {
+                    // Formulário novo na nuvem
+                    forms.push(formCloud);
+                    mudancas = true;
+                } else if (JSON.stringify(formLocal.form.questions) !== JSON.stringify(formCloud.form.questions)) {
+                    // Formulário foi editado - atualizar
+                    formLocal.form.questions = formCloud.form.questions;
+                    formLocal.form.title = formCloud.form.title;
+                    formLocal.name = formCloud.name;
+                    mudancas = true;
+                }
+                
+                // Sincronizar respostas também
+                if (formCloud.responses && formCloud.responses.length > 0) {
+                    const respostasExistentes = formLocal.responses.map(r => r.id);
+                    for (const novaResp of formCloud.responses) {
+                        if (!respostasExistentes.includes(novaResp.id)) {
+                            formLocal.responses.push(novaResp);
+                            mudancas = true;
+                        }
+                    }
+                }
+            }
+            
+            if (mudancas) {
+                saveData();
+                if (currentFormId) {
+                    renderQuestionsList();
+                    renderLivePreview();
+                }
+                renderFormsList();
+                console.log('🔄 Sincronização silenciosa concluída');
+            }
+        }
+    } catch (erro) {
+        console.error('Erro na sincronização silenciosa:', erro);
+    }
 }
 
 function renderFormsList() {
@@ -1497,6 +1546,21 @@ function updateQuestion(id, field, value) {
         q[field] = value;
         saveData();
         renderLivePreview();
+        
+        // 🔄 NOVO: Salvar na nuvem automaticamente
+        salvarNaNuvemSilencioso(currentFormId);
+    }
+}
+
+async function salvarNaNuvemSilencioso(formId) {
+    const form = forms.find(f => f.id === formId);
+    if (!form) return;
+    
+    try {
+        await salvarNaNuvem('forms', form.id, form);
+        console.log(`💾 Salvo automaticamente: ${form.name}`);
+    } catch(e) {
+        console.error('Erro ao salvar automaticamente:', e);
     }
 }
 
@@ -1688,12 +1752,23 @@ async function submitDynamicPreview() {
     if (!err) {
         formData.responses.push(response);
         saveData();
+	// Enviar resposta para nuvem
+	await enviarRespostaParaNuvem(currentFormId, response);
         enviarParaSheets(currentFormId, response.id, response.data);
         createConfetti();
         showToast('Resposta enviada! 🎉', 'success');
         form.reset();
         setupDynamicPreview();
     }
+}
+
+async function enviarRespostaParaNuvem(formId, resposta) {
+    const form = forms.find(f => f.id === formId);
+    if (!form) return;
+    
+    // Salvar formulário completo com a nova resposta
+    await salvarNaNuvem('forms', form.id, form);
+    console.log(`📝 Resposta salva na nuvem: ${resposta.id}`);
 }
 
 function getVisibleQuestionsFromPreview(form, formData) {
