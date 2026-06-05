@@ -2358,41 +2358,88 @@ function drop(e) {
 
 // ==================== FUNÇÕES DE SINCRONIZAÇÃO (PADRÃO CIPA MANAGER) ====================
 async function salvarNaNuvem(aba, id, dados) {
+    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return false;
+    
     try {
-        const dadosStr = JSON.stringify(dados);
-        const url = `${SHEETS_URL}?acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&dados=${encodeURIComponent(dadosStr)}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         
-        const resposta = await fetch(url);
-        const resultado = await resposta.json();
-        return resultado.status === 'sucesso';
+        const dadosStr = JSON.stringify(dados);
+        const url = CONFIG.googleApiUrl;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&dados=${encodeURIComponent(dadosStr)}`
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const result = await response.json();
+        return result.status === 'sucesso';
     } catch (e) {
-        console.error('Erro ao salvar:', e);
+        console.error('Erro ao salvar no Google Sheets:', e);
         return false;
     }
 }
 
 async function carregarDaNuvem(aba, id) {
+    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return null;
+    
     try {
-        const url = `${SHEETS_URL}?acao=carregar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`;
-        const resposta = await fetch(url);
-        const resultado = await resposta.json();
-        if (resultado.status === 'sucesso' && resultado.dados) {
-            return JSON.parse(resultado.dados);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        const url = CONFIG.googleApiUrl;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `acao=carregar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const result = await response.json();
+        if (result.status === 'sucesso' && result.dados) {
+            return JSON.parse(result.dados);
         }
         return null;
     } catch (e) {
-        console.error('Erro ao carregar:', e);
+        console.error('Erro ao carregar do Google Sheets:', e);
         return null;
     }
 }
 
 async function carregarTudoDaNuvem(aba) {
+    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return [];
+    
     try {
-        const url = `${SHEETS_URL}?acao=carregarTudo&aba=${encodeURIComponent(aba)}`;
-        const resposta = await fetch(url);
-        const resultado = await resposta.json();
-        if (resultado.status === 'sucesso' && resultado.dados) {
-            return resultado.dados.map(item => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        const url = CONFIG.googleApiUrl;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `acao=carregarTudo&aba=${encodeURIComponent(aba)}`
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const result = await response.json();
+        if (result.status === 'sucesso' && result.dados) {
+            return result.dados.map(item => {
                 try {
                     return JSON.parse(item.dados);
                 } catch(e) {
@@ -2402,19 +2449,35 @@ async function carregarTudoDaNuvem(aba) {
         }
         return [];
     } catch (e) {
-        console.error('Erro ao carregar todos:', e);
+        console.error('Erro ao carregar todos do Google Sheets:', e);
         return [];
     }
 }
 
 async function excluirDaNuvem(aba, id) {
+    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return false;
+    
     try {
-        const url = `${SHEETS_URL}?acao=excluir&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`;
-        const resposta = await fetch(url);
-        const resultado = await resposta.json();
-        return resultado.status === 'sucesso';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        
+        const url = CONFIG.googleApiUrl;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `acao=excluir&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}`
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const result = await response.json();
+        return result.status === 'sucesso';
     } catch (e) {
-        console.error('Erro ao excluir:', e);
+        console.error('Erro ao excluir do Google Sheets:', e);
         return false;
     }
 }
