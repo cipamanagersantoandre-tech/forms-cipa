@@ -1191,7 +1191,7 @@ function deleteForm(formId) {
     });
 }
 
-function updateCurrentFormMeta() {
+async function updateCurrentFormMeta() {
     const formData = getCurrentForm();
     if (!formData) return;
     formData.form.title = document.getElementById('form-title').value || 'Sem título';
@@ -1205,6 +1205,9 @@ function updateCurrentFormMeta() {
     }
     saveData();
     renderLivePreview();
+    
+    // NOVA LINHA: atualizar cabeçalho da aba no Sheets
+    await atualizarCabecalhoAba(formData.id);
 }
 
 function updateFormNameFromSidebar() {
@@ -2122,6 +2125,27 @@ function shareFormLink(formId) {
     ).catch(() => showToast(`Link: ${url}`, 'success'));
     
     console.log('Link gerado:', url);
+}
+
+// ==================== ATUALIZAR CABEÇALHO DA ABA ====================
+async function atualizarCabecalhoAba(formId) {
+    const form = forms.find(f => f.id === formId);
+    if (!form || !form.form.questions || form.form.questions.length === 0) return;
+    
+    const nomeAba = form.name;
+    const cabecalhos = JSON.stringify(['Data/Hora', ...form.form.questions.map(q => q.title)]);
+    
+    const url = `${CONFIG.googleApiUrl}?acao=atualizarCabecalho&nomeFormulario=${encodeURIComponent(nomeAba)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+    
+    console.log('📡 Atualizando cabeçalho da aba:', nomeAba);
+    
+    try {
+        const resposta = await fetch(url);
+        const resultado = await resposta.json();
+        console.log('📦 Resposta atualizar cabeçalho:', resultado);
+    } catch (erro) {
+        console.error('❌ Erro ao atualizar cabeçalho:', erro);
+    }
 }
 
 // ==================== DRAG AND DROP ====================
