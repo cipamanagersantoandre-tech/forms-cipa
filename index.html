@@ -2032,8 +2032,7 @@ function showQRCode(formId) {
     const form = forms.find(f => f.id === formId);
     if (!form) return;
     currentQRCodeFormId = formId;
-    const baseUrl = window.location.href.split('#')[0].split('?')[0];
-    const url = baseUrl.replace('index.html', 'form.html').replace(/\/$/, '') + '/form.html?id=' + formId;
+    const url = `${window.location.href.split('#')[0]}?form=${formId}`;
     document.getElementById('qrcode-form-name').textContent = form.name;
     const container = document.getElementById('qrcode-container');
     container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}" style="width:200px;height:200px;border-radius:12px;">`;
@@ -2062,12 +2061,20 @@ function copyFormLinkFromQR() {
 
 function shareFormLink(formId) {
     const form = forms.find(f => f.id === formId);
-    // Cria o link para o form.html (página pública de resposta)
-    const baseUrl = window.location.href.split('#')[0].split('?')[0];
-    const url = baseUrl.replace('index.html', 'form.html').replace(/\/$/, '') + '/form.html?id=' + formId;
+    // Pega a URL base sem parâmetros
+    let baseUrl = window.location.href.split('?')[0].split('#')[0];
+    // Remove 'index.html' se existir
+    baseUrl = baseUrl.replace('index.html', '');
+    // Garante que termina com /
+    if (!baseUrl.endsWith('/')) baseUrl = baseUrl + '/';
+    // Monta URL para o form.html com ?id=
+    const url = baseUrl + 'form.html?id=' + formId;
+    
     navigator.clipboard.writeText(url).then(
         () => showToast(`Link de "${form.name}" copiado! Envie para os respondentes.`, 'success')
     ).catch(() => showToast(`Link: ${url}`, 'success'));
+    
+    console.log('Link gerado:', url);
 }
 
 // ==================== DRAG AND DROP ====================
