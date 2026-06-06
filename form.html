@@ -119,7 +119,7 @@ body {
 
 <script>
 // ==================== CONFIGURAÇÃO ====================
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwESdcjbOO6je2JmeyQhCrD-M5A2UECuvpZPkm-hWw2gCU9MdCOEDuk3X8qTzN11n169Q/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwaHZyMOimndOtNDae1mj6K3_SVk9hRX_kHumkQE7i5zTKpbOpnFeJGGn_gbINj87NnpA/exec';
 
 // ==================== FUNÇÕES ====================
 function generateId() {
@@ -187,27 +187,31 @@ async function buscarFormulario(formId) {
 }
 
 // ==================== SALVAR RESPOSTA ====================
-async function salvarResposta(formId, resposta) {
+async function salvarResposta(formId, nomeFormulario, perguntas, respostas) {
   try {
-    // Primeiro, buscar o formulário atual
-    const urlBuscar = `${SHEETS_URL}?acao=buscarUm&aba=forms&id=${encodeURIComponent(formId)}`;
-    const responseBuscar = await fetch(urlBuscar);
-    const resultBuscar = await responseBuscar.json();
+    // Prepara os cabeçalhos (incluindo Data/Hora)
+    const cabecalhos = JSON.stringify(['Data/Hora', ...perguntas.map(q => q.title)]);
     
-    if (resultBuscar.status === 'sucesso' && resultBuscar.dados) {
-      const form = resultBuscar.dados;
-      if (!form.responses) form.responses = [];
-      form.responses.push(resposta);
-      
-      // Salvar de volta
-      const urlSalvar = `${SHEETS_URL}?acao=salvar&aba=forms&id=${encodeURIComponent(formId)}&dados=${encodeURIComponent(JSON.stringify(form))}`;
-      const responseSalvar = await fetch(urlSalvar);
-      const resultSalvar = await responseSalvar.json();
-      return resultSalvar.status === 'sucesso';
-    }
-    return false;
+    // Prepara as respostas na ordem das perguntas
+    const respostasOrdenadas = perguntas.map(q => {
+      let valor = respostas[q.id];
+      if (Array.isArray(valor)) valor = valor.join(', ');
+      return valor || '';
+    });
+    
+    // Adiciona data/hora no início
+    const dadosCompletos = JSON.stringify([new Date().toLocaleString(), ...respostasOrdenadas]);
+    
+    const url = `${SHEETS_URL}?acao=salvarResposta&nomeFormulario=${encodeURIComponent(nomeFormulario)}&cabecalhos=${encodeURIComponent(cabecalhos)}&dados=${encodeURIComponent(dadosCompletos)}`;
+    
+    console.log('💾 Salvando resposta na aba:', nomeFormulario);
+    const response = await fetch(url);
+    const result = await response.json();
+    console.log('✅ Resultado:', result);
+    
+    return result.status === 'sucesso';
   } catch (e) {
-    console.error('Erro ao salvar:', e);
+    console.error('❌ Erro ao salvar resposta:', e);
     return false;
   }
 }
@@ -389,7 +393,7 @@ async function enviarResposta(formId) {
   }
   
   if (!temErro) {
-    const sucesso = await salvarResposta(formId, resposta);
+    const sucesso = await salvarResposta(form.id, form.name, form.form.questions, resposta.data);
     if (sucesso) {
       mostrarAgradecimento();
       createConfetti();
