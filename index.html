@@ -1013,6 +1013,7 @@ async function createFormWithTemplate(templateType) {
     const name = document.getElementById('new-form-name').value.trim();
     if (!name) { showToast('Digite um nome', 'error'); return; }
     let template = { title: name, subtitle: '', questions: [] };
+    
     if (templateType === 'sesc') {
         const q1 = {
             id: generateId(),
@@ -1051,6 +1052,7 @@ async function createFormWithTemplate(templateType) {
             ]
         };
     }
+    
     const newForm = {
         id: generateId(),
         name: name,
@@ -1067,36 +1069,39 @@ async function createFormWithTemplate(templateType) {
         },
         responses: []
     };
+    
     forms.push(newForm);
     saveData();
     
-    // Salvar na nuvem
     const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
     
-// Se salvou na nuvem, criar a aba do formulário no Sheets
-if (sucesso) {
-    console.log('✅ SUCESSO = true, vou criar a aba para:', name);
-    console.log('📋 Perguntas do template:', template.questions.length);
-    
-    // Criar a aba do formulário no Sheets
-    const cabecalhos = JSON.stringify(['Data/Hora', ...template.questions.map(q => q.title)]);
-    const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-    
-    console.log('📡 URL da chamada criarAba:', urlAba);
-    
-    try {
-        const resposta = await fetch(urlAba);
-        const resultado = await resposta.json();
-        console.log('📦 Resposta do criarAba:', resultado);
-        showToast(`"${name}" criado e salvo na nuvem!`, 'success');
-    } catch (erro) {
-        console.error('❌ ERRO ao criar aba:', erro);
-        showToast(`"${name}" criado, mas erro ao criar aba`, 'warning');
+    if (sucesso) {
+        console.log('✅ SUCESSO = true, vou criar a aba para:', name);
+        console.log('📋 Perguntas do template:', template.questions.length);
+        
+        const cabecalhos = JSON.stringify(['Data/Hora', ...template.questions.map(q => q.title)]);
+        const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+        
+        console.log('📡 URL da chamada criarAba:', urlAba);
+        
+        try {
+            const resposta = await fetch(urlAba);
+            const resultado = await resposta.json();
+            console.log('📦 Resposta do criarAba:', resultado);
+            showToast(`"${name}" criado e salvo na nuvem!`, 'success');
+        } catch (erro) {
+            console.error('❌ ERRO ao criar aba:', erro);
+            showToast(`"${name}" criado, mas erro ao criar aba`, 'warning');
+        }
+    } else {
+        console.log('❌ SUCESSO = false, não vou criar a aba');
+        showToast(`"${name}" criado localmente, mas erro na nuvem`, 'warning');
     }
-} else {
-    console.log('❌ SUCESSO = false, não vou criar a aba');
-    showToast(`"${name}" criado localmente, mas erro na nuvem`, 'warning');
-}
+    
+    closeModal();
+    openFormEditor(newForm.id);
+}    
+
 function duplicateForm(formId) {
     const original = forms.find(f => f.id === formId);
     if (!original) return;
