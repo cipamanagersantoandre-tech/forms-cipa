@@ -947,9 +947,21 @@ async function buscarTudoDaNuvemSilencioso() {
     }
 }
 
-function renderFormsList() {
+async function renderFormsList() {
     const container = document.getElementById('forms-list');
     if (!container) return;
+    
+    // Para cada formulário, buscar o número atualizado de respostas da planilha
+    for (const form of forms) {
+        try {
+            const respostas = await carregarRespostasDaNuvem(form.name);
+            form.responses = respostas;
+        } catch(e) {
+            console.error('Erro ao buscar respostas para', form.name, e);
+        }
+    }
+    saveData();
+    
     if (forms.length === 0) {
         container.innerHTML = `
             <div class="empty-state card">
@@ -958,38 +970,37 @@ function renderFormsList() {
             </div>`;
         return;
     }
-    container.innerHTML = `<div class="forms-grid">${
-        forms.map(form => `
-            <div class="card form-card">
-                <div class="form-card-header">
-                    <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
-                        ${form.responses ? form.responses.length : 0} respostas
-                    </span>
-                    <div style="display:flex;gap:4px;">
-                        <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
-                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
-                    </div>
-                </div>
-                <div onclick="openFormEditor('${form.id}')">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                        <div style="width:16px;height:16px;border-radius:50%;background:${form.form?.theme?.primary || '#4f46e5'};border:1px solid var(--border);"></div>
-                        <h3 class="form-card-title">${escapeHtml(form.name)}</h3>
-                    </div>
-                    <p style="color:var(--text-muted);font-size:13px;">${new Date(form.createdAt).toLocaleDateString()}</p>
-                    <div class="form-card-stats">
-                        <span>📝 ${form.form?.questions?.length || 0}</span>
-                        <span>📊 ${form.responses ? form.responses.length : 0}</span>
-                    </div>
-                </div>
-                <div class="form-card-actions">
-                    <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
-                    <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
-                    <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
-                    <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
+    
+    container.innerHTML = `<div class="forms-grid">${forms.map(form => `
+        <div class="card form-card">
+            <div class="form-card-header">
+                <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
+                    ${form.responses ? form.responses.length : 0} respostas
+                </span>
+                <div style="display:flex;gap:4px;">
+                    <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
                 </div>
             </div>
-        `).join('')
-    }</div>`;
+            <div onclick="openFormEditor('${form.id}')">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <div style="width:16px;height:16px;border-radius:50%;background:${form.form?.theme?.primary || '#4f46e5'};border:1px solid var(--border);"></div>
+                    <h3 class="form-card-title">${escapeHtml(form.name)}</h3>
+                </div>
+                <p style="color:var(--text-muted);font-size:13px;">${new Date(form.createdAt).toLocaleDateString()}</p>
+                <div class="form-card-stats">
+                    <span>📝 ${form.form?.questions?.length || 0}</span>
+                    <span>📊 ${form.responses ? form.responses.length : 0}</span>
+                </div>
+            </div>
+            <div class="form-card-actions">
+                <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
+                <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
+                <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
+                <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
+            </div>
+        </div>
+    `).join('')}</div>`;
 }
 
 function openFormEditor(formId) {
@@ -1740,26 +1751,41 @@ function renderResponsesDashboard() {
     // Ordenar respostas da mais recente para a mais antiga
     const sorted = [...responses].reverse();
     
-    // Buscar as perguntas para usar como cabeçalho (se disponíveis)
-    const perguntas = formData.form?.questions || [];
+    // Pegar todas as chaves (nomes das perguntas) da primeira resposta
+    const primeiraResposta = sorted[0];
+    const chaves = Object.keys(primeiraResposta.data);
     
-    // Criar cabeçalhos: Data/Hora + perguntas (se existirem) ou "Resposta 1", "Resposta 2"
-    let cabecalhos = ['Data/Hora'];
     
-    if (perguntas.length > 0) {
-        // Usar os títulos das perguntas
-        cabecalhos = ['Data/Hora', ...perguntas.map(q => q.title)];
-    } else {
-        // Se não tem perguntas definidas, usar os índices das colunas da primeira resposta
-        const primeiraResposta = sorted[0];
-        if (primeiraResposta && primeiraResposta.data) {
-            const numRespostas = Object.keys(primeiraResposta.data).length;
-            for (let i = 1; i <= numRespostas; i++) {
-                cabecalhos.push(`Resposta ${i}`);
-            }
-        }
-    }
+    // Adicionar linhas das respostas
+    sorted.forEach((resposta, idx) => {
+        const data = new Date(resposta.timestamp);
+        const dataFormatada = `${data.toLocaleDateString()} ${data.toLocaleTimeString()}`;
+        const originalIndex = responses.length - 1 - idx;
+        
+        tabelaHtml += `
+            <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 12px;">${escapeHtml(dataFormatada)}</td>
+                ${chaves.map(chave => {
+                    let valor = resposta.data[chave];
+                    if (Array.isArray(valor)) valor = valor.join(', ');
+                    return `<td style="padding: 12px;">${escapeHtml(String(valor || '-'))}</td>`;
+                }).join('')}
+                <td style="padding: 12px; text-align: center;">
+                    <button class="btn btn-sm btn-danger" onclick="deleteSingleResponse(${originalIndex})" style="padding: 4px 8px;">🗑️ Excluir</button>
+                </td>
+            </table>
+        `;
+    });
     
+    tabelaHtml += `
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = tabelaHtml;
+}    
     // Montar a tabela
     let tabelaHtml = `
         <div class="card">
@@ -1876,14 +1902,16 @@ function deleteSingleResponse(idx) {
     const formData = getCurrentForm();
     if (!formData) return;
     
-    const resposta = formData.responses[idx];
-    
     confirmAction('Excluir resposta', 'Excluir esta resposta?', async () => {
+        mostrarProgresso('🗑️ Excluindo resposta...');
+        atualizarProgresso(30, 'Removendo da planilha...');
+        
         // 1. Excluir a linha da aba no Sheets
         try {
             const urlExcluirLinha = `${CONFIG.googleApiUrl}?acao=excluirLinha&nomeFormulario=${encodeURIComponent(formData.name)}&linha=${idx + 2}`;
             await fetch(urlExcluirLinha);
             console.log('✅ Linha excluída da aba');
+            atualizarProgresso(70, 'Linha removida...');
         } catch(e) {
             console.error('Erro ao excluir linha:', e);
         }
@@ -1895,7 +1923,11 @@ function deleteSingleResponse(idx) {
         // 3. Salvar na nuvem (atualizar o JSON)
         await salvarNaNuvem('forms', formData.id, formData);
         
+        atualizarProgresso(100, 'Concluído!');
+        setTimeout(() => fecharProgresso(), 1000);
+        
         renderResponsesDashboard();
+        renderFormsList(); // Atualiza o marcador na home
         showToast('Excluída!', 'success');
     });
 }
