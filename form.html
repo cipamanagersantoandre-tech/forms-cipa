@@ -162,6 +162,7 @@ function createConfetti() {
   }
 }
 
+// Adiciona animação de confetti
 const style = document.createElement('style');
 style.textContent = `@keyframes fall { to { transform: translateY(100vh) rotate(720deg); opacity: 0; } }`;
 document.head.appendChild(style);
@@ -170,66 +171,49 @@ document.head.appendChild(style);
 async function buscarFormulario(formId) {
   try {
     const url = `${SHEETS_URL}?acao=buscarUm&aba=forms&id=${encodeURIComponent(formId)}`;
-    console.log('🔍 Buscando formulário:', url);
+    console.log('🔍 Buscando:', url);
     const response = await fetch(url);
     const result = await response.json();
-    console.log('📦 Resposta busca:', result);
+    console.log('📦 Resposta:', result);
     
     if (result.status === 'sucesso' && result.dados) {
       return result.dados;
     }
     return null;
   } catch (e) {
-    console.error('Erro na busca:', e);
+    console.error('Erro:', e);
     return null;
   }
 }
 
-// ==================== SALVAR RESPOSTA (CORRIGIDO) ====================
+// ==================== SALVAR RESPOSTA ====================
 async function salvarResposta(formId, resposta) {
   try {
-    // 1. Buscar o formulário atual completo
+    // Primeiro, buscar o formulário atual
     const urlBuscar = `${SHEETS_URL}?acao=buscarUm&aba=forms&id=${encodeURIComponent(formId)}`;
     const responseBuscar = await fetch(urlBuscar);
     const resultBuscar = await responseBuscar.json();
     
-    console.log('📦 Formulário encontrado:', resultBuscar);
-    
-    if (resultBuscar.status !== 'sucesso' || !resultBuscar.dados) {
-      console.error('Formulário não encontrado');
-      return false;
+    if (resultBuscar.status === 'sucesso' && resultBuscar.dados) {
+      const form = resultBuscar.dados;
+      if (!form.responses) form.responses = [];
+      form.responses.push(resposta);
+      
+      // Salvar de volta
+      const urlSalvar = `${SHEETS_URL}?acao=salvar&aba=forms&id=${encodeURIComponent(formId)}&dados=${encodeURIComponent(JSON.stringify(form))}`;
+      const responseSalvar = await fetch(urlSalvar);
+      const resultSalvar = await responseSalvar.json();
+      return resultSalvar.status === 'sucesso';
     }
-    
-    const form = resultBuscar.dados;
-    
-    // 2. Adicionar a nova resposta
-    if (!form.responses) form.responses = [];
-    form.responses.push(resposta);
-    
-    console.log('📝 Respostas agora:', form.responses.length);
-    
-    // 3. Salvar o formulário atualizado de volta na nuvem
-    const dadosStr = JSON.stringify(form);
-    const urlSalvar = `${SHEETS_URL}?acao=salvar&aba=forms&id=${encodeURIComponent(formId)}&dados=${encodeURIComponent(dadosStr)}`;
-    
-    console.log('💾 Salvando resposta...');
-    const responseSalvar = await fetch(urlSalvar);
-    const resultSalvar = await responseSalvar.json();
-    
-    console.log('✅ Resultado salvamento:', resultSalvar);
-    
-    return resultSalvar.status === 'sucesso';
+    return false;
   } catch (e) {
-    console.error('❌ Erro ao salvar resposta:', e);
+    console.error('Erro ao salvar:', e);
     return false;
   }
 }
 
 // ==================== RENDERIZAR FORMULÁRIO ====================
-let formularioAtual = null;
-
 function renderizarFormulario(form) {
-  formularioAtual = form;
   const f = form.form;
   const container = document.getElementById('content');
   
@@ -242,7 +226,7 @@ function renderizarFormulario(form) {
       
       <form id="resposta-form" onsubmit="return false;">
         <div id="perguntas-container"></div>
-        <button type="button" class="btn btn-primary" onclick="enviarResposta()">
+        <button type="button" class="btn btn-primary" onclick="enviarResposta('${form.id}')">
           📤 Enviar resposta
         </button>
       </form>
@@ -263,8 +247,9 @@ function renderizarPerguntas(form) {
       <label class="label">${escapeHtml(q.title)}${q.required ? '<span style="color: var(--error); margin-left: 4px;">*</span>' : ''}</label>
       ${renderizarInput(q, idx)}
     </div>
-  `).replace(/&quot;/g, '"')).join('');
+  `.replace(/&quot;/g, '"')).join('');
   
+  // Aplicar condições após renderizar
   aplicarCondicoes(form);
 }
 
@@ -309,6 +294,7 @@ function aplicarCondicoes(form) {
   if (!formEl) return;
   
   function atualizarVisibilidade() {
+    // Coletar todas as respostas atuais
     const respostas = {};
     formEl.querySelectorAll('input, select, textarea').forEach(inp => {
       if (inp.name && inp.name.startsWith('resp_')) {
@@ -323,16 +309,19 @@ function aplicarCondicoes(form) {
       }
     });
     
+    // Aplicar visibilidade para cada pergunta
     const perguntas = form.form.questions || [];
     perguntas.forEach(q => {
       const div = document.querySelector(`.form-group[data-qid="${q.id}"]`);
       if (!div) return;
       
+      // Se não tem condição, sempre mostra
       if (!q.condition || !q.condition.dependsOn) {
         div.style.display = 'block';
       } else {
         const valorDependencia = respostas[q.condition.dependsOn];
         let mostrar = false;
+        
         if (valorDependencia) {
           if (Array.isArray(valorDependencia)) {
             mostrar = valorDependencia.includes(q.condition.expectedValue);
@@ -340,11 +329,36 @@ function aplicarCondicoes(form) {
             mostrar = String(valorDependencia) === String(q.condition.expectedValue);
           }
         }
+        
+        // Mostra ou esconde
         div.style.display = mostrar ? 'block' : 'none';
+        
+        // Se for escondido, limpar o valor do campo
+        if (!mostrar) {
+          const inputs = div.querySelectorAll('input, select, textarea');
+          inputs.forEach(inp => {
+            if (inp.type === 'radio' || inp.type === 'checkbox') {
+              inp.checked = false;
+            } else {
+              inp.value = '';
+            }
+          });
+        }
       }
     });
   }
   
+  // Adicionar event listeners
+  formEl.querySelectorAll('input, select, textarea').forEach(inp => {
+    inp.removeEventListener('change', atualizarVisibilidade);
+    inp.removeEventListener('input', atualizarVisibilidade);
+    inp.addEventListener('change', atualizarVisibilidade);
+    inp.addEventListener('input', atualizarVisibilidade);
+  });
+  
+  // Executar a primeira vez (para esconder condicionadas que não devem aparecer)
+  atualizarVisibilidade();
+}  
   formEl.querySelectorAll('input, select, textarea').forEach(inp => {
     inp.removeEventListener('change', atualizarVisibilidade);
     inp.removeEventListener('input', atualizarVisibilidade);
@@ -356,9 +370,10 @@ function aplicarCondicoes(form) {
 }
 
 // ==================== ENVIAR RESPOSTA ====================
-async function enviarResposta() {
-  if (!formularioAtual) {
-    showToast('Erro: formulário não carregado', 'error');
+async function enviarResposta(formId) {
+  const form = await buscarFormulario(formId);
+  if (!form) {
+    showToast('Erro ao carregar formulário', 'error');
     return;
   }
   
@@ -367,12 +382,11 @@ async function enviarResposta() {
   const resposta = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
   let temErro = false;
   
-  // Pegar apenas perguntas visíveis
   const perguntasVisiveis = [];
   document.querySelectorAll('.form-group').forEach(div => {
     if (div.style.display !== 'none') {
       const qid = div.getAttribute('data-qid');
-      const pergunta = formularioAtual.form.questions.find(q => q.id === qid);
+      const pergunta = form.form.questions.find(q => q.id === qid);
       if (pergunta) perguntasVisiveis.push(pergunta);
     }
   });
@@ -390,14 +404,12 @@ async function enviarResposta() {
   }
   
   if (!temErro) {
-    showToast('Salvando resposta...', 'success');
-    const sucesso = await salvarResposta(formularioAtual.id, resposta);
-    
+    const sucesso = await salvarResposta(formId, resposta);
     if (sucesso) {
       mostrarAgradecimento();
       createConfetti();
     } else {
-      showToast('Erro ao salvar resposta. Tente novamente.', 'error');
+      showToast('Erro ao salvar resposta', 'error');
     }
   }
 }
@@ -433,6 +445,7 @@ async function recarregarFormulario() {
 
 function fecharPagina() {
   window.close();
+  // Se não conseguir fechar, mostra mensagem
   document.getElementById('content').innerHTML = `
     <div class="card" style="text-align:center;">
       <h3>Obrigado!</h3>
@@ -445,8 +458,6 @@ function fecharPagina() {
 async function init() {
   const urlParams = new URLSearchParams(window.location.search);
   const formId = urlParams.get('id');
-  
-  console.log('🚀 Iniciando com ID:', formId);
   
   if (!formId) {
     document.getElementById('content').innerHTML = `
@@ -463,10 +474,8 @@ async function init() {
   const form = await buscarFormulario(formId);
   
   if (form) {
-    console.log('✅ Formulário carregado:', form.name);
     renderizarFormulario(form);
   } else {
-    console.error('❌ Formulário não encontrado');
     document.getElementById('content').innerHTML = `
       <div class="card" style="text-align:center;">
         <div style="font-size:48px;">🔍</div>
