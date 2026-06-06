@@ -1725,7 +1725,9 @@ function renderResponsesDashboard() {
     const formData = getCurrentForm();
     const container = document.getElementById('responses-content');
     if (!formData || !container) return;
+    
     const responses = formData.responses || [];
+    
     if (responses.length === 0) {
         container.innerHTML = `
             <div class="empty-responses card">
@@ -1734,43 +1736,98 @@ function renderResponsesDashboard() {
             </div>`;
         return;
     }
+    
+    // Ordenar respostas da mais recente para a mais antiga
     const sorted = [...responses].reverse();
-    const nameQ = detectNameQuestion(formData.form.questions);
-    container.innerHTML = `
-        <div class="stats-grid">
-            <div class="card stat-card"><div class="stat-value">${responses.length}</div><div class="stat-label">Total</div></div>
-            <div class="card stat-card"><div class="stat-value">${formData.form.questions.length}</div><div class="stat-label">Perguntas</div></div>
-        </div>
+    
+    // Buscar as perguntas para usar como cabeçalho (se disponíveis)
+    const perguntas = formData.form?.questions || [];
+    
+    // Criar cabeçalhos: Data/Hora + perguntas (se existirem) ou "Resposta 1", "Resposta 2"
+    let cabecalhos = ['Data/Hora'];
+    
+    if (perguntas.length > 0) {
+        // Usar os títulos das perguntas
+        cabecalhos = ['Data/Hora', ...perguntas.map(q => q.title)];
+    } else {
+        // Se não tem perguntas definidas, usar os índices das colunas da primeira resposta
+        const primeiraResposta = sorted[0];
+        if (primeiraResposta && primeiraResposta.data) {
+            const numRespostas = Object.keys(primeiraResposta.data).length;
+            for (let i = 1; i <= numRespostas; i++) {
+                cabecalhos.push(`Resposta ${i}`);
+            }
+        }
+    }
+    
+    // Montar a tabela
+    let tabelaHtml = `
         <div class="card">
-            <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
-                <h3>📋 Lista</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3>📋 Respostas (${responses.length})</h3>
                 <button class="btn btn-sm btn-danger" onclick="clearCurrentResponses()">🗑️ Limpar todas</button>
             </div>
-            <div id="responses-list-container">
-                ${sorted.map((r, idx) => {
-                    const origIdx = responses.length - 1 - idx;
-                    const date = new Date(r.timestamp);
-                    let name = 'Anônimo';
-                    if (nameQ && r.data[nameQ.id]) name = r.data[nameQ.id].substring(0, 40);
-                    else {
-                        const textQ = formData.form.questions.find(q => q.type === 'text');
-                        if (textQ && r.data[textQ.id]) name = r.data[textQ.id].substring(0, 40);
-                    }
-                    return `
-                        <div class="response-list-item" data-response-index="${origIdx}">
-                            <div class="response-list-content" onclick="showResponseDetail(${origIdx})">
-                                <div class="response-list-header">
-                                    <span class="response-list-name">👤 ${escapeHtml(name)}</span>
-                                    <span class="response-list-date">📅 ${date.toLocaleDateString()} ${date.toLocaleTimeString()}</span>
-                                </div>
-                            </div>
-                            <div class="response-list-delete" onclick="event.stopPropagation(); deleteSingleResponse(${origIdx})" title="Excluir">🗑️</div>
-                        </div>
-                    `;
-                }).join('')}
+            <div style="overflow-x: auto;">
+                <table class="table" style="width:100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: var(--bg-elev-2);">
+                            ${cabecalhos.map(cab => `<th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--border);">${escapeHtml(cab)}</th>`).join('')}
+                            <th style="padding: 12px; text-align: center;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
+    
+    // Adicionar linhas das respostas
+    sorted.forEach((resposta, idx) => {
+        const data = new Date(resposta.timestamp);
+        const dataFormatada = `${data.toLocaleDateString()} ${data.toLocaleTimeString()}`;
+        
+        // Criar array com os valores das respostas
+        const valores = [dataFormatada];
+        
+        if (perguntas.length > 0) {
+            // Mapear respostas pelas perguntas (por ID ou por ordem)
+            for (const pergunta of perguntas) {
+                let valor = resposta.data[pergunta.id];
+                if (!valor) {
+                    // Tentar encontrar pela posição
+                    const posicao = perguntas.findIndex(p => p.id === pergunta.id);
+                    valor = resposta.data[`col_${posicao + 1}`];
+                }
+                if (Array.isArray(valor)) valor = valor.join(', ');
+                valores.push(valor || '-');
+            }
+        } else {
+            // Sem perguntas definidas, mostrar os dados como estão
+            const dadosArray = Object.values(resposta.data);
+            for (let i = 0; i < dadosArray.length; i++) {
+                let valor = dadosArray[i];
+                if (Array.isArray(valor)) valor = valor.join(', ');
+                valores.push(valor || '-');
+            }
+        }
+        
+        const originalIndex = responses.length - 1 - idx;
+        
+        tabelaHtml += `
+            <tr style="border-bottom: 1px solid var(--border);">
+                ${valores.map(val => `<td style="padding: 12px;">${escapeHtml(String(val))}</td>`).join('')}
+                <td style="padding: 12px; text-align: center;">
+                    <button class="btn btn-sm btn-danger" onclick="deleteSingleResponse(${originalIndex})" style="padding: 4px 8px;">🗑️ Excluir</button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tabelaHtml += `
+                    </tbody>
+                </table>
             </div>
         </div>
     `;
+    
+    container.innerHTML = tabelaHtml;
 }
 
 function detectNameQuestion(questions) {
