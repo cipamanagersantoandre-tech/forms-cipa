@@ -730,7 +730,7 @@ body {
 <script>
 // ==================== ESTADO ====================
 const STORAGE_KEY = 'formcraft_v1';
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwaHZyMOimndOtNDae1mj6K3_SVk9hRX_kHumkQE7i5zTKpbOpnFeJGGn_gbINj87NnpA/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz9WtuMVBlqzqFeI9pGBB0OJoltqbEM_7VXRZcol-BbRJVuUpQSJ_XC5u6VMX9B10b-ig/exec';
 
 // CONFIGURAÇÃO
 const CONFIG = {
@@ -1136,11 +1136,25 @@ async function excluirDaNuvem(aba, id) {
 
 function deleteForm(formId) {
     confirmAction('Excluir', 'Excluir formulário? Todas as respostas serão perdidas.', async () => {
-        // Mostrar progresso
         mostrarProgresso('🗑️ Excluindo da nuvem...');
         atualizarProgresso(30, 'Removendo da planilha...');
         
-        // 1. Excluir da nuvem (Google Sheets)
+        // Buscar o formulário para saber o nome (precisa para excluir a aba)
+        const form = forms.find(f => f.id === formId);
+        const nomeAba = form ? form.name : null;
+        
+        // 1. Excluir a ABA do formulário no Sheets (se existir)
+        if (nomeAba) {
+            try {
+                const urlExcluirAba = `${CONFIG.googleApiUrl}?acao=excluirAba&nomeFormulario=${encodeURIComponent(nomeAba)}`;
+                await fetch(urlExcluirAba);
+                console.log('✅ Aba excluída:', nomeAba);
+            } catch(e) {
+                console.error('Erro ao excluir aba:', e);
+            }
+        }
+        
+        // 2. Excluir o registro da aba 'forms'
         const sucesso = await excluirDaNuvem('forms', formId);
         
         if (sucesso) {
@@ -1151,15 +1165,12 @@ function deleteForm(formId) {
             showToast('⚠️ Erro ao excluir da nuvem, mas removendo localmente', 'warning');
         }
         
-        // 2. Excluir localmente (memória e localStorage)
+        // 3. Excluir localmente
         forms = forms.filter(f => f.id !== formId);
         if (currentFormId === formId) currentFormId = null;
         saveData();
-        
-        // 3. Recarregar listas
         renderFormsList();
         
-        // 4. Se estava na home, já atualizou. Se não, vai para home
         if (document.getElementById('view-home').classList.contains('hidden')) {
             goToHome();
         } else {
@@ -1169,7 +1180,6 @@ function deleteForm(formId) {
         atualizarProgresso(100, '✅ Concluído!');
         setTimeout(() => fecharProgresso(), 1500);
         
-        // 5. Sincronizar com outros usuários (opcional)
         setTimeout(() => {
             buscarTudoDaNuvemSilencioso();
         }, 1000);
@@ -1787,9 +1797,26 @@ function clearCurrentResponses() {
 function deleteSingleResponse(idx) {
     const formData = getCurrentForm();
     if (!formData) return;
-    confirmAction('Excluir resposta', 'Excluir esta resposta?', () => {
+    
+    const resposta = formData.responses[idx];
+    
+    confirmAction('Excluir resposta', 'Excluir esta resposta?', async () => {
+        // 1. Excluir a linha da aba no Sheets
+        try {
+            const urlExcluirLinha = `${CONFIG.googleApiUrl}?acao=excluirLinha&nomeFormulario=${encodeURIComponent(formData.name)}&linha=${idx + 2}`; // +2 porque linha 1 é cabeçalho
+            await fetch(urlExcluirLinha);
+            console.log('✅ Linha excluída da aba');
+        } catch(e) {
+            console.error('Erro ao excluir linha:', e);
+        }
+        
+        // 2. Excluir localmente
         formData.responses.splice(idx, 1);
         saveData();
+        
+        // 3. Salvar na nuvem (atualizar o JSON)
+        await salvarNaNuvem('forms', formData.id, formData);
+        
         renderResponsesDashboard();
         showToast('Excluída!', 'success');
     });
@@ -2186,27 +2213,51 @@ async function sincronizarTudoParaNuvem() {
 
 // ===== BUSCAR TUDO =====
 async function buscarTudoDaNuvem() {
-    mostrarProgresso('📥 Buscando da Nuvem...');
+    mostrarProgresso('📥 Sincronizando com a Nuvem...');
     atualizarProgresso(30, 'Conectando...');
     
     try {
         const formsNuvem = await carregarTudoDaNuvem('forms');
         
-        if (formsNuvem && formsNuvem.length > 0) {
+        if (formsNuvem && formsNuvem.length >= 0) {
+            // 1. Adicionar ou atualizar formulários da nuvem
+            const idsNaNuvem = [];
             let importados = 0;
+            let atualizados = 0;
             
             for (const formCloud of formsNuvem) {
-                const existe = forms.some(f => f.id === formCloud.id);
-                if (!existe) {
+                idsNaNuvem.push(formCloud.id);
+                const existeLocal = forms.find(f => f.id === formCloud.id);
+                
+                if (!existeLocal) {
                     forms.push(formCloud);
                     importados++;
+                } else {
+                    // Atualiza o local com os dados da nuvem
+                    const index = forms.findIndex(f => f.id === formCloud.id);
+                    forms[index] = formCloud;
+                    atualizados++;
                 }
+            }
+            
+            // 2. Remover do app os formulários que não existem mais na nuvem
+            const idsParaRemover = [];
+            for (const formLocal of forms) {
+                if (!idsNaNuvem.includes(formLocal.id)) {
+                    idsParaRemover.push(formLocal.id);
+                }
+            }
+            
+            for (const id of idsParaRemover) {
+                forms = forms.filter(f => f.id !== id);
+                console.log('🗑️ Removido do app (não existe mais na nuvem):', id);
             }
             
             saveData();
             renderFormsList();
-            atualizarProgresso(100, `✅ ${importados} formulários importados!`);
-            showToast(`📥 ${importados} formulários carregados!`, 'success');
+            
+            atualizarProgresso(100, `✅ ${importados} importados, ${atualizados} atualizados, ${idsParaRemover.length} removidos`);
+            showToast(`📥 ${importados} novos, ${idsParaRemover.length} removidos`, 'success');
         } else {
             atualizarProgresso(100, 'ℹ️ Nenhum formulário encontrado');
             showToast('ℹ️ Nenhum formulário na nuvem', 'info');
