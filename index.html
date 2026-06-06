@@ -864,6 +864,27 @@ async function carregarTudoDaNuvem(aba) {
     }
 }
 
+async function carregarRespostasDaNuvem(nomeFormulario) {
+    if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return [];
+    
+    try {
+        const url = `${CONFIG.googleApiUrl}?acao=carregarRespostas&nomeFormulario=${encodeURIComponent(nomeFormulario)}`;
+        console.log('📥 Buscando respostas da aba:', nomeFormulario);
+        
+        const response = await fetch(url);
+        const result = await response.json();
+        console.log('✅ Respostas carregadas:', result.dados ? result.dados.length : 0);
+        
+        if (result.status === 'sucesso' && result.dados) {
+            return result.dados;
+        }
+        return [];
+    } catch (e) {
+        console.error('❌ Erro ao carregar respostas:', e);
+        return [];
+    }
+}
+
 async function excluirDaNuvem(aba, id) {
     if (!CONFIG.usarGoogleSheets || !CONFIG.googleApiUrl) return false;
     
@@ -991,13 +1012,28 @@ function openFormEditor(formId) {
     renderLivePreview();
 }
 
-function openResponsesView(formId) {
+async function openResponsesView(formId) {
     currentFormId = formId;
     const formData = forms.find(f => f.id === formId);
     if (!formData) return;
+    
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
     document.getElementById('view-responses').classList.remove('hidden');
     document.getElementById('responses-form-title').textContent = formData.name;
+    
+    // Buscar respostas da planilha
+    mostrarProgresso('📥 Carregando respostas...');
+    atualizarProgresso(30, 'Buscando na planilha...');
+    
+    const respostasDaPlanilha = await carregarRespostasDaNuvem(formData.name);
+    
+    // Atualizar o formData com as respostas da planilha
+    formData.responses = respostasDaPlanilha;
+    saveData(); // Salvar localmente para cache
+    
+    atualizarProgresso(100, 'Concluído!');
+    setTimeout(() => fecharProgresso(), 500);
+    
     renderResponsesDashboard();
 }
 
@@ -1788,7 +1824,7 @@ function deleteSingleResponse(idx) {
     confirmAction('Excluir resposta', 'Excluir esta resposta?', async () => {
         // 1. Excluir a linha da aba no Sheets
         try {
-            const urlExcluirLinha = `${CONFIG.googleApiUrl}?acao=excluirLinha&nomeFormulario=${encodeURIComponent(formData.name)}&linha=${idx + 2}`; // +2 porque linha 1 é cabeçalho
+            const urlExcluirLinha = `${CONFIG.googleApiUrl}?acao=excluirLinha&nomeFormulario=${encodeURIComponent(formData.name)}&linha=${idx + 2}`;
             await fetch(urlExcluirLinha);
             console.log('✅ Linha excluída da aba');
         } catch(e) {
