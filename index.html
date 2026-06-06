@@ -1073,21 +1073,30 @@ async function createFormWithTemplate(templateType) {
     // Salvar na nuvem
     const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
     
-    // Se salvou na nuvem, criar a aba do formulário no Sheets
-    if (sucesso) {
-        // Criar a aba do formulário no Sheets
-        const cabecalhos = JSON.stringify(['Data/Hora', ...template.questions.map(q => q.title)]);
-        const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-        await fetch(urlAba);
-        showToast(`"${name}" criado e salvo na nuvem!`, 'success');
-    } else {
-        showToast(`"${name}" criado localmente, mas erro na nuvem`, 'warning');
-    }
+// Se salvou na nuvem, criar a aba do formulário no Sheets
+if (sucesso) {
+    console.log('✅ SUCESSO = true, vou criar a aba para:', name);
+    console.log('📋 Perguntas do template:', template.questions.length);
     
-    closeModal();
-    openFormEditor(newForm.id);
+    // Criar a aba do formulário no Sheets
+    const cabecalhos = JSON.stringify(['Data/Hora', ...template.questions.map(q => q.title)]);
+    const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+    
+    console.log('📡 URL da chamada criarAba:', urlAba);
+    
+    try {
+        const resposta = await fetch(urlAba);
+        const resultado = await resposta.json();
+        console.log('📦 Resposta do criarAba:', resultado);
+        showToast(`"${name}" criado e salvo na nuvem!`, 'success');
+    } catch (erro) {
+        console.error('❌ ERRO ao criar aba:', erro);
+        showToast(`"${name}" criado, mas erro ao criar aba`, 'warning');
+    }
+} else {
+    console.log('❌ SUCESSO = false, não vou criar a aba');
+    showToast(`"${name}" criado localmente, mas erro na nuvem`, 'warning');
 }
-
 function duplicateForm(formId) {
     const original = forms.find(f => f.id === formId);
     if (!original) return;
