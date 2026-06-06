@@ -730,7 +730,7 @@ body {
 <script>
 // ==================== ESTADO ====================
 const STORAGE_KEY = 'formcraft_v1';
-const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzSqAIhLNuhV0OQZmLwgbv42kgHSuKldiTdz_OZBVH7t9dV5XtYWSSop5xXc4WKKJm4Nw/exec';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwaHZyMOimndOtNDae1mj6K3_SVk9hRX_kHumkQE7i5zTKpbOpnFeJGGn_gbINj87NnpA/exec';
 
 // CONFIGURAÇÃO
 const CONFIG = {
@@ -1071,22 +1071,22 @@ async function createFormWithTemplate(templateType) {
     saveData();
     
     // Salvar na nuvem
-// Depois de salvar na nuvem
-if (sucesso) {
-    // Criar a aba do formulário no Sheets
-    const cabecalhos = JSON.stringify(['Data/Hora', ...template.questions.map(q => q.title)]);
-    const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-    await fetch(urlAba);
-    showToast(`"${name}" criado e salvo na nuvem!`, 'success');
-} else {
-    showToast(`"${name}" criado localmente, mas erro na nuvem`, 'warning');
-}
+    const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
+    
+    // Se salvou na nuvem, criar a aba do formulário no Sheets
+    if (sucesso) {
+        // Criar a aba do formulário no Sheets
+        const cabecalhos = JSON.stringify(['Data/Hora', ...template.questions.map(q => q.title)]);
+        const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+        await fetch(urlAba);
+        showToast(`"${name}" criado e salvo na nuvem!`, 'success');
+    } else {
+        showToast(`"${name}" criado localmente, mas erro na nuvem`, 'warning');
+    }
     
     closeModal();
     openFormEditor(newForm.id);
 }
-
-
 
 function duplicateForm(formId) {
     const original = forms.find(f => f.id === formId);
