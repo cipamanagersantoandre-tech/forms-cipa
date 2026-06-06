@@ -2032,7 +2032,8 @@ function showQRCode(formId) {
     const form = forms.find(f => f.id === formId);
     if (!form) return;
     currentQRCodeFormId = formId;
-    const url = `${window.location.href.split('#')[0]}?form=${formId}`;
+    const baseUrl = window.location.href.split('#')[0].split('?')[0];
+    const url = baseUrl.replace('index.html', 'form.html').replace(/\/$/, '') + '/form.html?id=' + formId;
     document.getElementById('qrcode-form-name').textContent = form.name;
     const container = document.getElementById('qrcode-container');
     container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}" style="width:200px;height:200px;border-radius:12px;">`;
@@ -2050,17 +2051,23 @@ function downloadQRCode() {
     showToast('QR Code baixado!', 'success');
 }
 
-function shareFormLink(formId) {
-    const url = `${window.location.href.split('/').slice(0, -1).join('/')}/form.html?id=${formId}`;
-    navigator.clipboard.writeText(url);
-    showToast('Link copiado!', 'success');
+function copyFormLinkFromQR() {
+    if (!currentQRCodeFormId) return;
+    const form = forms.find(f => f.id === currentQRCodeFormId);
+    const url = `${window.location.href.split('#')[0]}?form=${currentQRCodeFormId}`;
+    navigator.clipboard.writeText(url).then(
+        () => showToast(`Link copiado!`, 'success')
+    ).catch(() => showToast(`Link: ${url}`, 'success'));
 }
 
-function showQRCode(formId) {
+function shareFormLink(formId) {
     const form = forms.find(f => f.id === formId);
-    if (!form) return;
-    const url = `${window.location.href.split('/').slice(0, -1).join('/')}/form.html?id=${formId}`;
-    // ... resto igual
+    // Cria o link para o form.html (página pública de resposta)
+    const baseUrl = window.location.href.split('#')[0].split('?')[0];
+    const url = baseUrl.replace('index.html', 'form.html').replace(/\/$/, '') + '/form.html?id=' + formId;
+    navigator.clipboard.writeText(url).then(
+        () => showToast(`Link de "${form.name}" copiado! Envie para os respondentes.`, 'success')
+    ).catch(() => showToast(`Link: ${url}`, 'success'));
 }
 
 // ==================== DRAG AND DROP ====================
