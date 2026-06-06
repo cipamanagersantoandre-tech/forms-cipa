@@ -294,7 +294,6 @@ function aplicarCondicoes(form) {
   if (!formEl) return;
   
   function atualizarVisibilidade() {
-    // Coletar todas as respostas atuais
     const respostas = {};
     formEl.querySelectorAll('input, select, textarea').forEach(inp => {
       if (inp.name && inp.name.startsWith('resp_')) {
@@ -309,13 +308,11 @@ function aplicarCondicoes(form) {
       }
     });
     
-    // Aplicar visibilidade para cada pergunta
     const perguntas = form.form.questions || [];
     perguntas.forEach(q => {
       const div = document.querySelector(`.form-group[data-qid="${q.id}"]`);
       if (!div) return;
       
-      // Se não tem condição, sempre mostra
       if (!q.condition || !q.condition.dependsOn) {
         div.style.display = 'block';
       } else {
@@ -330,10 +327,8 @@ function aplicarCondicoes(form) {
           }
         }
         
-        // Mostra ou esconde
         div.style.display = mostrar ? 'block' : 'none';
         
-        // Se for escondido, limpar o valor do campo
         if (!mostrar) {
           const inputs = div.querySelectorAll('input, select, textarea');
           inputs.forEach(inp => {
@@ -356,19 +351,9 @@ function aplicarCondicoes(form) {
     inp.addEventListener('input', atualizarVisibilidade);
   });
   
-  // Executar a primeira vez (para esconder condicionadas que não devem aparecer)
-  atualizarVisibilidade();
-}  
-  formEl.querySelectorAll('input, select, textarea').forEach(inp => {
-    inp.removeEventListener('change', atualizarVisibilidade);
-    inp.removeEventListener('input', atualizarVisibilidade);
-    inp.addEventListener('change', atualizarVisibilidade);
-    inp.addEventListener('input', atualizarVisibilidade);
-  });
-  
+  // Executar a primeira vez
   atualizarVisibilidade();
 }
-
 // ==================== ENVIAR RESPOSTA ====================
 async function enviarResposta(formId) {
   const form = await buscarFormulario(formId);
