@@ -947,21 +947,9 @@ async function buscarTudoDaNuvemSilencioso() {
     }
 }
 
-async function renderFormsList() {
+function renderFormsList() {
     const container = document.getElementById('forms-list');
     if (!container) return;
-    
-    // Para cada formulário, buscar o número atualizado de respostas da planilha
-    for (const form of forms) {
-        try {
-            const respostas = await carregarRespostasDaNuvem(form.name);
-            form.responses = respostas;
-        } catch(e) {
-            console.error('Erro ao buscar respostas para', form.name, e);
-        }
-    }
-    saveData();
-    
     if (forms.length === 0) {
         container.innerHTML = `
             <div class="empty-state card">
@@ -970,37 +958,38 @@ async function renderFormsList() {
             </div>`;
         return;
     }
-    
-    container.innerHTML = `<div class="forms-grid">${forms.map(form => `
-        <div class="card form-card">
-            <div class="form-card-header">
-                <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
-                    ${form.responses ? form.responses.length : 0} respostas
-                </span>
-                <div style="display:flex;gap:4px;">
-                    <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
-                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
+    container.innerHTML = `<div class="forms-grid">${
+        forms.map(form => `
+            <div class="card form-card">
+                <div class="form-card-header">
+                    <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
+                        ${form.responses ? form.responses.length : 0} respostas
+                    </span>
+                    <div style="display:flex;gap:4px;">
+                        <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
+                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
+                    </div>
+                </div>
+                <div onclick="openFormEditor('${form.id}')">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <div style="width:16px;height:16px;border-radius:50%;background:${form.form?.theme?.primary || '#4f46e5'};border:1px solid var(--border);"></div>
+                        <h3 class="form-card-title">${escapeHtml(form.name)}</h3>
+                    </div>
+                    <p style="color:var(--text-muted);font-size:13px;">${new Date(form.createdAt).toLocaleDateString()}</p>
+                    <div class="form-card-stats">
+                        <span>📝 ${form.form?.questions?.length || 0}</span>
+                        <span>📊 ${form.responses ? form.responses.length : 0}</span>
+                    </div>
+                </div>
+                <div class="form-card-actions">
+                    <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
+                    <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
+                    <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
+                    <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
                 </div>
             </div>
-            <div onclick="openFormEditor('${form.id}')">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                    <div style="width:16px;height:16px;border-radius:50%;background:${form.form?.theme?.primary || '#4f46e5'};border:1px solid var(--border);"></div>
-                    <h3 class="form-card-title">${escapeHtml(form.name)}</h3>
-                </div>
-                <p style="color:var(--text-muted);font-size:13px;">${new Date(form.createdAt).toLocaleDateString()}</p>
-                <div class="form-card-stats">
-                    <span>📝 ${form.form?.questions?.length || 0}</span>
-                    <span>📊 ${form.responses ? form.responses.length : 0}</span>
-                </div>
-            </div>
-            <div class="form-card-actions">
-                <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
-                <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
-                <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
-                <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
-            </div>
-        </div>
-    `).join('')}</div>`;
+        `).join('')
+    }</div>`;
 }
 
 function openFormEditor(formId) {
@@ -1751,41 +1740,26 @@ function renderResponsesDashboard() {
     // Ordenar respostas da mais recente para a mais antiga
     const sorted = [...responses].reverse();
     
-    // Pegar todas as chaves (nomes das perguntas) da primeira resposta
-    const primeiraResposta = sorted[0];
-    const chaves = Object.keys(primeiraResposta.data);
+    // Buscar as perguntas para usar como cabeçalho (se disponíveis)
+    const perguntas = formData.form?.questions || [];
     
+    // Criar cabeçalhos: Data/Hora + perguntas (se existirem) ou "Resposta 1", "Resposta 2"
+    let cabecalhos = ['Data/Hora'];
     
-    // Adicionar linhas das respostas
-    sorted.forEach((resposta, idx) => {
-        const data = new Date(resposta.timestamp);
-        const dataFormatada = `${data.toLocaleDateString()} ${data.toLocaleTimeString()}`;
-        const originalIndex = responses.length - 1 - idx;
-        
-        tabelaHtml += `
-            <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 12px;">${escapeHtml(dataFormatada)}</td>
-                ${chaves.map(chave => {
-                    let valor = resposta.data[chave];
-                    if (Array.isArray(valor)) valor = valor.join(', ');
-                    return `<td style="padding: 12px;">${escapeHtml(String(valor || '-'))}</td>`;
-                }).join('')}
-                <td style="padding: 12px; text-align: center;">
-                    <button class="btn btn-sm btn-danger" onclick="deleteSingleResponse(${originalIndex})" style="padding: 4px 8px;">🗑️ Excluir</button>
-                </td>
-            </table>
-        `;
-    });
+    if (perguntas.length > 0) {
+        // Usar os títulos das perguntas
+        cabecalhos = ['Data/Hora', ...perguntas.map(q => q.title)];
+    } else {
+        // Se não tem perguntas definidas, usar os índices das colunas da primeira resposta
+        const primeiraResposta = sorted[0];
+        if (primeiraResposta && primeiraResposta.data) {
+            const numRespostas = Object.keys(primeiraResposta.data).length;
+            for (let i = 1; i <= numRespostas; i++) {
+                cabecalhos.push(`Resposta ${i}`);
+            }
+        }
+    }
     
-    tabelaHtml += `
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-    
-    container.innerHTML = tabelaHtml;
-}    
     // Montar a tabela
     let tabelaHtml = `
         <div class="card">
@@ -1902,16 +1876,14 @@ function deleteSingleResponse(idx) {
     const formData = getCurrentForm();
     if (!formData) return;
     
+    const resposta = formData.responses[idx];
+    
     confirmAction('Excluir resposta', 'Excluir esta resposta?', async () => {
-        mostrarProgresso('🗑️ Excluindo resposta...');
-        atualizarProgresso(30, 'Removendo da planilha...');
-        
         // 1. Excluir a linha da aba no Sheets
         try {
             const urlExcluirLinha = `${CONFIG.googleApiUrl}?acao=excluirLinha&nomeFormulario=${encodeURIComponent(formData.name)}&linha=${idx + 2}`;
             await fetch(urlExcluirLinha);
             console.log('✅ Linha excluída da aba');
-            atualizarProgresso(70, 'Linha removida...');
         } catch(e) {
             console.error('Erro ao excluir linha:', e);
         }
@@ -1923,11 +1895,7 @@ function deleteSingleResponse(idx) {
         // 3. Salvar na nuvem (atualizar o JSON)
         await salvarNaNuvem('forms', formData.id, formData);
         
-        atualizarProgresso(100, 'Concluído!');
-        setTimeout(() => fecharProgresso(), 1000);
-        
         renderResponsesDashboard();
-        renderFormsList(); // Atualiza o marcador na home
         showToast('Excluída!', 'success');
     });
 }
@@ -2250,7 +2218,7 @@ async function atualizarCabecalhoAba(formId) {
     }
 }
 
-// ===== DRAG AND DROP =====
+// ==================== DRAG AND DROP ====================
 let draggedItemId = null;
 
 function setupDragAndDrop() {
@@ -2318,7 +2286,112 @@ function drop(e) {
     showToast('Pergunta reposicionada!', 'success');
 }
 
+// ===== SINCRONIZAR TUDO =====
+async function sincronizarTudoParaNuvem() {
+    if (forms.length === 0) {
+        showToast('Nenhum formulário para enviar', 'info');
+        return;
+    }
+    
+    mostrarProgresso('☁️ Enviando para Nuvem...');
+    atualizarProgresso(0, 'Preparando...');
+    
+    let enviados = 0;
+    for (let i = 0; i < forms.length; i++) {
+        const form = forms[i];
+        const sucesso = await salvarNaNuvem('forms', form.id, form);
+        if (sucesso) enviados++;
+        atualizarProgresso(Math.round((i + 1) / forms.length * 100), `Enviando ${form.name}...`);
+        await new Promise(r => setTimeout(r, 100));
+    }
+    
+    atualizarProgresso(100, `✅ ${enviados} de ${forms.length} enviados!`);
+    showToast(`✅ ${enviados} formulários enviados!`, 'success');
+    setTimeout(() => fecharProgresso(), 2000);
+}
+
+// ===== BUSCAR TUDO =====
+async function buscarTudoDaNuvem() {
+    mostrarProgresso('📥 Sincronizando com a Nuvem...');
+    atualizarProgresso(30, 'Conectando...');
+    
+    try {
+        const formsNuvem = await carregarTudoDaNuvem('forms');
+        
+        if (formsNuvem && formsNuvem.length >= 0) {
+            // 1. Adicionar ou atualizar formulários da nuvem
+            const idsNaNuvem = [];
+            let importados = 0;
+            let atualizados = 0;
+            
+            for (const formCloud of formsNuvem) {
+                idsNaNuvem.push(formCloud.id);
+                const existeLocal = forms.find(f => f.id === formCloud.id);
+                
+                if (!existeLocal) {
+                    forms.push(formCloud);
+                    importados++;
+                } else {
+                    // Atualiza o local com os dados da nuvem
+                    const index = forms.findIndex(f => f.id === formCloud.id);
+                    forms[index] = formCloud;
+                    atualizados++;
+                }
+            }
+            
+            // 2. Remover do app os formulários que não existem mais na nuvem
+            const idsParaRemover = [];
+            for (const formLocal of forms) {
+                if (!idsNaNuvem.includes(formLocal.id)) {
+                    idsParaRemover.push(formLocal.id);
+                }
+            }
+            
+            for (const id of idsParaRemover) {
+                forms = forms.filter(f => f.id !== id);
+                console.log('🗑️ Removido do app (não existe mais na nuvem):', id);
+            }
+            
+            saveData();
+            renderFormsList();
+            
+            atualizarProgresso(100, `✅ ${importados} importados, ${atualizados} atualizados, ${idsParaRemover.length} removidos`);
+            showToast(`📥 ${importados} novos, ${idsParaRemover.length} removidos`, 'success');
+        } else {
+            atualizarProgresso(100, 'ℹ️ Nenhum formulário encontrado');
+            showToast('ℹ️ Nenhum formulário na nuvem', 'info');
+        }
+    } catch (erro) {
+        console.error('❌ Erro:', erro);
+        atualizarProgresso(100, '❌ Erro de conexão');
+        showToast('❌ Erro: ' + erro.message, 'error');
+    }
+    setTimeout(() => fecharProgresso(), 3000);
+}
+
+// ===== BARRA DE PROGRESSO =====
+function mostrarProgresso(titulo) {
+    const container = document.getElementById('progress-container');
+    document.getElementById('progress-title').textContent = titulo;
+    document.getElementById('progress-percent').textContent = '0%';
+    document.getElementById('progress-bar-fill').style.width = '0%';
+    document.getElementById('progress-status').textContent = 'Preparando...';
+    container.classList.add('visible');
+}
+
+function atualizarProgresso(percentual, status) {
+    document.getElementById('progress-percent').textContent = `${percentual}%`;
+    document.getElementById('progress-bar-fill').style.width = `${percentual}%`;
+    if (status) document.getElementById('progress-status').textContent = status;
+}
+
+function fecharProgresso() {
+    document.getElementById('progress-container').classList.remove('visible');
+}
+
+// ===== CARREGAR VIA URL =====
 // ===== CARREGAR VIA URL (MODO PÚBLICO) =====
+// ===== CARREGAR VIA URL (MODO PÚBLICO - BUSCA APENAS O FORMULÁRIO ESPECÍFICO) =====
 async function checkUrlForForm() {
     const urlParams = new URLSearchParams(window.location.search);
     const formId = urlParams.get('form');
@@ -2326,18 +2399,23 @@ async function checkUrlForForm() {
     if (formId) {
         console.log('🔗 Link público detectado:', formId);
         
+        // Esconde header e bottom sheet imediatamente
         document.querySelector('.header').style.display = 'none';
         document.querySelector('.bottom-sheet').style.display = 'none';
         
+        // Mostra loading
         document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
         const viewPublic = document.getElementById('view-public');
         viewPublic.classList.remove('hidden');
         document.getElementById('public-form-container').innerHTML = '<div class="card" style="text-align:center;padding:40px;">⏳ Carregando formulário...</div>';
         
+        // Limpa a URL
         window.history.replaceState({}, document.title, window.location.pathname);
         
+        // Tenta encontrar o formulário localmente primeiro
         let form = forms.find(f => f.id === formId);
         
+        // Se não encontrou, busca APENAS ele na nuvem
         if (!form) {
             try {
                 const url = `${CONFIG.googleApiUrl}?acao=buscarUm&aba=forms&id=${encodeURIComponent(formId)}`;
@@ -2348,6 +2426,8 @@ async function checkUrlForForm() {
                     forms.push(form);
                     saveData();
                     console.log('✅ Formulário carregado da nuvem!');
+                } else {
+                    console.log('❌ Formulário não encontrado na nuvem:', result);
                 }
             } catch(e) {
                 console.error('Erro na busca:', e);
@@ -2367,15 +2447,44 @@ async function checkUrlForForm() {
             `;
         }
     }
-}
+}       
 
-function abrirModoPublico(form) {
+// Função para mostrar erro amigável quando formulário não é encontrado
+function mostrarErroFormularioNaoEncontrado() {
+    // Esconde todas as views
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+    
+    // Mostra a view pública com mensagem de erro
     const viewPublic = document.getElementById('view-public');
     viewPublic.classList.remove('hidden');
+    
+    const container = document.getElementById('public-form-container');
+    container.innerHTML = `
+        <div class="card" style="padding: 40px; text-align: center;">
+            <div style="font-size: 64px; margin-bottom: 20px;">🔍</div>
+            <h2 style="margin-bottom: 16px;">Formulário não encontrado</h2>
+            <p style="color: var(--text-muted); margin-bottom: 24px;">
+                O formulário que você está tentando acessar não existe ou foi removido.
+            </p>
+            <button class="btn btn-primary" onclick="goToHome()">Voltar para início</button>
+        </div>
+    `;
+}
+
+// Abrir formulário em modo público (só para responder)
+function abrirModoPublico(form) {
+    // Esconde todas as views normais
+    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+    
+    // Mostra a view pública
+    const viewPublic = document.getElementById('view-public');
+    viewPublic.classList.remove('hidden');
+    
+    // Renderiza o formulário público
     renderPublicForm(form);
 }
 
+// Renderizar formulário público (estilo mobile, sem edição)
 function renderPublicForm(form) {
     const container = document.getElementById('public-form-container');
     const f = form.form;
@@ -2386,10 +2495,14 @@ function renderPublicForm(form) {
             <h2 style="font-size: 24px; margin-bottom: 8px;">${escapeHtml(f.title || form.name)}</h2>
             ${f.subtitle ? `<p style="color: var(--text-muted); margin-bottom: 16px;">${escapeHtml(f.subtitle)}</p>` : ''}
             ${f.description ? `<div style="margin-bottom: 24px; color: var(--text-muted);">${escapeHtml(f.description)}</div>` : ''}
+            
             <form id="public-form" onsubmit="return false;">
                 <div id="public-questions-container"></div>
-                <button type="button" class="btn btn-primary" onclick="submitPublicForm('${form.id}')" style="width: 100%; justify-content: center; margin-top: 24px;">📤 Enviar resposta</button>
+                <button type="button" class="btn btn-primary" onclick="submitPublicForm('${form.id}')" style="width: 100%; justify-content: center; margin-top: 24px;">
+                    📤 Enviar resposta
+                </button>
             </form>
+            
             ${f.footer ? `<div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--text-muted);">${escapeHtml(f.footer)}</div>` : ''}
         </div>
     `;
@@ -2397,6 +2510,7 @@ function renderPublicForm(form) {
     setupPublicFormConditions(form);
 }
 
+// Configurar perguntas condicionais no modo público
 function setupPublicFormConditions(form) {
     function updateVisibility() {
         const answers = {};
@@ -2436,6 +2550,7 @@ function setupPublicFormConditions(form) {
             </div>
         `).join('');
         
+        // Reaplicar event listeners
         formEl.querySelectorAll('input, select, textarea').forEach(inp => {
             inp.removeEventListener('change', updateVisibility);
             inp.addEventListener('change', updateVisibility);
@@ -2447,6 +2562,7 @@ function setupPublicFormConditions(form) {
     updateVisibility();
 }
 
+// Renderizar input no modo público
 function renderPublicInput(q) {
     const name = `pub_${q.id}`;
     switch (q.type) {
@@ -2454,16 +2570,34 @@ function renderPublicInput(q) {
         case 'email': return `<input type="email" class="input" name="${name}" style="width:100%; padding: 14px; font-size: 16px;">`;
         case 'number': return `<input type="number" class="input" name="${name}" style="width:100%; padding: 14px; font-size: 16px;">`;
         case 'textarea': return `<textarea class="textarea" name="${name}" style="width:100%; padding: 14px; font-size: 16px; min-height: 100px;"></textarea>`;
-        case 'radio': return `<div class="radio-group">${q.options.map(opt => `<label class="radio-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;"><input type="radio" name="${name}" value="${escapeHtml(opt)}"> <span>${escapeHtml(opt)}</span></label>`).join('')}</div>`;
-        case 'checkbox': return `<div class="checkbox-group">${q.options.map(opt => `<label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;"><input type="checkbox" name="${name}" value="${escapeHtml(opt)}"> <span>${escapeHtml(opt)}</span></label>`).join('')}</div>`;
-        case 'select': return `<select class="select" name="${name}" style="width:100%; padding: 14px;"><option value="">Selecione...</option>${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}</select>`;
-        case 'scale': return `<div style="display: flex; gap: 8px; flex-wrap: wrap;">${[1,2,3,4,5].map(n => `<label style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer;"><input type="radio" name="${name}" value="${n}" style="display: none;"> ${n}</label>`).join('')}</div>`;
+        case 'radio': return `<div class="radio-group">${q.options.map(opt => `
+            <label class="radio-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+                <input type="radio" name="${name}" value="${escapeHtml(opt)}"> 
+                <span>${escapeHtml(opt)}</span>
+            </label>
+        `).join('')}</div>`;
+        case 'checkbox': return `<div class="checkbox-group">${q.options.map(opt => `
+            <label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+                <input type="checkbox" name="${name}" value="${escapeHtml(opt)}"> 
+                <span>${escapeHtml(opt)}</span>
+            </label>
+        `).join('')}</div>`;
+        case 'select': return `<select class="select" name="${name}" style="width:100%; padding: 14px;">
+            <option value="">Selecione...</option>
+            ${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
+        </select>`;
+        case 'scale': return `<div style="display: flex; gap: 8px; flex-wrap: wrap;">${[1,2,3,4,5].map(n => `
+            <label style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="radio" name="${name}" value="${n}" style="display: none;"> ${n}
+            </label>
+        `).join('')}</div>`;
         case 'date': return `<input type="date" class="input" name="${name}" style="width:100%; padding: 14px;">`;
         case 'time': return `<input type="time" class="input" name="${name}" style="width:100%; padding: 14px;">`;
         default: return `<input type="text" class="input" name="${name}" style="width:100%; padding: 14px;">`;
     }
 }
 
+// Enviar resposta do modo público
 async function submitPublicForm(formId) {
     const form = forms.find(f => f.id === formId);
     if (!form) return;
@@ -2475,6 +2609,7 @@ async function submitPublicForm(formId) {
     const response = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
     let hasError = false;
     
+    // Coletar respostas apenas das perguntas visíveis
     const visibleQuestions = [];
     const container = document.getElementById('public-questions-container');
     if (container) {
@@ -2504,12 +2639,19 @@ async function submitPublicForm(formId) {
         if (!form.responses) form.responses = [];
         form.responses.push(response);
         saveData();
+        
+        // Salvar na nuvem também
         await salvarNaNuvem('forms', form.id, form);
+        
+        // Mostrar tela de agradecimento
         showThankYouScreen(formId);
+        
+        // Confetes
         createConfetti();
     }
 }
 
+// Mostrar tela de agradecimento
 function showThankYouScreen(formId) {
     const container = document.getElementById('public-form-container');
     const thankyou = document.getElementById('thankyou-screen');
@@ -2519,11 +2661,13 @@ function showThankYouScreen(formId) {
         formContainer.style.display = 'none';
     }
     
+    // Guarda o ID do formulário para reset
     thankyou.setAttribute('data-form-id', formId);
     thankyou.style.display = 'flex';
     container.appendChild(thankyou);
 }
 
+// Resetar formulário público para responder novamente
 function resetPublicForm() {
     const thankyou = document.getElementById('thankyou-screen');
     const formId = thankyou.getAttribute('data-form-id');
@@ -2534,13 +2678,18 @@ function resetPublicForm() {
         const container = document.getElementById('public-form-container');
         const oldCard = container.querySelector('.card');
         if (oldCard) oldCard.remove();
+        
         renderPublicForm(form);
     }
 }
 
+// Fechar formulário público (pode voltar para home ou mostrar mensagem)
 function closePublicForm() {
+    // Restaura o header e bottom sheet
     document.querySelector('.header').style.display = '';
     document.querySelector('.bottom-sheet').style.display = '';
+    
+    // Volta para a home
     goToHome();
 }
 
