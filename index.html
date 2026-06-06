@@ -2318,6 +2318,232 @@ function drop(e) {
     showToast('Pergunta reposicionada!', 'success');
 }
 
+// ===== CARREGAR VIA URL (MODO PÚBLICO) =====
+async function checkUrlForForm() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const formId = urlParams.get('form');
+    
+    if (formId) {
+        console.log('🔗 Link público detectado:', formId);
+        
+        document.querySelector('.header').style.display = 'none';
+        document.querySelector('.bottom-sheet').style.display = 'none';
+        
+        document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+        const viewPublic = document.getElementById('view-public');
+        viewPublic.classList.remove('hidden');
+        document.getElementById('public-form-container').innerHTML = '<div class="card" style="text-align:center;padding:40px;">⏳ Carregando formulário...</div>';
+        
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        let form = forms.find(f => f.id === formId);
+        
+        if (!form) {
+            try {
+                const url = `${CONFIG.googleApiUrl}?acao=buscarUm&aba=forms&id=${encodeURIComponent(formId)}`;
+                const response = await fetch(url);
+                const result = await response.json();
+                if (result.status === 'sucesso' && result.dados) {
+                    form = result.dados;
+                    forms.push(form);
+                    saveData();
+                    console.log('✅ Formulário carregado da nuvem!');
+                }
+            } catch(e) {
+                console.error('Erro na busca:', e);
+            }
+        }
+        
+        if (form) {
+            abrirModoPublico(form);
+        } else {
+            document.getElementById('public-form-container').innerHTML = `
+                <div class="card" style="text-align:center;padding:40px;">
+                    <div style="font-size:48px;">🔍</div>
+                    <h3>Formulário não encontrado</h3>
+                    <p style="color:var(--text-muted);margin-bottom:20px;">O formulário que você procura não existe ou foi removido.</p>
+                    <button class="btn btn-primary" onclick="goToHome()">Voltar para início</button>
+                </div>
+            `;
+        }
+    }
+}
+
+function abrirModoPublico(form) {
+    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+    const viewPublic = document.getElementById('view-public');
+    viewPublic.classList.remove('hidden');
+    renderPublicForm(form);
+}
+
+function renderPublicForm(form) {
+    const container = document.getElementById('public-form-container');
+    const f = form.form;
+    
+    container.innerHTML = `
+        <div class="card" style="padding: 24px;">
+            ${f.banner ? `<div class="banner-preview" style="margin-bottom: 20px;"><img src="${f.banner}" style="width:100%; border-radius: 12px;"></div>` : ''}
+            <h2 style="font-size: 24px; margin-bottom: 8px;">${escapeHtml(f.title || form.name)}</h2>
+            ${f.subtitle ? `<p style="color: var(--text-muted); margin-bottom: 16px;">${escapeHtml(f.subtitle)}</p>` : ''}
+            ${f.description ? `<div style="margin-bottom: 24px; color: var(--text-muted);">${escapeHtml(f.description)}</div>` : ''}
+            <form id="public-form" onsubmit="return false;">
+                <div id="public-questions-container"></div>
+                <button type="button" class="btn btn-primary" onclick="submitPublicForm('${form.id}')" style="width: 100%; justify-content: center; margin-top: 24px;">📤 Enviar resposta</button>
+            </form>
+            ${f.footer ? `<div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--text-muted);">${escapeHtml(f.footer)}</div>` : ''}
+        </div>
+    `;
+    
+    setupPublicFormConditions(form);
+}
+
+function setupPublicFormConditions(form) {
+    function updateVisibility() {
+        const answers = {};
+        const formEl = document.getElementById('public-form');
+        if (!formEl) return;
+        
+        formEl.querySelectorAll('input, select, textarea').forEach(inp => {
+            if (inp.name && inp.name.startsWith('pub_')) {
+                const qid = inp.name.replace('pub_', '');
+                if (inp.type === 'radio' && inp.checked) answers[qid] = inp.value;
+                else if (inp.type === 'checkbox') {
+                    if (!answers[qid]) answers[qid] = [];
+                    if (inp.checked) answers[qid].push(inp.value);
+                } else if (inp.type !== 'radio') {
+                    answers[qid] = inp.value;
+                }
+            }
+        });
+        
+        const container = document.getElementById('public-questions-container');
+        if (!container) return;
+        
+        const visibleQuestions = form.form.questions.filter(q => {
+            if (!q.condition?.dependsOn) return true;
+            const depValue = answers[q.condition.dependsOn];
+            if (!depValue) return false;
+            if (Array.isArray(depValue)) return depValue.includes(q.condition.expectedValue);
+            return String(depValue) === String(q.condition.expectedValue);
+        });
+        
+        container.innerHTML = visibleQuestions.map(q => `
+            <div class="form-group" data-pub-qid="${q.id}" style="margin-bottom: 20px;">
+                <label class="label" style="font-weight: 600; margin-bottom: 8px; display: block;">
+                    ${escapeHtml(q.title)}${q.required ? '<span style="color: var(--error); margin-left: 4px;">*</span>' : ''}
+                </label>
+                ${renderPublicInput(q)}
+            </div>
+        `).join('');
+        
+        formEl.querySelectorAll('input, select, textarea').forEach(inp => {
+            inp.removeEventListener('change', updateVisibility);
+            inp.addEventListener('change', updateVisibility);
+            inp.removeEventListener('input', updateVisibility);
+            inp.addEventListener('input', updateVisibility);
+        });
+    }
+    
+    updateVisibility();
+}
+
+function renderPublicInput(q) {
+    const name = `pub_${q.id}`;
+    switch (q.type) {
+        case 'text': return `<input type="text" class="input" name="${name}" style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'email': return `<input type="email" class="input" name="${name}" style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'number': return `<input type="number" class="input" name="${name}" style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'textarea': return `<textarea class="textarea" name="${name}" style="width:100%; padding: 14px; font-size: 16px; min-height: 100px;"></textarea>`;
+        case 'radio': return `<div class="radio-group">${q.options.map(opt => `<label class="radio-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;"><input type="radio" name="${name}" value="${escapeHtml(opt)}"> <span>${escapeHtml(opt)}</span></label>`).join('')}</div>`;
+        case 'checkbox': return `<div class="checkbox-group">${q.options.map(opt => `<label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;"><input type="checkbox" name="${name}" value="${escapeHtml(opt)}"> <span>${escapeHtml(opt)}</span></label>`).join('')}</div>`;
+        case 'select': return `<select class="select" name="${name}" style="width:100%; padding: 14px;"><option value="">Selecione...</option>${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}</select>`;
+        case 'scale': return `<div style="display: flex; gap: 8px; flex-wrap: wrap;">${[1,2,3,4,5].map(n => `<label style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer;"><input type="radio" name="${name}" value="${n}" style="display: none;"> ${n}</label>`).join('')}</div>`;
+        case 'date': return `<input type="date" class="input" name="${name}" style="width:100%; padding: 14px;">`;
+        case 'time': return `<input type="time" class="input" name="${name}" style="width:100%; padding: 14px;">`;
+        default: return `<input type="text" class="input" name="${name}" style="width:100%; padding: 14px;">`;
+    }
+}
+
+async function submitPublicForm(formId) {
+    const form = forms.find(f => f.id === formId);
+    if (!form) return;
+    
+    const formEl = document.getElementById('public-form');
+    if (!formEl) return;
+    
+    const fd = new FormData(formEl);
+    const response = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
+    let hasError = false;
+    
+    const visibleQuestions = [];
+    const container = document.getElementById('public-questions-container');
+    if (container) {
+        const visibleQids = Array.from(container.querySelectorAll('[data-pub-qid]')).map(el => el.getAttribute('data-pub-qid'));
+        for (const q of form.form.questions) {
+            if (visibleQids.includes(q.id) || !q.condition?.dependsOn) {
+                visibleQuestions.push(q);
+            }
+        }
+    } else {
+        visibleQuestions.push(...form.form.questions);
+    }
+    
+    for (const q of visibleQuestions) {
+        const name = `pub_${q.id}`;
+        let val = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
+        
+        if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
+            showToast(`Por favor, responda: ${q.title}`, 'error');
+            hasError = true;
+            break;
+        }
+        response.data[q.id] = val || '';
+    }
+    
+    if (!hasError) {
+        if (!form.responses) form.responses = [];
+        form.responses.push(response);
+        saveData();
+        await salvarNaNuvem('forms', form.id, form);
+        showThankYouScreen(formId);
+        createConfetti();
+    }
+}
+
+function showThankYouScreen(formId) {
+    const container = document.getElementById('public-form-container');
+    const thankyou = document.getElementById('thankyou-screen');
+    const formContainer = container.querySelector('.card');
+    
+    if (formContainer) {
+        formContainer.style.display = 'none';
+    }
+    
+    thankyou.setAttribute('data-form-id', formId);
+    thankyou.style.display = 'flex';
+    container.appendChild(thankyou);
+}
+
+function resetPublicForm() {
+    const thankyou = document.getElementById('thankyou-screen');
+    const formId = thankyou.getAttribute('data-form-id');
+    const form = forms.find(f => f.id === formId);
+    
+    if (form) {
+        thankyou.style.display = 'none';
+        const container = document.getElementById('public-form-container');
+        const oldCard = container.querySelector('.card');
+        if (oldCard) oldCard.remove();
+        renderPublicForm(form);
+    }
+}
+
+function closePublicForm() {
+    document.querySelector('.header').style.display = '';
+    document.querySelector('.bottom-sheet').style.display = '';
+    goToHome();
+}
+
 // ===== INICIALIZAR =====
 const urlHasForm = new URLSearchParams(window.location.search).get('form');
 if (urlHasForm) {
