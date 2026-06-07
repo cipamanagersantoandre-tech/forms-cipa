@@ -989,9 +989,27 @@ async function buscarTudoDaNuvemSilencioso() {
     }
 }
 
-function renderFormsList() {
+async function renderFormsList() {
     const container = document.getElementById('forms-list');
     if (!container) return;
+    
+    // Mostrar loading
+    container.innerHTML = '<div class="loading" style="text-align:center;padding:40px;">⏳ Carregando respostas...</div>';
+    
+    // Para cada formulário, buscar o número atualizado de respostas da planilha
+    for (const form of forms) {
+        try {
+            console.log(`📊 Buscando respostas para: ${form.name}`);
+            const respostas = await carregarRespostasDaNuvem(form.name);
+            form.responses = respostas;
+            console.log(`✅ ${form.name}: ${respostas ? respostas.length : 0} respostas`);
+        } catch(e) {
+            console.error('Erro ao buscar respostas para', form.name, e);
+            form.responses = form.responses || [];
+        }
+    }
+    saveData();
+    
     if (forms.length === 0) {
         container.innerHTML = `
             <div class="empty-state card">
@@ -1000,38 +1018,37 @@ function renderFormsList() {
             </div>`;
         return;
     }
-    container.innerHTML = `<div class="forms-grid">${
-        forms.map(form => `
-            <div class="card form-card">
-                <div class="form-card-header">
-                    <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
-                        ${form.responses ? form.responses.length : 0} respostas
-                    </span>
-                    <div style="display:flex;gap:4px;">
-                        <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
-                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
-                    </div>
-                </div>
-                <div onclick="openFormEditor('${form.id}')">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                        <div style="width:16px;height:16px;border-radius:50%;background:${form.form?.theme?.primary || '#4f46e5'};border:1px solid var(--border);"></div>
-                        <h3 class="form-card-title">${escapeHtml(form.name)}</h3>
-                    </div>
-                    <p style="color:var(--text-muted);font-size:13px;">${new Date(form.createdAt).toLocaleDateString()}</p>
-                    <div class="form-card-stats">
-                        <span>📝 ${form.form?.questions?.length || 0}</span>
-                        <span>📊 ${form.responses ? form.responses.length : 0}</span>
-                    </div>
-                </div>
-                <div class="form-card-actions">
-                    <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
-                    <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
-                    <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
-                    <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
+    
+    container.innerHTML = `<div class="forms-grid">${forms.map(form => `
+        <div class="card form-card">
+            <div class="form-card-header">
+                <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
+                    ${form.responses ? form.responses.length : 0} respostas
+                </span>
+                <div style="display:flex;gap:4px;">
+                    <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
                 </div>
             </div>
-        `).join('')
-    }</div>`;
+            <div onclick="openFormEditor('${form.id}')">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <div style="width:16px;height:16px;border-radius:50%;background:${form.form?.theme?.primary || '#4f46e5'};border:1px solid var(--border);"></div>
+                    <h3 class="form-card-title">${escapeHtml(form.name)}</h3>
+                </div>
+                <p style="color:var(--text-muted);font-size:13px;">${new Date(form.createdAt).toLocaleDateString()}</p>
+                <div class="form-card-stats">
+                    <span>📝 ${form.form?.questions?.length || 0}</span>
+                    <span>📊 ${form.responses ? form.responses.length : 0}</span>
+                </div>
+            </div>
+            <div class="form-card-actions">
+                <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
+                <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
+                <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
+                <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
+            </div>
+        </div>
+    `).join('')}</div>`;
 }
 
 function openFormEditor(formId) {
@@ -2376,6 +2393,15 @@ async function buscarTudoDaNuvem() {
             }
             
             saveData();
+            
+            // IMPORTANTE: Recarregar respostas após buscar formulários
+            atualizarProgresso(70, 'Carregando respostas...');
+            for (const form of forms) {
+                const respostas = await carregarRespostasDaNuvem(form.name);
+                form.responses = respostas;
+            }
+            saveData();
+            
             renderFormsList();
             
             atualizarProgresso(100, `✅ ${importados} importados, ${atualizados} atualizados, ${idsParaRemover.length} removidos`);
