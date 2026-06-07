@@ -2277,6 +2277,32 @@ function drop(e) {
     showToast('Pergunta reposicionada!', 'success');
 }
 
+// ===== BARRA DE PROGRESSO =====
+function mostrarProgresso(titulo) {
+    const container = document.getElementById('progress-container');
+    if (!container) return;
+    document.getElementById('progress-title').textContent = titulo;
+    document.getElementById('progress-percent').textContent = '0%';
+    document.getElementById('progress-bar-fill').style.width = '0%';
+    document.getElementById('progress-status').textContent = 'Preparando...';
+    container.classList.add('visible');
+    return true;
+}
+
+function atualizarProgresso(percentual, status) {
+    const percentEl = document.getElementById('progress-percent');
+    const barEl = document.getElementById('progress-bar-fill');
+    const statusEl = document.getElementById('progress-status');
+    if (percentEl) percentEl.textContent = `${percentual}%`;
+    if (barEl) barEl.style.width = `${percentual}%`;
+    if (status && statusEl) statusEl.textContent = status;
+}
+
+function fecharProgresso() {
+    const container = document.getElementById('progress-container');
+    if (container) container.classList.remove('visible');
+}
+
 // ===== SINCRONIZAR TUDO =====
 async function sincronizarTudoParaNuvem() {
     const btn = event.currentTarget;
