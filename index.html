@@ -912,15 +912,18 @@ async function carregarRespostasDaNuvem(nomeFormulario) {
     try {
         const url = `${CONFIG.googleApiUrl}?acao=carregarRespostas&nomeFormulario=${encodeURIComponent(nomeFormulario)}`;
         console.log('📥 Buscando respostas da aba:', nomeFormulario);
+        console.log('🔗 URL:', url);
         
         const response = await fetch(url);
         const result = await response.json();
-        console.log('✅ Respostas carregadas:', result);
+        console.log('📦 RESPOSTA COMPLETA DO SHEETS:', JSON.stringify(result, null, 2));
         
         if (result.status === 'sucesso' && result.dados) {
-            // result.dados já deve ser um array de respostas
+            console.log(`✅ Encontradas ${result.dados.length} respostas`);
+            console.log('📊 Primeira resposta:', result.dados[0]);
             return result.dados;
         }
+        console.log('⚠️ Nenhuma resposta encontrada ou status diferente de sucesso');
         return [];
     } catch (e) {
         console.error('❌ Erro ao carregar respostas:', e);
@@ -1794,7 +1797,10 @@ function renderResponsesDashboard() {
     
     const responses = formData.responses || [];
     
-    console.log('📊 Renderizando respostas:', responses);
+    console.log('📊 RENDERIZANDO RESPOSTAS:');
+    console.log('Total de respostas:', responses.length);
+    console.log('Estrutura da primeira resposta:', responses[0]);
+    console.log('Perguntas do formulário:', formData.form.questions);
     
     if (responses.length === 0) {
         container.innerHTML = `
@@ -1805,11 +1811,14 @@ function renderResponsesDashboard() {
         return;
     }
     
-    // Ordenar respostas da mais recente para a mais antiga
     const sorted = [...responses].reverse();
     const perguntas = formData.form.questions || [];
     
-    // Montar a tabela
+    // Verificar se as respostas têm a estrutura correta
+    const primeiraResposta = responses[0];
+    console.log('Chaves da primeira resposta:', Object.keys(primeiraResposta));
+    console.log('Dados da primeira resposta:', primeiraResposta.data);
+    
     let tabelaHtml = `
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -1828,7 +1837,6 @@ function renderResponsesDashboard() {
                     <tbody>
     `;
     
-    // Adicionar linhas das respostas
     sorted.forEach((resposta, idx) => {
         const data = new Date(resposta.timestamp);
         const dataFormatada = `${data.toLocaleDateString()} ${data.toLocaleTimeString()}`;
@@ -1838,9 +1846,20 @@ function renderResponsesDashboard() {
             <tr style="border-bottom: 1px solid var(--border);">
                 <td style="padding: 12px;">${escapeHtml(dataFormatada)}</td>
                 ${perguntas.map(q => {
-                    let valor = resposta.data[q.id];
+                    // Tenta buscar a resposta pelo ID da pergunta
+                    let valor = resposta.data ? resposta.data[q.id] : null;
+                    
+                    // Se não encontrar, tenta buscar pela posição
+                    if (!valor) {
+                        const posicao = perguntas.findIndex(p => p.id === q.id);
+                        valor = resposta.data ? resposta.data[`col_${posicao + 1}`] : null;
+                    }
+                    
                     if (!valor) valor = '-';
                     if (Array.isArray(valor)) valor = valor.join(', ');
+                    
+                    console.log(`Resposta para "${q.title}":`, valor);
+                    
                     return `<td style="padding: 12px;">${escapeHtml(String(valor))}</td>`;
                 }).join('')}
                 <td style="padding: 12px; text-align: center;">
@@ -1859,6 +1878,7 @@ function renderResponsesDashboard() {
     
     container.innerHTML = tabelaHtml;
 }
+
 function detectNameQuestion(questions) {
     const kw = ['nome', 'name', 'respondente', 'cliente', 'pessoa'];
     for (const q of questions) {
