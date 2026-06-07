@@ -747,6 +747,32 @@ body {
 </div>
 
 <script>
+
+// ==================== DEBUG ====================
+async function debugRespostas() {
+    const formData = getCurrentForm();
+    if (!formData) {
+        console.log('Nenhum formulário selecionado');
+        return;
+    }
+    
+    console.log('=== DEBUG RESPOSTAS ===');
+    console.log('Formulário:', formData.name);
+    console.log('Buscando respostas da nuvem...');
+    
+    const respostas = await carregarRespostasDaNuvem(formData.name);
+    console.log('Respostas recebidas:', respostas);
+    console.log('Tipo:', typeof respostas);
+    console.log('Array?', Array.isArray(respostas));
+    
+    if (respostas && respostas.length > 0) {
+        console.log('Primeira resposta:', JSON.stringify(respostas[0], null, 2));
+        console.log('Chaves da resposta:', Object.keys(respostas[0]));
+    }
+    
+    alert('Verifique o console (F12) para os detalhes');
+}
+
 // ==================== ESTADO ====================
 const STORAGE_KEY = 'formcraft_v1';
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz9WtuMVBlqzqFeI9pGBB0OJoltqbEM_7VXRZcol-BbRJVuUpQSJ_XC5u6VMX9B10b-ig/exec';
@@ -1799,14 +1825,13 @@ function renderResponsesDashboard() {
     
     console.log('📊 RENDERIZANDO RESPOSTAS:');
     console.log('Total de respostas:', responses.length);
-    console.log('Estrutura da primeira resposta:', responses[0]);
-    console.log('Perguntas do formulário:', formData.form.questions);
     
     if (responses.length === 0) {
         container.innerHTML = `
             <div class="empty-responses card">
                 <p>📭 Nenhuma resposta</p>
                 <button class="btn btn-primary" style="margin-top:16px;" onclick="shareFormLink('${formData.id}')">🔗 Compartilhar</button>
+                <button class="btn btn-secondary" style="margin-top:16px; margin-left:8px;" onclick="debugRespostas()">🐛 Debug</button>
             </div>`;
         return;
     }
@@ -1814,16 +1839,14 @@ function renderResponsesDashboard() {
     const sorted = [...responses].reverse();
     const perguntas = formData.form.questions || [];
     
-    // Verificar se as respostas têm a estrutura correta
-    const primeiraResposta = responses[0];
-    console.log('Chaves da primeira resposta:', Object.keys(primeiraResposta));
-    console.log('Dados da primeira resposta:', primeiraResposta.data);
-    
     let tabelaHtml = `
         <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
                 <h3>📋 Respostas (${responses.length})</h3>
-                <button class="btn btn-sm btn-danger" onclick="clearCurrentResponses()">🗑️ Limpar todas</button>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn btn-sm" onclick="debugRespostas()">🐛 Debug</button>
+                    <button class="btn btn-sm btn-danger" onclick="clearCurrentResponses()">🗑️ Limpar todas</button>
+                </div>
             </div>
             <div style="overflow-x: auto;">
                 <table class="table" style="width:100%; border-collapse: collapse;">
@@ -1842,28 +1865,25 @@ function renderResponsesDashboard() {
         const dataFormatada = `${data.toLocaleDateString()} ${data.toLocaleTimeString()}`;
         const originalIndex = responses.length - 1 - idx;
         
+        // Extrair valores das respostas
+        const valores = perguntas.map(q => {
+            let valor = resposta.data ? resposta.data[q.id] : null;
+            if (!valor && resposta.data) {
+                // Tentar encontrar pelo índice
+                const pos = perguntas.findIndex(p => p.id === q.id);
+                valor = resposta.data[`col_${pos + 1}`];
+            }
+            if (!valor) valor = '-';
+            if (Array.isArray(valor)) valor = valor.join(', ');
+            return String(valor);
+        });
+        
         tabelaHtml += `
-            <tr style="border-bottom: 1px solid var(--border);">
+            <tr style="border-bottom: 1px solid var(--border); cursor: pointer;" onclick="showResponseDetail(${originalIndex})">
                 <td style="padding: 12px;">${escapeHtml(dataFormatada)}</td>
-                ${perguntas.map(q => {
-                    // Tenta buscar a resposta pelo ID da pergunta
-                    let valor = resposta.data ? resposta.data[q.id] : null;
-                    
-                    // Se não encontrar, tenta buscar pela posição
-                    if (!valor) {
-                        const posicao = perguntas.findIndex(p => p.id === q.id);
-                        valor = resposta.data ? resposta.data[`col_${posicao + 1}`] : null;
-                    }
-                    
-                    if (!valor) valor = '-';
-                    if (Array.isArray(valor)) valor = valor.join(', ');
-                    
-                    console.log(`Resposta para "${q.title}":`, valor);
-                    
-                    return `<td style="padding: 12px;">${escapeHtml(String(valor))}</td>`;
-                }).join('')}
+                ${valores.map(val => `<td style="padding: 12px;">${escapeHtml(val.substring(0, 50))}${val.length > 50 ? '...' : ''}</td>`).join('')}
                 <td style="padding: 12px; text-align: center;">
-                    <button class="btn btn-sm btn-danger" onclick="deleteSingleResponse(${originalIndex})" style="padding: 4px 8px;">🗑️ Excluir</button>
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteSingleResponse(${originalIndex})" style="padding: 4px 8px;">🗑️ Excluir</button>
                 </td>
             </tr>
         `;
@@ -1872,6 +1892,9 @@ function renderResponsesDashboard() {
     tabelaHtml += `
                     </tbody>
                 </table>
+            </div>
+            <div style="margin-top: 16px; font-size: 12px; color: var(--text-muted); text-align: center;">
+                💡 Clique em qualquer linha para ver os detalhes completos da resposta
             </div>
         </div>
     `;
@@ -1954,32 +1977,47 @@ function showResponseDetail(idx) {
     if (!formData) return;
     const r = formData.responses[idx];
     if (!r) return;
+    
     const date = new Date(r.timestamp);
-    let name = 'Respondente';
-    const nameQ = detectNameQuestion(formData.form.questions);
-    if (nameQ && r.data[nameQ.id]) name = r.data[nameQ.id];
     let html = `
-        <div style="background:var(--bg-elev-2);padding:12px;border-radius:10px;margin-bottom:20px;">
-            <div><strong>👤 ${escapeHtml(name)}</strong></div>
-            <div>📅 ${date.toLocaleDateString()} às ${date.toLocaleTimeString()}</div>
-            <button class="btn btn-sm btn-danger" style="margin-top:12px;" onclick="deleteSingleResponse(${idx}); closeModal();">🗑️ Excluir</button>
+        <div style="background:var(--bg-elev-2);padding:16px;border-radius:12px;margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <strong>📅 Data/Hora:</strong> ${date.toLocaleDateString()} às ${date.toLocaleTimeString()}
+                </div>
+                <button class="btn btn-sm btn-danger" onclick="deleteSingleResponse(${idx}); closeModal();">🗑️ Excluir resposta</button>
+            </div>
         </div>
+        <div style="max-height: 60vh; overflow-y: auto;">
     `;
+    
     for (const q of formData.form.questions) {
-        const a = r.data[q.id];
+        let a = r.data ? r.data[q.id] : null;
+        if (!a) {
+            const pos = formData.form.questions.findIndex(p => p.id === q.id);
+            a = r.data ? r.data[`col_${pos + 1}`] : null;
+        }
+        
         let display = '-';
         if (a) {
             if (Array.isArray(a)) display = a.join(', ');
             else if (typeof a === 'string') display = a;
             else display = String(a);
         }
+        
         html += `
             <div class="response-detail-item">
-                <div class="response-detail-question">${escapeHtml(q.title)}${q.required ? '<span style="color:var(--error);">*</span>' : ''}</div>
-                <div class="response-detail-answer">${escapeHtml(display)}</div>
+                <div class="response-detail-question">
+                    ${escapeHtml(q.title)}${q.required ? '<span style="color:var(--error);">*</span>' : ''}
+                </div>
+                <div class="response-detail-answer" style="white-space: pre-wrap; word-break: break-word;">
+                    ${escapeHtml(display)}
+                </div>
             </div>
         `;
     }
+    
+    html += `</div>`;
     document.getElementById('response-detail-content').innerHTML = html;
     document.getElementById('response-detail-modal').classList.add('active');
 }
