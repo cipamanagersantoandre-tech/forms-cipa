@@ -405,62 +405,80 @@ function aplicarCondicoes(form) {
   atualizarVisibilidade();
 }
 // ==================== ENVIAR RESPOSTA ====================
+// ==================== ENVIAR RESPOSTA ====================
 async function enviarResposta(formId) {
-    const form = await buscarFormulario(formId);
-    if (!form) {
-        showToast('Erro ao carregar formulário', 'error');
-        return;
-    }
+    const btn = event.currentTarget;
+    const textoOriginal = btn.innerHTML;
     
-    const formEl = document.getElementById('resposta-form');
-    const fd = new FormData(formEl);
-    const resposta = { 
-        id: generateId(), 
-        timestamp: new Date().toISOString(), 
-        data: {} 
-    };
-    let temErro = false;
+    // Desabilita o botão e mostra "Enviando..."
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Enviando...';
     
-    const perguntasVisiveis = [];
-    document.querySelectorAll('.form-group').forEach(div => {
-        if (div.style.display !== 'none') {
-            const qid = div.getAttribute('data-qid');
-            const pergunta = form.form.questions.find(q => q.id === qid);
-            if (pergunta) perguntasVisiveis.push(pergunta);
-        }
-    });
-    
-    for (const q of perguntasVisiveis) {
-        const name = `resp_${q.id}`;
-        let valor = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
-        
-        if (q.required && (!valor || (Array.isArray(valor) && valor.length === 0))) {
-            showToast(`Por favor, responda: ${q.title}`, 'error');
-            temErro = true;
-            break;
+    try {
+        const form = await buscarFormulario(formId);
+        if (!form) {
+            showToast('Erro ao carregar formulário', 'error');
+            return;
         }
         
-        // CORREÇÃO: Salvar usando o ID da pergunta como chave
-        resposta.data[q.id] = valor || '';
+        const formEl = document.getElementById('resposta-form');
+        const fd = new FormData(formEl);
+        const resposta = { 
+            id: generateId(), 
+            timestamp: new Date().toISOString(), 
+            data: {} 
+        };
+        let temErro = false;
         
-        // Também salvar logs para debug
-        console.log(`💾 Salvando resposta para ${q.title} (${q.id}):`, resposta.data[q.id]);
-    }
-    
-    if (!temErro) {
-        console.log('📦 Resposta completa:', resposta);
+        const perguntasVisiveis = [];
+        document.querySelectorAll('.form-group').forEach(div => {
+            if (div.style.display !== 'none') {
+                const qid = div.getAttribute('data-qid');
+                const pergunta = form.form.questions.find(q => q.id === qid);
+                if (pergunta) perguntasVisiveis.push(pergunta);
+            }
+        });
         
-        const sucesso = await salvarResposta(form.id, form.name, form.form.questions, resposta.data);
-        if (sucesso) {
-            // Também salvar localmente no localStorage do formulário público? 
-            // Não é necessário, pois o Sheets já tem os dados
-            mostrarAgradecimento();
-            createConfetti();
+        for (const q of perguntasVisiveis) {
+            const name = `resp_${q.id}`;
+            let valor = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
+            
+            if (q.required && (!valor || (Array.isArray(valor) && valor.length === 0))) {
+                showToast(`Por favor, responda: ${q.title}`, 'error');
+                temErro = true;
+                break;
+            }
+            
+            resposta.data[q.id] = valor || '';
+            console.log(`💾 Salvando resposta para ${q.title} (${q.id}):`, resposta.data[q.id]);
+        }
+        
+        if (!temErro) {
+            console.log('📦 Resposta completa:', resposta);
+            
+            const sucesso = await salvarResposta(form.id, form.name, form.form.questions, resposta.data);
+            if (sucesso) {
+                mostrarAgradecimento();
+                createConfetti();
+            } else {
+                showToast('Erro ao salvar resposta', 'error');
+                // Reabilita o botão em caso de erro
+                btn.disabled = false;
+                btn.innerHTML = textoOriginal;
+            }
         } else {
-            showToast('Erro ao salvar resposta', 'error');
+            // Reabilita o botão em caso de erro de validação
+            btn.disabled = false;
+            btn.innerHTML = textoOriginal;
         }
+    } catch (erro) {
+        console.error('Erro:', erro);
+        showToast('Erro ao enviar resposta', 'error');
+        btn.disabled = false;
+        btn.innerHTML = textoOriginal;
     }
 }
+
 function mostrarAgradecimento() {
   const container = document.getElementById('content');
   container.innerHTML = `
