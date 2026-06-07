@@ -4,6 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Forms CIPA - Criador de Formulários</title>
+/* Spinner para botões */
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.6s linear infinite;
+    margin-right: 6px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
 <style>
 :root {
   --primary: #4f46e5;
@@ -23,6 +45,25 @@
   --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1);
 }
 
+// ==================== FEEDBACK VISUAL ====================
+function mostrarLoadingBotao(botao, texto) {
+    if (!botao) return;
+    botao.disabled = true;
+    const originalHtml = botao.innerHTML;
+    botao.setAttribute('data-original', originalHtml);
+    botao.innerHTML = `<span class="spinner"></span> ${texto}`;
+}
+
+function pararLoadingBotao(botao) {
+    if (!botao) return;
+    botao.disabled = false;
+    const original = botao.getAttribute('data-original');
+    if (original) botao.innerHTML = original;
+}
+
+function mostrarToastInfo(msg) {
+    showToast(msg, 'info');
+}
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f172a;
@@ -586,7 +627,7 @@ body {
 <div class="form-group">
     <label class="label">Template</label>
     <div style="display:grid;grid-template-columns:repeat(1,1fr);gap:8px;">
-        <button class="btn" onclick="createFormWithTemplate('vazio')">📄 Formulário Vazio</button>
+        <button class="btn" onclick="createFormWithTemplate('vazio')" id="btn-criar-form">📄 Formulário Vazio</button>
     </div>
 </div>
   </div>
@@ -800,6 +841,26 @@ function createConfetti() {
             setTimeout(() => c.remove(), 3000);
         }, i * 30);
     }
+}
+
+// ==================== FEEDBACK VISUAL ====================
+function mostrarLoadingBotao(botao, texto) {
+    if (!botao) return;
+    botao.disabled = true;
+    const originalHtml = botao.innerHTML;
+    botao.setAttribute('data-original', originalHtml);
+    botao.innerHTML = `<span class="spinner"></span> ${texto}`;
+}
+
+function pararLoadingBotao(botao) {
+    if (!botao) return;
+    botao.disabled = false;
+    const original = botao.getAttribute('data-original');
+    if (original) botao.innerHTML = original;
+}
+
+function mostrarToastInfo(msg) {
+    showToast(msg, 'info');
 }
 
 function goToHome() {
@@ -1043,59 +1104,65 @@ function openNewFormModal() {
 }
 
 async function createFormWithTemplate(templateType) {
+    const btn = event.currentTarget;
     const name = document.getElementById('new-form-name').value.trim();
-    if (!name) { showToast('Digite um nome', 'error'); return; }
     
-    // Apenas template vazio - sem perguntas pré-definidas
-    let template = { title: name, subtitle: '', questions: [] };
-    
-    const newForm = {
-        id: generateId(),
-        name: name,
-        createdAt: new Date().toISOString(),
-        form: {
-            title: template.title,
-            subtitle: template.subtitle || '',
-            description: template.description || '',
-            banner: '',
-            footer: '',
-            questions: template.questions,
-            theme: { primary: '#4f46e5' },
-            config: { showProgress: true }
-        },
-        responses: []
-    };
-    
-    forms.push(newForm);
-    saveData();
-    
-    const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
-    
-    if (sucesso) {
-        console.log('✅ SUCESSO = true, vou criar a aba para:', name);
-        
-        const cabecalhos = JSON.stringify(['Data/Hora']);
-        const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-        
-        console.log('📡 URL da chamada criarAba:', urlAba);
-        
-        try {
-            const resposta = await fetch(urlAba);
-            const resultado = await resposta.json();
-            console.log('📦 Resposta do criarAba:', resultado);
-            showToast(`"${name}" criado e salvo na nuvem!`, 'success');
-        } catch (erro) {
-            console.error('❌ ERRO ao criar aba:', erro);
-            showToast(`"${name}" criado, mas erro ao criar aba`, 'warning');
-        }
-    } else {
-        console.log('❌ SUCESSO = false, não vou criar a aba');
-        showToast(`"${name}" criado localmente, mas erro na nuvem`, 'warning');
+    if (!name) { 
+        showToast('Digite um nome', 'error'); 
+        return; 
     }
     
-    closeModal();
-    openFormEditor(newForm.id);
-} 
+    mostrarLoadingBotao(btn, 'Criando...');
+    mostrarToastInfo('📝 Criando formulário...');
+    
+    try {
+        let template = { title: name, subtitle: '', questions: [] };
+        
+        const newForm = {
+            id: generateId(),
+            name: name,
+            createdAt: new Date().toISOString(),
+            form: {
+                title: template.title,
+                subtitle: template.subtitle || '',
+                description: template.description || '',
+                banner: '',
+                footer: '',
+                questions: template.questions,
+                theme: { primary: '#4f46e5' },
+                config: { showProgress: true }
+            },
+            responses: []
+        };
+        
+        forms.push(newForm);
+        saveData();
+        
+        const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
+        
+        if (sucesso) {
+            const cabecalhos = JSON.stringify(['Data/Hora']);
+            const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+            
+            try {
+                await fetch(urlAba);
+                showToast(`"${name}" criado e salvo na nuvem!`, 'success');
+            } catch (erro) {
+                showToast(`"${name}" criado, mas erro ao criar aba`, 'warning');
+            }
+        } else {
+            showToast(`"${name}" criado localmente, mas erro na nuvem`, 'warning');
+        }
+        
+        closeModal();
+        openFormEditor(newForm.id);
+    } catch (erro) {
+        console.error(erro);
+        showToast('Erro ao criar formulário', 'error');
+    } finally {
+        pararLoadingBotao(btn);
+    }
+}
 
 function duplicateForm(formId) {
     const original = forms.find(f => f.id === formId);
@@ -2231,12 +2298,17 @@ function drop(e) {
 
 // ===== SINCRONIZAR TUDO =====
 async function sincronizarTudoParaNuvem() {
+    const btn = event.currentTarget;
+    
     if (forms.length === 0) {
         showToast('Nenhum formulário para enviar', 'info');
         return;
     }
     
-    mostrarProgresso('☁️ Enviando para Nuvem...');
+    mostrarLoadingBotao(btn, 'Enviando...');
+    mostrarToastInfo('☁️ Iniciando envio...');
+    
+    if (!mostrarProgresso('☁️ Enviando para Nuvem...')) return;
     atualizarProgresso(0, 'Preparando...');
     
     let enviados = 0;
@@ -2251,21 +2323,25 @@ async function sincronizarTudoParaNuvem() {
     atualizarProgresso(100, `✅ ${enviados} de ${forms.length} enviados!`);
     showToast(`✅ ${enviados} formulários enviados!`, 'success');
     setTimeout(() => fecharProgresso(), 2000);
+    pararLoadingBotao(btn);
 }
 
 // ===== BUSCAR TUDO =====
 async function buscarTudoDaNuvem() {
-    mostrarProgresso('📥 Sincronizando com a Nuvem...');
+    const btn = event.currentTarget;
+    
+    mostrarLoadingBotao(btn, 'Buscando...');
+    mostrarToastInfo('📥 Buscando dados da nuvem...');
+    
+    if (!mostrarProgresso('📥 Sincronizando com a Nuvem...')) return;
     atualizarProgresso(30, 'Conectando...');
     
     try {
         const formsNuvem = await carregarTudoDaNuvem('forms');
         
         if (formsNuvem && formsNuvem.length >= 0) {
-            // 1. Adicionar ou atualizar formulários da nuvem
             const idsNaNuvem = [];
-            let importados = 0;
-            let atualizados = 0;
+            let importados = 0, atualizados = 0;
             
             for (const formCloud of formsNuvem) {
                 idsNaNuvem.push(formCloud.id);
@@ -2275,14 +2351,12 @@ async function buscarTudoDaNuvem() {
                     forms.push(formCloud);
                     importados++;
                 } else {
-                    // Atualiza o local com os dados da nuvem
                     const index = forms.findIndex(f => f.id === formCloud.id);
                     forms[index] = formCloud;
                     atualizados++;
                 }
             }
             
-            // 2. Remover do app os formulários que não existem mais na nuvem
             const idsParaRemover = [];
             for (const formLocal of forms) {
                 if (!idsNaNuvem.includes(formLocal.id)) {
@@ -2292,7 +2366,6 @@ async function buscarTudoDaNuvem() {
             
             for (const id of idsParaRemover) {
                 forms = forms.filter(f => f.id !== id);
-                console.log('🗑️ Removido do app (não existe mais na nuvem):', id);
             }
             
             saveData();
@@ -2310,26 +2383,7 @@ async function buscarTudoDaNuvem() {
         showToast('❌ Erro: ' + erro.message, 'error');
     }
     setTimeout(() => fecharProgresso(), 3000);
-}
-
-// ===== BARRA DE PROGRESSO =====
-function mostrarProgresso(titulo) {
-    const container = document.getElementById('progress-container');
-    document.getElementById('progress-title').textContent = titulo;
-    document.getElementById('progress-percent').textContent = '0%';
-    document.getElementById('progress-bar-fill').style.width = '0%';
-    document.getElementById('progress-status').textContent = 'Preparando...';
-    container.classList.add('visible');
-}
-
-function atualizarProgresso(percentual, status) {
-    document.getElementById('progress-percent').textContent = `${percentual}%`;
-    document.getElementById('progress-bar-fill').style.width = `${percentual}%`;
-    if (status) document.getElementById('progress-status').textContent = status;
-}
-
-function fecharProgresso() {
-    document.getElementById('progress-container').classList.remove('visible');
+    pararLoadingBotao(btn);
 }
 
 // ===== CARREGAR VIA URL =====
@@ -2545,52 +2599,56 @@ async function submitPublicForm(formId) {
     const form = forms.find(f => f.id === formId);
     if (!form) return;
     
-    const formEl = document.getElementById('public-form');
-    if (!formEl) return;
+    const btn = event.currentTarget;
+    mostrarLoadingBotao(btn, 'Enviando...');
+    mostrarToastInfo('📤 Enviando resposta...');
     
-    const fd = new FormData(formEl);
-    const response = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
-    let hasError = false;
-    
-    // Coletar respostas apenas das perguntas visíveis
-    const visibleQuestions = [];
-    const container = document.getElementById('public-questions-container');
-    if (container) {
-        const visibleQids = Array.from(container.querySelectorAll('[data-pub-qid]')).map(el => el.getAttribute('data-pub-qid'));
-        for (const q of form.form.questions) {
-            if (visibleQids.includes(q.id) || !q.condition?.dependsOn) {
-                visibleQuestions.push(q);
+    try {
+        const formEl = document.getElementById('public-form');
+        if (!formEl) return;
+        
+        const fd = new FormData(formEl);
+        const response = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
+        let hasError = false;
+        
+        const visibleQuestions = [];
+        const container = document.getElementById('public-questions-container');
+        if (container) {
+            const visibleQids = Array.from(container.querySelectorAll('[data-pub-qid]')).map(el => el.getAttribute('data-pub-qid'));
+            for (const q of form.form.questions) {
+                if (visibleQids.includes(q.id) || !q.condition?.dependsOn) {
+                    visibleQuestions.push(q);
+                }
             }
+        } else {
+            visibleQuestions.push(...form.form.questions);
         }
-    } else {
-        visibleQuestions.push(...form.form.questions);
-    }
-    
-    for (const q of visibleQuestions) {
-        const name = `pub_${q.id}`;
-        let val = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
         
-        if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
-            showToast(`Por favor, responda: ${q.title}`, 'error');
-            hasError = true;
-            break;
+        for (const q of visibleQuestions) {
+            const name = `pub_${q.id}`;
+            let val = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
+            
+            if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
+                showToast(`Por favor, responda: ${q.title}`, 'error');
+                hasError = true;
+                break;
+            }
+            response.data[q.id] = val || '';
         }
-        response.data[q.id] = val || '';
-    }
-    
-    if (!hasError) {
-        if (!form.responses) form.responses = [];
-        form.responses.push(response);
-        saveData();
         
-        // Salvar na nuvem também
-        await salvarNaNuvem('forms', form.id, form);
-        
-        // Mostrar tela de agradecimento
-        showThankYouScreen(formId);
-        
-        // Confetes
-        createConfetti();
+        if (!hasError) {
+            if (!form.responses) form.responses = [];
+            form.responses.push(response);
+            saveData();
+            await salvarNaNuvem('forms', form.id, form);
+            showThankYouScreen(formId);
+            createConfetti();
+        }
+    } catch (erro) {
+        console.error(erro);
+        showToast('Erro ao enviar resposta', 'error');
+    } finally {
+        pararLoadingBotao(btn);
     }
 }
 
