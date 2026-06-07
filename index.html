@@ -552,7 +552,11 @@ body {
           </div>
           <div class="form-group">
             <label class="label">Banner</label>
-            <input type="file" class="input" id="form-banner" accept="image/*" onchange="handleBannerUpload(event)">
+            <input type="file" class="input" id="form-banner" accept="image/jpeg,image/png,image/webp" onchange="handleBannerUpload(event)">
+<div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+    📷 Formatos: JPG, PNG, WEBP | Tamanho máximo: 500KB<br>
+    🖼️ Recomendado: 1200x675 pixels (proporção 16:9)
+</div>
             <div id="banner-preview" class="banner-preview" style="margin-top: 12px;"></div>
           </div>
           <div class="form-group">
@@ -1315,20 +1319,125 @@ function updateFormNameFromSidebar() {
     }
 }
 
+
+
 function handleBannerUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { showToast('Máximo 2MB', 'error'); return; }
+    
+    // VALIDAÇÕES
+    const tiposPermitidos = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const extensoesPermitidas = ['.jpg', '.jpeg', '.png', '.webp'];
+    const extensao = '.' + file.name.split('.').pop().toLowerCase();
+    const tamanhoMaximo = 500 * 1024; // 500KB
+    
+    // Validar tipo
+    if (!tiposPermitidos.includes(file.type)) {
+        showToast('❌ Formato inválido. Use JPG, PNG ou WEBP', 'error');
+        e.target.value = '';
+        return;
+    }
+    
+    // Validar extensão
+    if (!extensoesPermitidas.includes(extensao)) {
+        showToast('❌ Extensão inválida. Use .jpg, .png ou .webp', 'error');
+        e.target.value = '';
+        return;
+    }
+    
+    // Validar tamanho
+    if (file.size > tamanhoMaximo) {
+        showToast(`❌ Arquivo muito grande. Máximo 500KB (atual: ${(file.size / 1024).toFixed(0)}KB)`, 'error');
+        e.target.value = '';
+        return;
+    }
+    
+    // Validar dimensões da imagem
+    const img = new Image();
     const reader = new FileReader();
-    reader.onload = (ev) => {
-        const formData = getCurrentForm();
-        if (formData) {
-            formData.form.banner = ev.target.result;
-            saveData();
-            renderBannerPreviewFromUrl(formData.form.banner);
-            renderLivePreview();
-        }
+    
+    reader.onload = function(ev) {
+        img.onload = function() {
+            const width = img.width;
+            const height = img.height;
+            const proporcao = (width / height).toFixed(2);
+            const proporcaoIdeal = (16/9).toFixed(2);
+            
+            // Avisos (não bloqueia)
+            if (width < 800 || height < 450) {
+                showToast(`⚠️ Imagem muito pequena (${width}x${height}). Recomendado: 1200x675`, 'warning');
+            } else if (width > 2500 || height > 1400) {
+                showToast(`⚠️ Imagem muito grande (${width}x${height}). Recomendado: 1200x675`, 'warning');
+            } else if (proporcao !== proporcaoIdeal) {
+                showToast(`💡 Dica: Proporção 16:9 (ex: 1200x675) fica melhor`, 'info');
+            }
+            
+            const formData = getCurrentForm();
+            if (formData) {
+                formData.form.banner = ev.target.result;
+                saveData();
+                renderBannerPreviewFromUrl(formData.form.banner);
+                renderLivePreview();
+                showToast('✅ Banner salvo!', 'success');
+            }
+            
+            URL.revokeObjectURL(img.src);
+        };
+        img.src = ev.target.result;
     };
+    
+    reader.readAsDataURL(file);
+}
+    
+    // Validar extensão
+    if (!extensoesPermitidas.includes(extensao)) {
+        showToast('❌ Extensão inválida. Use .jpg, .png ou .webp', 'error');
+        e.target.value = '';
+        return;
+    }
+    
+    // Validar tamanho
+    if (file.size > tamanhoMaximo) {
+        showToast(`❌ Arquivo muito grande. Máximo 500KB (atual: ${(file.size / 1024).toFixed(0)}KB)`, 'error');
+        e.target.value = '';
+        return;
+    }
+    
+    // Validar dimensões da imagem
+    const img = new Image();
+    const reader = new FileReader();
+    
+    reader.onload = function(ev) {
+        img.onload = function() {
+            const width = img.width;
+            const height = img.height;
+            const proporcao = (width / height).toFixed(2);
+            const proporcaoIdeal = (16/9).toFixed(2); // 1.78
+            
+            // Aviso se as dimensões não são ideais (mas não bloqueia)
+            if (width < 800 || height < 450) {
+                showToast(`⚠️ Imagem muito pequena (${width}x${height}). Recomendado: 1200x675`, 'warning');
+            } else if (width > 2500 || height > 1400) {
+                showToast(`⚠️ Imagem muito grande (${width}x${height}). Recomendado: 1200x675`, 'warning');
+            } else if (proporcao !== proporcaoIdeal) {
+                showToast(`💡 Dica: Proporção 16:9 (ex: 1200x675) fica melhor`, 'info');
+            }
+            
+            // Salvar imagem mesmo com avisos
+            const formData = getCurrentForm();
+            if (formData) {
+                formData.form.banner = ev.target.result;
+                saveData();
+                renderBannerPreviewFromUrl(formData.form.banner);
+                renderLivePreview();
+                showToast('✅ Banner salvo!', 'success');
+            }
+            
+            URL.revokeObjectURL(img.src);
+        };
+        img.src = ev.target.result;
+    };
+    
     reader.readAsDataURL(file);
 }
 
@@ -1831,7 +1940,6 @@ function renderResponsesDashboard() {
             <div class="empty-responses card">
                 <p>📭 Nenhuma resposta</p>
                 <button class="btn btn-primary" style="margin-top:16px;" onclick="shareFormLink('${formData.id}')">🔗 Compartilhar</button>
-                <button class="btn btn-secondary" style="margin-top:16px; margin-left:8px;" onclick="debugRespostas()">🐛 Debug</button>
             </div>`;
         return;
     }
@@ -1844,7 +1952,6 @@ function renderResponsesDashboard() {
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
                 <h3>📋 Respostas (${responses.length})</h3>
                 <div style="display:flex; gap:8px;">
-                    <button class="btn btn-sm" onclick="debugRespostas()">🐛 Debug</button>
                     <button class="btn btn-sm btn-danger" onclick="clearCurrentResponses()">🗑️ Limpar todas</button>
                 </div>
             </div>
@@ -2296,20 +2403,15 @@ function copyFormLinkFromQR() {
 
 function shareFormLink(formId) {
     const form = forms.find(f => f.id === formId);
-    // Pega a URL base sem parâmetros
     let baseUrl = window.location.href.split('?')[0].split('#')[0];
-    // Remove 'index.html' se existir
-    baseUrl = baseUrl.replace('index.html', '');
-    // Garante que termina com /
+    baseUrl = baseUrl.replace('index.html', '').replace('form.html', '');
     if (!baseUrl.endsWith('/')) baseUrl = baseUrl + '/';
-    // Monta URL para o form.html com ?id=
-    const url = baseUrl + 'form.html?id=' + formId;
     
-    navigator.clipboard.writeText(url).then(
-        () => showToast(`Link de "${form.name}" copiado! Envie para os respondentes.`, 'success')
-    ).catch(() => showToast(`Link: ${url}`, 'success'));
+    // Mude de 'form.html' para 'index.html' ou deixe vazio
+    const url = baseUrl + '?form=' + formId;  // ← ALTERADO
     
-    console.log('Link gerado:', url);
+    navigator.clipboard.writeText(url);
+    showToast(`Link copiado!`, 'success');
 }
 
 // ==================== ATUALIZAR CABEÇALHO DA ABA ====================
