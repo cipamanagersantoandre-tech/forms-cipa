@@ -1865,18 +1865,32 @@ function renderResponsesDashboard() {
         const dataFormatada = `${data.toLocaleDateString()} ${data.toLocaleTimeString()}`;
         const originalIndex = responses.length - 1 - idx;
         
-        // Extrair valores das respostas
-        const valores = perguntas.map(q => {
-            let valor = resposta.data ? resposta.data[q.id] : null;
-            if (!valor && resposta.data) {
-                // Tentar encontrar pelo índice
-                const pos = perguntas.findIndex(p => p.id === q.id);
-                valor = resposta.data[`col_${pos + 1}`];
+        // Extrair valores das respostas - CORRIGIDO
+const valores = perguntas.map(q => {
+    // Primeiro tenta pelo ID da pergunta
+    let valor = resposta.data ? resposta.data[q.id] : null;
+    
+    // Se não achou, tenta pelo TÍTULO da pergunta (é assim que está salvando)
+    if (!valor && resposta.data) {
+        valor = resposta.data[q.title];
+    }
+    
+    // Se ainda não achou, tenta normalizar (remover espaços, pontuação)
+    if (!valor && resposta.data) {
+        const titleNormalizado = q.title.toLowerCase().replace(/[^\w]/g, '');
+        for (const key in resposta.data) {
+            const keyNormalizado = key.toLowerCase().replace(/[^\w]/g, '');
+            if (keyNormalizado === titleNormalizado) {
+                valor = resposta.data[key];
+                break;
             }
-            if (!valor) valor = '-';
-            if (Array.isArray(valor)) valor = valor.join(', ');
-            return String(valor);
-        });
+        }
+    }
+    
+    if (!valor) valor = '-';
+    if (Array.isArray(valor)) valor = valor.join(', ');
+    return String(valor);
+});
         
         tabelaHtml += `
             <tr style="border-bottom: 1px solid var(--border); cursor: pointer;" onclick="showResponseDetail(${originalIndex})">
@@ -1915,14 +1929,15 @@ function exportCurrentResponses() {
     const formData = getCurrentForm();
     if (!formData || !formData.responses || formData.responses.length === 0) { showToast('Nenhuma resposta', 'error'); return; }
     const headers = ['Data/Hora', ...formData.form.questions.map(q => q.title)];
-    const rows = formData.responses.map(r => [
-        new Date(r.timestamp).toLocaleString(),
-        ...formData.form.questions.map(q => {
-            const v = r.data[q.id];
-            if (Array.isArray(v)) return v.join('; ');
-            return v || '';
-        })
-    ]);
+const rows = formData.responses.map(r => [
+    new Date(r.timestamp).toLocaleString(),
+    ...formData.form.questions.map(q => {
+        // Tenta pelo ID primeiro, depois pelo título
+        let v = r.data[q.id] || r.data[q.title] || '';
+        if (Array.isArray(v)) return v.join('; ');
+        return v || '';
+    })
+]);
     const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -1993,9 +2008,22 @@ function showResponseDetail(idx) {
     
     for (const q of formData.form.questions) {
         let a = r.data ? r.data[q.id] : null;
-        if (!a) {
-            const pos = formData.form.questions.findIndex(p => p.id === q.id);
-            a = r.data ? r.data[`col_${pos + 1}`] : null;
+        
+        // Se não achou pelo ID, tenta pelo título
+        if (!a && r.data) {
+            a = r.data[q.title];
+        }
+        
+        // Se ainda não achou, tenta normalizado
+        if (!a && r.data) {
+            const titleNormalizado = q.title.toLowerCase().replace(/[^\w]/g, '');
+            for (const key in r.data) {
+                const keyNormalizado = key.toLowerCase().replace(/[^\w]/g, '');
+                if (keyNormalizado === titleNormalizado) {
+                    a = r.data[key];
+                    break;
+                }
+            }
         }
         
         let display = '-';
