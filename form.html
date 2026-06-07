@@ -107,6 +107,26 @@ body {
 @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
 .loading { text-align: center; padding: 60px; }
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.6s linear infinite;
+  margin-right: 8px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
 </style>
 </head>
 <body>
@@ -160,6 +180,26 @@ function createConfetti() {
       setTimeout(() => c.remove(), 3000);
     }, i * 30);
   }
+}
+
+// ==================== FEEDBACK VISUAL ====================
+function mostrarLoadingBotao(botao, texto) {
+    if (!botao) return;
+    botao.disabled = true;
+    const originalHtml = botao.innerHTML;
+    botao.setAttribute('data-original', originalHtml);
+    botao.innerHTML = `<span class="spinner"></span> ${texto}`;
+}
+
+function pararLoadingBotao(botao) {
+    if (!botao) return;
+    botao.disabled = false;
+    const original = botao.getAttribute('data-original');
+    if (original) botao.innerHTML = original;
+}
+
+function mostrarToastInfo(msg) {
+    showToast(msg, 'info');
 }
 
 // Adiciona animação de confetti
@@ -360,9 +400,14 @@ function aplicarCondicoes(form) {
 }
 // ==================== ENVIAR RESPOSTA ====================
 async function enviarResposta(formId) {
+  const btn = event.currentTarget;
+  mostrarLoadingBotao(btn, 'Enviando...');
+  mostrarToastInfo('📤 Enviando resposta...');
+  
   const form = await buscarFormulario(formId);
   if (!form) {
     showToast('Erro ao carregar formulário', 'error');
+    pararLoadingBotao(btn);
     return;
   }
   
@@ -401,6 +446,8 @@ async function enviarResposta(formId) {
       showToast('Erro ao salvar resposta', 'error');
     }
   }
+  
+  pararLoadingBotao(btn);
 }
 
 function mostrarAgradecimento() {
@@ -411,8 +458,8 @@ function mostrarAgradecimento() {
       <div class="thankyou-title">Resposta enviada!</div>
       <div class="thankyou-message">Obrigado por participar da nossa pesquisa. Sua opinião é muito importante!</div>
       <div class="thankyou-buttons">
-        <button class="btn" onclick="recarregarFormulario()">📝 Responder novamente</button>
-        <button class="btn btn-primary" onclick="fecharPagina()">✕ Fechar</button>
+  	<button class="btn" onclick="recarregarFormulario()" id="btn-responder-novamente">📝 Responder novamente</button>
+  	<button class="btn btn-primary" onclick="fecharPagina()" id="btn-fechar">✕ Fechar</button>
       </div>
     </div>
   `;
@@ -433,14 +480,19 @@ async function recarregarFormulario() {
 }
 
 function fecharPagina() {
-  window.close();
-  // Se não conseguir fechar, mostra mensagem
-  document.getElementById('content').innerHTML = `
-    <div class="card" style="text-align:center;">
-      <h3>Obrigado!</h3>
-      <p>Você pode fechar esta página.</p>
-    </div>
-  `;
+  const btn = event.currentTarget;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Fechando...';
+  
+  setTimeout(() => {
+    window.close();
+    document.getElementById('content').innerHTML = `
+      <div class="card" style="text-align:center;">
+        <h3>Obrigado!</h3>
+        <p>Você pode fechar esta página.</p>
+      </div>
+    `;
+  }, 300);
 }
 
 // ==================== INICIALIZAR ====================
