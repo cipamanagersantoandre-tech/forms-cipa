@@ -4,28 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Forms CIPA - Criador de Formulários</title>
-/* Spinner para botões */
-.spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-radius: 50%;
-    border-top-color: white;
-    animation: spin 0.6s linear infinite;
-    margin-right: 6px;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-.btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-}
-
 <style>
 :root {
   --primary: #4f46e5;
@@ -45,25 +23,6 @@
   --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1);
 }
 
-// ==================== FEEDBACK VISUAL ====================
-function mostrarLoadingBotao(botao, texto) {
-    if (!botao) return;
-    botao.disabled = true;
-    const originalHtml = botao.innerHTML;
-    botao.setAttribute('data-original', originalHtml);
-    botao.innerHTML = `<span class="spinner"></span> ${texto}`;
-}
-
-function pararLoadingBotao(botao) {
-    if (!botao) return;
-    botao.disabled = false;
-    const original = botao.getAttribute('data-original');
-    if (original) botao.innerHTML = original;
-}
-
-function mostrarToastInfo(msg) {
-    showToast(msg, 'info');
-}
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f172a;
@@ -137,6 +96,28 @@ body {
 .btn-primary:hover { background: var(--primary-hover); }
 .btn-sm { padding: 6px 12px; font-size: 13px; white-space: nowrap; }
 .btn-danger { background: var(--error); color: white; border-color: var(--error); }
+
+/* Spinner para botões */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.6s linear infinite;
+  margin-right: 6px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
 
 .header .btn { background: rgba(255,255,255,0.1); color: white; border-color: rgba(255,255,255,0.2); }
 .header .btn:hover { background: rgba(255,255,255,0.2); border-color: white; }
