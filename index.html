@@ -1361,57 +1361,6 @@ function handleBannerUpload(e) {
             const width = img.width;
             const height = img.height;
             const proporcao = (width / height).toFixed(2);
-            const proporcaoIdeal = (16/9).toFixed(2);
-            
-            // Avisos (não bloqueia)
-            if (width < 800 || height < 450) {
-                showToast(`⚠️ Imagem muito pequena (${width}x${height}). Recomendado: 1200x675`, 'warning');
-            } else if (width > 2500 || height > 1400) {
-                showToast(`⚠️ Imagem muito grande (${width}x${height}). Recomendado: 1200x675`, 'warning');
-            } else if (proporcao !== proporcaoIdeal) {
-                showToast(`💡 Dica: Proporção 16:9 (ex: 1200x675) fica melhor`, 'info');
-            }
-            
-            const formData = getCurrentForm();
-            if (formData) {
-                formData.form.banner = ev.target.result;
-                saveData();
-                renderBannerPreviewFromUrl(formData.form.banner);
-                renderLivePreview();
-                showToast('✅ Banner salvo!', 'success');
-            }
-            
-            URL.revokeObjectURL(img.src);
-        };
-        img.src = ev.target.result;
-    };
-    
-    reader.readAsDataURL(file);
-}
-    
-    // Validar extensão
-    if (!extensoesPermitidas.includes(extensao)) {
-        showToast('❌ Extensão inválida. Use .jpg, .png ou .webp', 'error');
-        e.target.value = '';
-        return;
-    }
-    
-    // Validar tamanho
-    if (file.size > tamanhoMaximo) {
-        showToast(`❌ Arquivo muito grande. Máximo 500KB (atual: ${(file.size / 1024).toFixed(0)}KB)`, 'error');
-        e.target.value = '';
-        return;
-    }
-    
-    // Validar dimensões da imagem
-    const img = new Image();
-    const reader = new FileReader();
-    
-    reader.onload = function(ev) {
-        img.onload = function() {
-            const width = img.width;
-            const height = img.height;
-            const proporcao = (width / height).toFixed(2);
             const proporcaoIdeal = (16/9).toFixed(2); // 1.78
             
             // Aviso se as dimensões não são ideais (mas não bloqueia)
