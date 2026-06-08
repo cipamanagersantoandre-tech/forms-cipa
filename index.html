@@ -449,15 +449,19 @@ body {
 <div class="header">
   <div class="container">
     <div class="header-inner">
-      <div class="logo" onclick="goToHome()">📋 Forms CIPA</div>
-      <nav class="nav">
-        <button class="btn btn-sm" onclick="goToHome()">🏠 Início</button>
-        <button class="btn btn-sm btn-primary" onclick="openNewFormModal()">➕ Novo</button>
-        <button class="btn btn-sm" onclick="openExportModal()">📦 Exportar</button>
-        <button class="btn btn-sm" onclick="openImportModal()">📂 Importar</button>
-        <button class="btn btn-sm" onclick="sincronizarTudoParaNuvem()">☁️ Enviar Tudo</button>
-        <button class="btn btn-sm btn-primary" onclick="buscarTudoDaNuvem()">📥 Buscar Tudo</button>
-      </nav>
+<div style="display: flex; flex-direction: column;">
+  <div class="logo" onclick="goToHome()">📋 Forms CIPA</div>
+  <span id="header-subtitle" style="font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 2px;"></span>
+</div>
+<nav class="nav">
+  <button class="btn btn-sm" onclick="abrirModalConfigApp()" title="Configurações">⚙️</button>
+  <button class="btn btn-sm" onclick="goToHome()">🏠 Início</button>
+  <button class="btn btn-sm btn-primary" onclick="openNewFormModal()">➕ Novo</button>
+  <button class="btn btn-sm" onclick="openExportModal()">📦 Exportar</button>
+  <button class="btn btn-sm" onclick="openImportModal()">📂 Importar</button>
+  <button class="btn btn-sm" onclick="sincronizarTudoParaNuvem()">☁️ Enviar Tudo</button>
+  <button class="btn btn-sm btn-primary" onclick="buscarTudoDaNuvem()">📥 Buscar Tudo</button>
+</nav>
     </div>
   </div>
 </div>
@@ -472,15 +476,27 @@ body {
     </div>
 </div>
     <div id="view-home" class="view">
-      <div style="text-align: center; padding: 48px 0;">
-        <h1 style="font-size: 32px; margin-bottom: 16px;">Seus formulários</h1>
-        <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 24px;">
-          Crie formulários com perguntas condicionadas, gráficos e muito mais.
-        </p>
-        <button class="btn btn-primary" onclick="openNewFormModal()">➕ Criar novo</button>
-      </div>
-      <div id="forms-list"></div>
+  <!-- Banner do App -->
+  <div id="app-banner-container" style="width: 100%; margin-bottom: 24px; display: none;">
+    <img id="app-banner-img" src="" style="width: 100%; border-radius: 12px; max-height: 150px; object-fit: cover;">
+  </div>
+  
+  <div style="text-align: center; padding: 48px 0;">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 12px;">
+      <h1 id="app-title-display" style="font-size: 32px; margin-bottom: 0;">Seus formulários</h1>
+      <button class="btn btn-sm" onclick="mostrarDescricaoApp()" title="Sobre o App" style="border-radius: 50%; width: 36px; height: 36px; padding: 0;">ℹ️</button>
     </div>
+    <p id="app-subtitle-display" style="color: var(--text-muted); max-width: 500px; margin: 16px auto 16px;">
+      Crie formulários com perguntas condicionadas, gráficos e muito mais.
+    </p>
+    <p id="app-desc-display" style="color: var(--text-muted); max-width: 500px; margin: 0 auto 24px; font-size: 14px; display: none;"></p>
+    <button class="btn btn-primary" onclick="openNewFormModal()">➕ Criar novo</button>
+  </div>
+  <div id="forms-list"></div>
+  
+  <!-- Rodapé com informações do responsável -->
+  <div id="app-footer" style="margin-top: 48px; padding: 24px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--text-muted); display: none;"></div>
+</div>
 
     <!-- EDITOR -->
     <div id="view-editor" class="view hidden">
@@ -548,13 +564,13 @@ body {
   </div>
 </div>
           <div class="form-group">
-            <label class="label">Subtítulo</label>
-            <input type="text" class="input" id="form-subtitle" oninput="updateCurrentFormMeta()">
-          </div>
+  <label class="label">Subtítulo</label>
+  <input type="text" class="input" id="form-subtitle">
+</div>
           <div class="form-group">
-            <label class="label">Descrição</label>
-            <textarea class="textarea" id="form-desc" oninput="updateCurrentFormMeta()"></textarea>
-          </div>
+  <label class="label">Descrição</label>
+  <textarea class="textarea" id="form-desc"></textarea>
+</div>
           <div class="form-group">
             <label class="label">Banner</label>
             <input type="file" class="input" id="form-banner" accept="image/jpeg,image/png,image/webp" onchange="handleBannerUpload(event)">
@@ -565,19 +581,29 @@ body {
             <div id="banner-preview" class="banner-preview" style="margin-top: 12px;"></div>
           </div>
           <div class="form-group">
-            <label class="label">Rodapé</label>
-            <textarea class="textarea" id="form-footer" oninput="updateCurrentFormMeta()"></textarea>
-          </div>
+  <label class="label">Rodapé</label>
+  <textarea class="textarea" id="form-footer"></textarea>
+</div>
+
 <div class="form-group">
   <label class="label">📧 E-mails para notificação (separar por vírgula)</label>
   <input type="text" class="input" id="form-emails" 
-         placeholder="exemplo@email.com, outro@email.com"
-         oninput="updateCurrentFormMeta()">
+         placeholder="exemplo@email.com, outro@email.com">
   <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
     ✉️ Envia um e-mail para cada endereço quando o formulário for respondido.<br>
     💡 Para vários e-mails, separe por vírgula: email1@empresa.com, email2@empresa.com
   </div>
 </div>
+
+<div style="display: flex; gap: 12px; margin-top: 20px; margin-bottom: 20px;">
+  <button type="button" class="btn btn-primary" onclick="salvarConfiguracoesAparencia()" style="flex: 1; justify-content: center;">
+    💾 Salvar alterações
+  </button>
+  <button type="button" class="btn" onclick="recarregarConfiguracoesAparencia()" style="flex: 1; justify-content: center;">
+    🔄 Desfazer
+  </button>
+</div>
+
           <h3 style="margin: 24px 0 16px;">🎨 Cores</h3>
           <div class="color-palette">
             <div class="palette-btn" style="background:#4f46e5" onclick="applyPalette('#4f46e5')"></div>
@@ -609,6 +635,84 @@ body {
       <div id="responses-content"></div>
     </div>
   </div>
+
+<!-- Modal Configurações do App -->
+<div id="config-app-modal" class="modal" onclick="closeModal(event)">
+  <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 500px;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+      <h3>⚙️ Configurações do App</h3>
+      <button class="btn btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    
+    <div class="form-group">
+      <label class="label">📱 Nome do App</label>
+      <input type="text" class="input" id="app-name" placeholder="Forms CIPA">
+    </div>
+    
+    <div class="form-group">
+      <label class="label">📝 Subtítulo do App</label>
+      <input type="text" class="input" id="app-subtitle">
+    </div>
+    
+    <div class="form-group">
+      <label class="label">📄 Descrição do App</label>
+      <textarea class="textarea" id="app-description" rows="2"></textarea>
+    </div>
+    
+<div class="form-group">
+<input type="file" class="input" id="app-banner" accept="image/jpeg,image/png,image/webp" onchange="uploadAppBanner(event)">
+<div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+  📷 Formatos: JPG, PNG, WEBP | Tamanho máximo: 500KB<br>
+  🖼️ Dimensão recomendada: 1200x300 pixels (proporção 4:1)<br>
+  💡 Banner aparece no topo da página inicial
+</div>
+<div id="app-banner-preview" style="margin-top: 12px; max-height: 80px; overflow: hidden; border-radius: 8px; display: none;"></div>
+<button type="button" class="btn btn-sm" onclick="removerBanner()" style="margin-top: 8px; background: #ef4444; color: white; border-color: #ef4444;">🗑️ Remover Banner</button>
+</div>
+    
+    <div class="form-group">
+      <label class="label">🎨 Cor do App</label>
+      <input type="color" class="input" id="app-color" value="#0a3d2e" style="width: 60px; height: 40px;">
+    </div>
+    
+<div class="form-group">
+  <label class="label">🎨 Cor dos Botões</label>
+  <input type="color" class="input" id="app-button-color" value="#4f46e5" style="width: 60px; height: 40px;">
+  <div style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+    <button type="button" class="btn btn-sm" onclick="aplicarCorBotao('#4f46e5')">Roxo</button>
+    <button type="button" class="btn btn-sm" onclick="aplicarCorBotao('#0891b2')">Azul</button>
+    <button type="button" class="btn btn-sm" onclick="aplicarCorBotao('#059669')">Verde</button>
+    <button type="button" class="btn btn-sm" onclick="aplicarCorBotao('#dc2626')">Vermelho</button>
+    <button type="button" class="btn btn-sm" onclick="aplicarCorBotao('#ea580c')">Laranja</button>
+  </div>
+  <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">
+    🎨 Define a cor de todos os botões do app
+  </div>
+</div>
+
+<div class="form-group">
+  <label class="label">👤 Informações do Dono</label>
+  <textarea class="textarea" id="app-owner" rows="3" placeholder="Nome:&#10;E-mail:&#10;Telefone:&#10;Cargo:"></textarea>
+  <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+    🔒 Para editar, digite a senha abaixo
+  </div>
+
+  <div class="form-group" id="owner-password-group">
+    <label class="label">🔐 Senha do Responsável</label>
+    <input type="password" class="input" id="owner-password" placeholder="Digite a senha para alterar">
+    <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+      💡 A senha é gerenciada na aba 'config_app' do Sheets (chave: senha_responsavel)
+    </div>
+  </div>
+</div>
+    
+    <div style="display: flex; gap: 12px; margin-top: 20px;">
+      <button class="btn btn-primary" onclick="salvarConfigApp()" style="flex: 1;">💾 Salvar</button>
+      <button class="btn" onclick="closeModal()" style="flex: 1;">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 </main>
 
 <div class="bottom-sheet">
@@ -1346,73 +1450,55 @@ function updateFormNameFromSidebar() {
 
 
 
-function handleBannerUpload(e) {
+async function handleBannerUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
     
-    // VALIDAÇÕES
     const tiposPermitidos = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    const extensoesPermitidas = ['.jpg', '.jpeg', '.png', '.webp'];
-    const extensao = '.' + file.name.split('.').pop().toLowerCase();
-    const tamanhoMaximo = 500 * 1024; // 500KB
-    
-    // Validar tipo
     if (!tiposPermitidos.includes(file.type)) {
         showToast('❌ Formato inválido. Use JPG, PNG ou WEBP', 'error');
         e.target.value = '';
         return;
     }
     
-    // Validar extensão
-    if (!extensoesPermitidas.includes(extensao)) {
-        showToast('❌ Extensão inválida. Use .jpg, .png ou .webp', 'error');
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('❌ Máximo 2MB', 'error');
         e.target.value = '';
         return;
     }
     
-    // Validar tamanho
-    if (file.size > tamanhoMaximo) {
-        showToast(`❌ Arquivo muito grande. Máximo 500KB (atual: ${(file.size / 1024).toFixed(0)}KB)`, 'error');
-        e.target.value = '';
-        return;
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    // Se já tinha banner, deletar do Drive
+    if (formData.form.banner && formData.form.banner.includes('drive.google.com')) {
+        await deletarBannerDoDrive(formData.form.banner);
     }
     
-    // Validar dimensões da imagem
-    const img = new Image();
-    const reader = new FileReader();
+    mostrarProgresso('📤 Enviando banner para o Drive...');
+    atualizarProgresso(30, 'Fazendo upload...');
     
-    reader.onload = function(ev) {
-        img.onload = function() {
-            const width = img.width;
-            const height = img.height;
-            const proporcao = (width / height).toFixed(2);
-            const proporcaoIdeal = (16/9).toFixed(2); // 1.78
-            
-            // Aviso se as dimensões não são ideais (mas não bloqueia)
-            if (width < 800 || height < 450) {
-                showToast(`⚠️ Imagem muito pequena (${width}x${height}). Recomendado: 1200x675`, 'warning');
-            } else if (width > 2500 || height > 1400) {
-                showToast(`⚠️ Imagem muito grande (${width}x${height}). Recomendado: 1200x675`, 'warning');
-            } else if (proporcao !== proporcaoIdeal) {
-                showToast(`💡 Dica: Proporção 16:9 (ex: 1200x675) fica melhor`, 'info');
-            }
-            
-            // Salvar imagem mesmo com avisos
-            const formData = getCurrentForm();
-            if (formData) {
-                formData.form.banner = ev.target.result;
-                saveData();
-                renderBannerPreviewFromUrl(formData.form.banner);
-                renderLivePreview();
-                showToast('✅ Banner salvo!', 'success');
-            }
-            
-            URL.revokeObjectURL(img.src);
-        };
-        img.src = ev.target.result;
-    };
-    
-    reader.readAsDataURL(file);
+    try {
+        const nomeUnico = `form_${formData.id}`;
+        const linkDrive = await uploadImagemParaDrive(file, nomeUnico);
+        
+        formData.form.banner = linkDrive;
+        saveData();
+        
+        renderBannerPreviewFromUrl(linkDrive);
+        renderLivePreview();
+        
+        await salvarNaNuvem('forms', formData.id, formData);
+        
+        atualizarProgresso(100, '✅ Banner salvo!');
+        setTimeout(() => fecharProgresso(), 1000);
+        showToast('✅ Banner salvo no Google Drive!', 'success');
+        
+    } catch(erro) {
+        console.error(erro);
+        fecharProgresso();
+        showToast('❌ Erro ao salvar banner', 'error');
+    }
 }
 
 function renderBannerPreviewFromUrl(url) {
@@ -1435,6 +1521,60 @@ function updateCurrentFormTheme() {
 function applyPalette(color) {
     document.getElementById('theme-primary').value = color;
     updateCurrentFormTheme();
+}
+
+// ==================== SALVAR CONFIGURAÇÕES DA ABA APARÊNCIA ====================
+async function salvarConfiguracoesAparencia() {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    // Pega os valores atuais dos campos
+    const novoEmail = document.getElementById('form-emails').value;
+    const novoFooter = document.getElementById('form-footer').value;
+    const novaDescricao = document.getElementById('form-desc').value;
+    const novoSubtitulo = document.getElementById('form-subtitle').value;
+    
+    // Atualiza o objeto formData
+    formData.form.emails = novoEmail;
+    formData.form.footer = novoFooter;
+    formData.form.description = novaDescricao;
+    formData.form.subtitle = novoSubtitulo;
+    
+    // Salva localmente
+    saveData();
+    
+    // Mostra loading no botão
+    const btn = event.currentTarget;
+    const textoOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Salvando...';
+    
+    try {
+        // Envia para a nuvem
+        await salvarNaNuvem('forms', formData.id, formData);
+        await atualizarCabecalhoAba(formData.id);
+        
+        showToast('✅ Configurações salvas com sucesso!', 'success');
+    } catch (erro) {
+        console.error('Erro ao salvar:', erro);
+        showToast('❌ Erro ao salvar configurações', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = textoOriginal;
+    }
+}
+
+function recarregarConfiguracoesAparencia() {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    // Recarrega os valores do formData
+    document.getElementById('form-emails').value = formData.form.emails || '';
+    document.getElementById('form-footer').value = formData.form.footer || '';
+    document.getElementById('form-desc').value = formData.form.description || '';
+    document.getElementById('form-subtitle').value = formData.form.subtitle || '';
+    
+    showToast('🔄 Alterações desfeitas', 'info');
 }
 
 // ==================== PERGUNTAS ====================
@@ -2032,11 +2172,34 @@ const rows = formData.responses.map(r => [
 function clearCurrentResponses() {
     const formData = getCurrentForm();
     if (!formData) return;
-    confirmAction('Limpar respostas', `Limpar TODAS as ${formData.responses ? formData.responses.length : 0} respostas?`, () => {
-        formData.responses = [];
-        saveData();
-        renderResponsesDashboard();
-        showToast('Respostas removidas', 'success');
+    
+    const totalRespostas = formData.responses ? formData.responses.length : 0;
+    
+    confirmAction('Limpar respostas', `Limpar TODAS as ${totalRespostas} respostas? Isso também removerá da planilha.`, async () => {
+        mostrarProgresso('🗑️ Excluindo respostas da nuvem...');
+        atualizarProgresso(30, 'Removendo da planilha...');
+        
+        try {
+            // 1. Excluir todas as respostas da planilha (aba do formulário)
+            const urlExcluirTodasLinhas = `${CONFIG.googleApiUrl}?acao=excluirTodasRespostas&nomeFormulario=${encodeURIComponent(formData.name)}`;
+            await fetch(urlExcluirTodasLinhas);
+            
+            // 2. Excluir localmente
+            formData.responses = [];
+            saveData();
+            
+            // 3. Re-renderizar o dashboard
+            renderResponsesDashboard();
+            
+            atualizarProgresso(100, '✅ Respostas removidas!');
+            setTimeout(() => fecharProgresso(), 1500);
+            showToast(`✅ ${totalRespostas} respostas removidas da nuvem!`, 'success');
+            
+        } catch (erro) {
+            console.error('Erro ao excluir respostas:', erro);
+            showToast('❌ Erro ao remover respostas da nuvem', 'error');
+            fecharProgresso();
+        }
     });
 }
 
@@ -2954,6 +3117,31 @@ function closePublicForm() {
     goToHome();
 }
 
+// 🔥 FUNÇÃO NOVA - Carrega o banner do app
+async function carregarBannerApp() {
+    try {
+        const url = `${CONFIG.googleApiUrl}?acao=carregarConfigApp`;
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        if (result.status === 'sucesso' && result.dados) {
+            const config = {};
+            result.dados.forEach(item => { config[item.chave] = item.valor; });
+            
+            if (config.banner_app) {
+                const bannerContainer = document.getElementById('app-banner-container');
+                const bannerImg = document.getElementById('app-banner-img');
+                if (bannerContainer && bannerImg) {
+                    bannerImg.src = config.banner_app;
+                    bannerContainer.style.display = 'block';
+                }
+            }
+        }
+    } catch(e) { 
+        console.error('Erro ao carregar banner:', e); 
+    }
+}
+
 // ===== INICIALIZAR =====
 const urlHasForm = new URLSearchParams(window.location.search).get('form');
 if (urlHasForm) {
@@ -2961,6 +3149,347 @@ if (urlHasForm) {
 } else {
     loadData();
 }
+
+// ==================== CONFIGURAÇÕES DO APP ====================
+
+let appBannerTemp = null;
+
+async function abrirModalConfigApp() {
+    await carregarConfigApp();
+    document.getElementById('config-app-modal').classList.add('active');
+}
+
+async function salvarConfigApp() {
+    const btn = event.currentTarget;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Salvando...';
+    
+    // Pega os valores atuais
+    const novoNome = document.getElementById('app-name').value;
+    const novoSubtitulo = document.getElementById('app-subtitle').value;
+    const novaDescricao = document.getElementById('app-description').value;
+    const novaCorApp = document.getElementById('app-color').value;
+    const novaCorBotoes = document.getElementById('app-button-color').value;
+    const novoDono = document.getElementById('app-owner').value;
+    const senhaDigitada = document.getElementById('owner-password').value;
+    
+    // Verifica se está tentando alterar o responsável
+    const donoAtual = window.configApp?.dono_app || '';
+    const estaAlterandoDono = (novoDono !== donoAtual);
+    
+    // Se está alterando o responsável e a senha está vazia, pede a senha
+    if (estaAlterandoDono && novoDono !== "") {
+        const senhaCorreta = window.configApp?.senha_responsavel || '';
+        
+        if (!senhaDigitada) {
+            showToast('❌ Digite a senha para alterar as informações do responsável!', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '💾 Salvar';
+            return;
+        }
+        
+        if (senhaCorreta && senhaDigitada !== senhaCorreta) {
+            showToast('❌ Senha incorreta! Não foi possível alterar o responsável.', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '💾 Salvar';
+            return;
+        }
+    }
+    
+    const configs = [
+        { chave: 'nome_app', valor: novoNome },
+        { chave: 'subtitulo_app', valor: novoSubtitulo },
+        { chave: 'descricao_app', valor: novaDescricao },
+        { chave: 'banner_app', valor: appBannerTemp || '' },
+        { chave: 'cor_app', valor: novaCorApp },
+        { chave: 'cor_botoes', valor: novaCorBotoes },
+        { chave: 'dono_app', valor: novoDono }
+    ];
+    
+    // Se uma nova senha foi digitada, salva ela também
+    if (senhaDigitada && senhaDigitada.trim() !== "") {
+        configs.push({ chave: 'senha_responsavel', valor: senhaDigitada });
+    }
+    
+    try {
+        for (const item of configs) {
+            const url = `${CONFIG.googleApiUrl}?acao=salvarConfigApp&chave=${encodeURIComponent(item.chave)}&valor=${encodeURIComponent(item.valor)}`;
+            await fetch(url);
+        }
+        showToast('✅ Configurações salvas!', 'success');
+        closeModal();
+        await carregarConfigApp();
+        aplicarConfigApp();
+    } catch(e) {
+        console.error(e);
+        showToast('❌ Erro ao salvar: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '💾 Salvar';
+    }
+}
+
+// Redimensionar imagem
+function redimensionarImagem(base64, maxWidth, maxHeight, callback) {
+    const img = new Image();
+    img.onload = function() {
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+        }
+        if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+        }
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        callback(canvas.toDataURL('image/jpeg', 0.8));
+    };
+    img.src = base64;
+}
+
+async function uploadAppBanner(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const tiposPermitidos = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!tiposPermitidos.includes(file.type)) {
+        showToast('❌ Formato inválido. Use JPG, PNG ou WEBP', 'error');
+        return;
+    }
+    
+    if (file.size > 2 * 1024 * 1024) {
+        showToast('❌ Máximo 2MB', 'error');
+        return;
+    }
+    
+    // Se já tinha banner, deletar do Drive
+    if (appBannerTemp && appBannerTemp.includes('drive.google.com')) {
+        await deletarBannerDoDrive(appBannerTemp);
+    }
+    
+    mostrarProgresso('📤 Enviando banner para o Drive...');
+    atualizarProgresso(30, 'Fazendo upload...');
+    
+    try {
+        const linkDrive = await uploadImagemParaDrive(file, 'app_banner');
+        appBannerTemp = linkDrive;
+        
+        const preview = document.getElementById('app-banner-preview');
+        preview.innerHTML = `<img src="${linkDrive}" style="width:100%; height:80px; object-fit:cover; border-radius:8px;">`;
+        preview.style.display = 'block';
+        
+        atualizarProgresso(100, '✅ Banner carregado!');
+        setTimeout(() => fecharProgresso(), 1000);
+        showToast('✅ Banner carregado para o Drive! Clique em Salvar', 'success');
+        
+    } catch(erro) {
+        console.error(erro);
+        fecharProgresso();
+        showToast('❌ Erro no upload', 'error');
+    }
+}
+
+async function carregarConfigApp() {
+    try {
+        const url = `${CONFIG.googleApiUrl}?acao=carregarConfigApp`;
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        if (result.status === 'sucesso' && result.dados) {
+            const config = {};
+            result.dados.forEach(item => { config[item.chave] = item.valor; });
+            window.configApp = config;
+            
+            document.getElementById('app-name').value = config.nome_app || 'Forms CIPA';
+            document.getElementById('app-subtitle').value = config.subtitulo_app || '';
+            document.getElementById('app-description').value = config.descricao_app || '';
+            document.getElementById('app-color').value = config.cor_app || '#0a3d2e';
+            document.getElementById('app-button-color').value = config.cor_botoes || '#4f46e5';
+            document.getElementById('app-owner').value = config.dono_app || '';
+            
+            // Limpa o campo de senha
+            document.getElementById('owner-password').value = '';
+            
+            if (config.banner_app) {
+                const preview = document.getElementById('app-banner-preview');
+                preview.innerHTML = `<img src="${config.banner_app}" style="width:100%; height:80px; object-fit:cover; border-radius:8px;">`;
+                preview.style.display = 'block';
+                appBannerTemp = config.banner_app;
+            } else {
+                document.getElementById('app-banner-preview').style.display = 'none';
+                appBannerTemp = null;
+            }
+        }
+    } catch(e) { console.error(e); }
+}
+
+// Chamar ao carregar a página
+setTimeout(() => { aplicarConfigApp(); }, 500);
+
+// Mostrar descrição do App
+function mostrarDescricaoApp() {
+    const descEl = document.getElementById('app-desc-display');
+    if (descEl.style.display === 'none' || !descEl.style.display) {
+        descEl.style.display = 'block';
+    } else {
+        descEl.style.display = 'none';
+    }
+}
+
+// Aplicar cor dos botões (pré-visualização)
+function aplicarCorBotao(cor) {
+    document.getElementById('app-button-color').value = cor;
+    document.documentElement.style.setProperty('--primary', cor);
+    document.documentElement.style.setProperty('--primary-hover', cor);
+}
+
+// Remover banner
+function removerBanner() {
+    if (appBannerTemp && appBannerTemp.includes('drive.google.com')) {
+        deletarBannerDoDrive(appBannerTemp);
+    }
+    appBannerTemp = null;
+    document.getElementById('app-banner-preview').innerHTML = '';
+    document.getElementById('app-banner-preview').style.display = 'none';
+    document.getElementById('app-banner').value = '';
+    showToast('✅ Banner removido! Clique em "Salvar" para confirmar.', 'success');
+}
+
+// Aplicar configurações na interface
+async function aplicarConfigApp() {
+    try {
+        const url = `${CONFIG.googleApiUrl}?acao=carregarConfigApp`;
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        if (result.status === 'sucesso' && result.dados) {
+            const config = {};
+            result.dados.forEach(item => { config[item.chave] = item.valor; });
+            window.configApp = config;
+            
+            // Aplica nome do app
+            if (config.nome_app) {
+                document.querySelector('.logo').innerHTML = `📋 ${config.nome_app}`;
+                document.title = config.nome_app;
+                const tituloHome = document.querySelector('#view-home h1');
+                if (tituloHome) tituloHome.textContent = config.nome_app;
+            }
+            
+            // Aplica subtítulo no header (barra superior)
+            if (config.subtitulo_app) {
+                const headerSub = document.getElementById('header-subtitle');
+                if (headerSub) headerSub.textContent = config.subtitulo_app;
+            }
+            
+            // Aplica subtítulo na home
+            if (config.subtitulo_app) {
+                const subHome = document.getElementById('app-subtitle-display');
+                if (subHome) subHome.textContent = config.subtitulo_app;
+            }
+            
+            // Aplica descrição na home
+            if (config.descricao_app) {
+                const descHome = document.getElementById('app-desc-display');
+                if (descHome) descHome.textContent = config.descricao_app;
+            }
+            
+            // Aplica cor do header
+            if (config.cor_app) {
+                document.querySelector('.header').style.backgroundColor = config.cor_app;
+            }
+            
+            // Aplica cor dos botões
+            if (config.cor_botoes) {
+                document.documentElement.style.setProperty('--primary', config.cor_botoes);
+                document.documentElement.style.setProperty('--primary-hover', config.cor_botoes);
+            }
+            
+            // Aplica banner (se tiver)
+            if (config.banner_app) {
+                const bannerContainer = document.getElementById('app-banner-container');
+                const bannerImg = document.getElementById('app-banner-img');
+                if (bannerContainer && bannerImg) {
+                    bannerImg.src = config.banner_app;
+                    bannerContainer.style.display = 'block';
+                }
+            }
+            
+            // Aplica informações do responsável no rodapé
+            if (config.dono_app) {
+                const footer = document.getElementById('app-footer');
+                if (footer) {
+                    footer.innerHTML = config.dono_app.replace(/\n/g, '<br>');
+                    footer.style.display = 'block';
+                }
+            }
+        }
+    } catch(e) { 
+        console.error('Erro ao aplicar configurações:', e); 
+    }
+}
+
+// ==================== BANNER NO GOOGLE DRIVE ====================
+
+// Função para extrair ID do arquivo do Google Drive
+function extrairFileIdDoDrive(url) {
+    if (!url) return null;
+    const match = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+    const match2 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match2) return match2[1];
+    return null;
+}
+
+// Função para fazer upload da imagem para o Google Drive
+async function uploadImagemParaDrive(file, nomeIdentificador) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const base64 = e.target.result.split(',')[1];
+            
+            try {
+                const url = `${CONFIG.googleApiUrl}?acao=uploadBanner&identificador=${encodeURIComponent(nomeIdentificador)}&arquivo=${encodeURIComponent(base64)}&tipo=${encodeURIComponent(file.type)}`;
+                
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                if (result.status === 'sucesso') {
+                    resolve(result.link);
+                } else {
+                    reject(new Error(result.mensagem));
+                }
+            } catch(erro) {
+                reject(erro);
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Função para deletar banner do Drive
+async function deletarBannerDoDrive(urlImagem) {
+    if (!urlImagem) return;
+    const fileId = extrairFileIdDoDrive(urlImagem);
+    if (!fileId) return;
+    
+    try {
+        const url = `${CONFIG.googleApiUrl}?acao=deletarBanner&fileId=${encodeURIComponent(fileId)}`;
+        await fetch(url);
+        console.log('Banner deletado do Drive');
+    } catch(e) {
+        console.error('Erro ao deletar banner:', e);
+    }
+}
+
 </script>
 </body>
 </html>
