@@ -910,7 +910,10 @@ async function salvarNaNuvem(aba, id, dados) {
     
     try {
         const dadosStr = JSON.stringify(dados);
-        const url = `${CONFIG.googleApiUrl}?acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&dados=${encodeURIComponent(dadosStr)}`;
+        // 🔥 CORREÇÃO: Garante que o nome do formulário está sendo enviado
+        const nomeDoFormulario = dados.name || dados.form?.title || "Sem nome";
+        
+        const url = `${CONFIG.googleApiUrl}?acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&nomeFormulario=${encodeURIComponent(nomeDoFormulario)}&dados=${encodeURIComponent(dadosStr)}`;
         
         console.log('📤 Salvando:', url.substring(0, 200));
         
@@ -1173,7 +1176,8 @@ async function createFormWithTemplate(templateType) {
                 footer: '',
                 questions: template.questions,
                 theme: { primary: '#4f46e5' },
-                config: { showProgress: true }
+                config: { showProgress: true },
+                emails: ''  // 🔥 CAMPO DE EMAIL INICIALIZADO
             },
             responses: []
         };
@@ -1181,6 +1185,7 @@ async function createFormWithTemplate(templateType) {
         forms.push(newForm);
         saveData();
         
+        // 🔥 Envia o nome do formulário explicitamente
         const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
         
         if (sucesso) {
@@ -1303,8 +1308,9 @@ async function updateCurrentFormMeta() {
     formData.form.subtitle = document.getElementById('form-subtitle').value;
     formData.form.description = document.getElementById('form-desc').value;
     formData.form.footer = document.getElementById('form-footer').value;
-    formData.form.emails = document.getElementById('form-emails').value; // NOVO CAMPO
+    formData.form.emails = document.getElementById('form-emails').value;
     
+    // 🔥 Atualiza o nome principal do formulário
     if (formData.form.title !== formData.name) {
         formData.name = formData.form.title;
         document.getElementById('current-form-name').textContent = formData.name;
@@ -1313,7 +1319,8 @@ async function updateCurrentFormMeta() {
     saveData();
     renderLivePreview();
     
-    // Atualizar cabeçalho da aba no Sheets
+    // 🔥 Envia o formulário atualizado com o nome correto
+    await salvarNaNuvem('forms', formData.id, formData);
     await atualizarCabecalhoAba(formData.id);
 }
 
