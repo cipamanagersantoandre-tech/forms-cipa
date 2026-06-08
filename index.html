@@ -2342,8 +2342,16 @@ function confirmImport() {
 function showQRCode(formId) {
     const form = forms.find(f => f.id === formId);
     if (!form) return;
+    
     currentQRCodeFormId = formId;
-    const url = `${window.location.href.split('#')[0]}?form=${formId}`;
+    
+    // Pega a URL base (sem o nome do arquivo)
+    let baseUrl = window.location.href.split('?')[0].split('#')[0];
+    baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
+    
+    // 🔥 MUDE AQUI: aponta para form09.html em vez da página atual
+    const url = baseUrl + 'form09.html?id=' + formId;
+    
     document.getElementById('qrcode-form-name').textContent = form.name;
     const container = document.getElementById('qrcode-container');
     container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}" style="width:200px;height:200px;border-radius:12px;">`;
@@ -2364,7 +2372,13 @@ function downloadQRCode() {
 function copyFormLinkFromQR() {
     if (!currentQRCodeFormId) return;
     const form = forms.find(f => f.id === currentQRCodeFormId);
-    const url = `${window.location.href.split('#')[0]}?form=${currentQRCodeFormId}`;
+    
+    // Pega a URL base (sem o nome do arquivo)
+    let baseUrl = window.location.href.split('?')[0].split('#')[0];
+    baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
+    
+    const url = baseUrl + 'form09.html?id=' + currentQRCodeFormId;
+    
     navigator.clipboard.writeText(url).then(
         () => showToast(`Link copiado!`, 'success')
     ).catch(() => showToast(`Link: ${url}`, 'success'));
@@ -2372,15 +2386,20 @@ function copyFormLinkFromQR() {
 
 function shareFormLink(formId) {
     const form = forms.find(f => f.id === formId);
+    if (!form) return;
+    
+    // Pega a URL base (sem o nome do arquivo)
     let baseUrl = window.location.href.split('?')[0].split('#')[0];
-    baseUrl = baseUrl.replace('index.html', '').replace('form.html', '');
-    if (!baseUrl.endsWith('/')) baseUrl = baseUrl + '/';
+    baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
-    // Mude de 'form.html' para 'index.html' ou deixe vazio
-    const url = baseUrl + '?form=' + formId;  // ← ALTERADO
+    // 🔥 MUDE AQUI: aponta para form09.html em vez da página atual
+    const url = baseUrl + 'form09.html?id=' + formId;
     
-    navigator.clipboard.writeText(url);
-    showToast(`Link copiado!`, 'success');
+    navigator.clipboard.writeText(url).then(
+        () => showToast(`Link de "${form.name}" copiado! Envie para os respondentes.`, 'success')
+    ).catch(() => showToast(`Link: ${url}`, 'success'));
+    
+    console.log('Link gerado:', url);
 }
 
 // ==================== ATUALIZAR CABEÇALHO DA ABA ====================
