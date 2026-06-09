@@ -103,6 +103,15 @@ body {
 .btn-sm { padding: 6px 12px; font-size: 13px; white-space: nowrap; }
 .btn-danger { background: var(--error); color: white; border-color: var(--error); }
 
+.btn-success {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+.btn-success:hover {
+  background: #059669;
+}
+
 /* Spinner para botões */
 .spinner {
   display: inline-block;
@@ -1231,11 +1240,13 @@ async function renderFormsList() {
                     <span>📊 ${form.responses ? form.responses.length : 0}</span>
                 </div>
             </div>
-            <div class="form-card-actions">
-                <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
-                <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
-                <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
-                <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
+<div class="form-card-actions">
+    <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
+    <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
+    <button class="btn btn-sm btn-success" onclick="gerarNovoLink('${form.id}')" title="Gerar novo link">🔗 Gerar Link</button>
+    <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
+    <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
+</div>
             </div>
         </div>
     `).join('')}</div>`;
@@ -2759,6 +2770,37 @@ async function confirmImport() {
 }
 
 // ==================== QR CODE ====================
+
+// ==================== GERAR NOVO LINK ====================
+function gerarNovoLink(formId) {
+    const form = forms.find(f => f.id === formId);
+    if (!form) {
+        showToast('Erro: Formulário não encontrado', 'error');
+        return;
+    }
+    
+    // Pega a URL base
+    let baseUrl = window.location.href.split('?')[0].split('#')[0];
+    baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
+    
+    // Gera o link com o ID do formulário
+    const url = baseUrl + 'form.html?id=' + form.id;
+    
+    // Copia para a área de transferência
+    navigator.clipboard.writeText(url).then(() => {
+        showToast(`✅ Link de "${form.name}" copiado!`, 'success');
+        
+        // Pergunta se quer gerar QR Code também
+        if (confirm(`Link copiado!\n\n${url}\n\nDeseja gerar o QR Code também?`)) {
+            showQRCode(form.id);
+        }
+    }).catch(() => {
+        // Se não conseguir copiar, mostra o link
+        showToast(`Link: ${url}`, 'info');
+        showQRCode(form.id);
+    });
+}
+
 function showQRCode(formId) {
     const form = forms.find(f => f.id === formId);
     if (!form) {
