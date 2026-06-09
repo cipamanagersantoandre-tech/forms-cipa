@@ -2524,9 +2524,11 @@ async function confirmImport() {
         let c = 1;
         while (forms.some(f => f.name === newName)) newName = `${imp.name} (cópia ${c++})`;
         
-        // 🔥 CRIA O FORMULÁRIO COM TODOS OS DADOS
+        // 🔥 CRIA UM ID TOTALMENTE NOVO
+        const novoId = generateId();
+        
         const newForm = {
-            id: generateId(),
+            id: novoId,  // 🔥 USA O NOVO ID
             name: newName,
             createdAt: new Date().toISOString(),
             form: {
@@ -2537,12 +2539,12 @@ async function confirmImport() {
                 footer: imp.form.footer || '',
                 questions: (imp.form.questions || []).map(q => ({
                     ...q,
-                    id: generateId(),
+                    id: generateId(),  // 🔥 NOVOS IDs para cada pergunta
                     condition: q.condition ? { ...q.condition, dependsOn: null } : null
                 })),
                 theme: imp.form.theme || { primary: '#4f46e5' },
                 config: imp.form.config || { showProgress: true },
-                emails: imp.form.emails || ''  // 🔥 JÁ ESTÁ CORRETO ''
+                emails: imp.form.emails || ''
             },
             responses: []
         };
@@ -2551,25 +2553,21 @@ async function confirmImport() {
         
         mostrarToastInfo(`📤 Enviando "${newName}" para a nuvem...`);
         
-        // 🔥 ENVIA PARA A NUVEM
+        // 🔥 CRIA A ABA COM O NOME DO FORMULÁRIO (NÃO COM O ID)
+        const cabecalhos = JSON.stringify(['Data/Hora', ...newForm.form.questions.map(q => q.title)]);
+        const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+        
+        try {
+            await fetch(urlCriarAba);
+            console.log(`✅ Aba criada: ${newName}`);
+        } catch(e) {
+            console.error('Erro ao criar aba:', e);
+        }
+        
+        // 🔥 SALVA O FORMULÁRIO NA ABa 'forms'
         const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
         
         if (sucesso) {
-            // Cria a aba no Sheets
-            const cabecalhos = JSON.stringify(['Data/Hora']);
-            const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-            try {
-                await fetch(urlAba);
-                console.log(`✅ Aba criada para: ${newName}`);
-            } catch(e) {
-                console.error('Erro ao criar aba:', e);
-            }
-            
-            // 🔥 ATUALIZA O CABEÇALHO COM AS PERGUNTAS
-            if (newForm.form.questions && newForm.form.questions.length > 0) {
-                await atualizarCabecalhoAba(newForm.id);
-            }
-            
             showToast(`"${newName}" importado e salvo na nuvem!`, 'success');
         } else {
             showToast(`"${newName}" importado localmente, erro na nuvem`, 'warning');
@@ -2581,26 +2579,27 @@ async function confirmImport() {
     saveData();
     renderFormsList();
     closeModal();
-    showToast(`${imported} importado(s) e sincronizado(s)!`, 'success');
+    showToast(`${imported} importado(s)!`, 'success');
 }
-
 // ==================== QR CODE ====================
 function showQRCode(formId) {
+    // 🔥 BUSCA O FORMULÁRIO PELO ID
     const form = forms.find(f => f.id === formId);
     if (!form) {
-        console.error('Formulário não encontrado:', formId);
+        console.error('❌ Formulário não encontrado! ID:', formId);
         showToast('Erro: Formulário não encontrado', 'error');
         return;
     }
     
-    console.log('🔗 Gerando QR Code para formulário:', form.name, 'ID:', formId);
+    console.log('✅ Gerando QR Code para:', form.name, 'ID:', form.id);
     
-    currentQRCodeFormId = formId;
+    currentQRCodeFormId = form.id;
     
     let baseUrl = window.location.href.split('?')[0].split('#')[0];
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
-    const url = baseUrl + 'form.html?id=' + formId;  // 🔥 USA O ID CORRETO
+    // 🔥 USA O ID DO FORMULÁRIO CORRETO
+    const url = baseUrl + 'form.html?id=' + form.id;
     
     document.getElementById('qrcode-form-name').textContent = form.name;
     const container = document.getElementById('qrcode-container');
@@ -2636,20 +2635,21 @@ function copyFormLinkFromQR() {
 
 function shareFormLink(formId) {
     const form = forms.find(f => f.id === formId);
-    if (!form) return;
+    if (!form) {
+        showToast('Erro: Formulário não encontrado', 'error');
+        return;
+    }
     
-    // Pega a URL base (sem o nome do arquivo)
     let baseUrl = window.location.href.split('?')[0].split('#')[0];
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
-    // 🔥 MUDE AQUI: aponta para form.html em vez da página atual
-    const url = baseUrl + 'form.html?id=' + formId;  // formId é o ID do formulário atual
+    const url = baseUrl + 'form.html?id=' + form.id;
     
     navigator.clipboard.writeText(url).then(
-        () => showToast(`Link de "${form.name}" copiado! Envie para os respondentes.`, 'success')
+        () => showToast(`Link de "${form.name}" copiado!`, 'success')
     ).catch(() => showToast(`Link: ${url}`, 'success'));
     
-    console.log('Link gerado:', url);
+    console.log('🔗 Link gerado:', url);
 }
 
 // ==================== ATUALIZAR CABEÇALHO DA ABA ====================
