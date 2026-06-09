@@ -2713,7 +2713,7 @@ function showQRCode(formId) {
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
     // 🔥 AGORA USA index.html (arquivo do GitHub)
-    const url = baseUrl + 'index.html?id=' + form.id;
+    const url = baseUrl + 'form.html?id=' + form.id;
     
     document.getElementById('qrcode-form-name').textContent = form.name;
     const container = document.getElementById('qrcode-container');
@@ -2740,7 +2740,7 @@ function copyFormLinkFromQR() {
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
     // 🔥 CORRIGIDO: use o nome do seu arquivo
-    const url = baseUrl + 'index.html?id=' + currentQRCodeFormId;
+    const url = baseUrl + 'form.html?id=' + currentQRCodeFormId;
     
     navigator.clipboard.writeText(url).then(
         () => showToast(`Link copiado!`, 'success')
@@ -2758,7 +2758,7 @@ function shareFormLink(formId) {
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
     // 🔥 AGORA USA index.html
-    const url = baseUrl + 'index.html?id=' + form.id;
+    const url = baseUrl + 'form.html?id=' + form.id;
     
     navigator.clipboard.writeText(url).then(
         () => showToast(`Link de "${form.name}" copiado!`, 'success')
