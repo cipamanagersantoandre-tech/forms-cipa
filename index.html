@@ -9,6 +9,11 @@
   --primary: #4f46e5;
   --primary-hover: #4338ca;
   --primary-light: #e0e7ff;
+  
+  /* NOVAS VARIÁVEIS - NÃO MEXER */
+  --app-primary: #4f46e5;
+  --app-primary-hover: #4338ca;
+  
   --bg: #f8fafc;
   --bg-elev: #ffffff;
   --bg-elev-2: #f1f5f9;
@@ -121,7 +126,8 @@ body {
 
 .header .btn { background: rgba(255,255,255,0.1); color: white; border-color: rgba(255,255,255,0.2); }
 .header .btn:hover { background: rgba(255,255,255,0.2); border-color: white; }
-.header .btn-primary { background: var(--primary); color: white; }
+.header .btn-primary { background: var(--app-primary); color: white; }
+.header .btn-primary:hover { background: var(--app-primary-hover); }
 
 /* Cards */
 .card {
@@ -1512,10 +1518,27 @@ function updateCurrentFormTheme() {
     if (!formData) return;
     const newColor = document.getElementById('theme-primary').value;
     formData.form.theme = { primary: newColor };
-    document.documentElement.style.setProperty('--primary', newColor);
+    
+    // 🔥 MUDA APENAS A COR DO FORMULÁRIO EM EDIÇÃO
+    // NÃO muda a cor global do app!
+    
+    // Aplica a cor apenas no preview do formulário
+    const previewContainer = document.getElementById('live-preview');
+    if (previewContainer) {
+        previewContainer.style.setProperty('--primary', newColor);
+        previewContainer.style.setProperty('--primary-hover', newColor);
+    }
+    
+    // Aplica a cor no modal de teste se estiver aberto
+    const testContainer = document.getElementById('test-form-container');
+    if (testContainer && testContainer.closest('.modal.active')) {
+        testContainer.style.setProperty('--primary', newColor);
+        testContainer.style.setProperty('--primary-hover', newColor);
+    }
+    
     saveData();
-    renderLivePreview();
-    showToast(`Cor atualizada!`, 'success');
+    renderLivePreview(); // Recarrega o preview com a nova cor
+    showToast(`Cor do formulário atualizada!`, 'success');
 }
 
 function applyPalette(color) {
@@ -1801,6 +1824,12 @@ function renderLivePreview() {
     const container = document.getElementById('live-preview');
     if (!container || !formData) return;
     const f = formData.form;
+    
+    // 🔥 APLICA A COR DO FORMULÁRIO NO PREVIEW
+    const corForm = f.theme?.primary || '#4f46e5';
+    container.style.setProperty('--primary', corForm);
+    container.style.setProperty('--primary-hover', corForm);
+    
     container.innerHTML = `
         ${f.banner ? `<div class="banner-preview"><img src="${f.banner}" alt="Banner"></div>` : ''}
         <h2 class="form-title">${escapeHtml(f.title)}</h2>
@@ -3156,6 +3185,11 @@ let appBannerTemp = null;
 
 async function abrirModalConfigApp() {
     await carregarConfigApp();
+    
+    // 🔥 SALVA A COR ATUAL DO APP ANTES DE ABRIR O MODAL
+    const corAtual = getComputedStyle(document.documentElement).getPropertyValue('--app-primary').trim();
+    document.getElementById('app-button-color').value = corAtual || '#4f46e5';
+    
     document.getElementById('config-app-modal').classList.add('active');
 }
 
@@ -3348,8 +3382,9 @@ function mostrarDescricaoApp() {
 // Aplicar cor dos botões (pré-visualização)
 function aplicarCorBotao(cor) {
     document.getElementById('app-button-color').value = cor;
-    document.documentElement.style.setProperty('--primary', cor);
-    document.documentElement.style.setProperty('--primary-hover', cor);
+    // 🔥 MUDA APENAS A COR DO APP, não afeta formulários
+    document.documentElement.style.setProperty('--app-primary', cor);
+    document.documentElement.style.setProperty('--app-primary-hover', cor);
 }
 
 // Remover banner
@@ -3408,10 +3443,10 @@ async function aplicarConfigApp() {
             }
             
             // Aplica cor dos botões
-            if (config.cor_botoes) {
-                document.documentElement.style.setProperty('--primary', config.cor_botoes);
-                document.documentElement.style.setProperty('--primary-hover', config.cor_botoes);
-            }
+if (config.cor_botoes) {
+    document.documentElement.style.setProperty('--app-primary', config.cor_botoes);
+    document.documentElement.style.setProperty('--app-primary-hover', config.cor_botoes);
+}
             
             // Aplica banner (se tiver)
             if (config.banner_app) {
