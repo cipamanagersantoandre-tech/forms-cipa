@@ -2505,94 +2505,196 @@ function openImportModal() {
 function previewImportFile() {
     const file = document.getElementById('import-file').files[0];
     if (!file) return;
+    
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
+            
+            // Verificar estrutura
             if (!data.forms || !Array.isArray(data.forms)) {
-                showToast('Arquivo inválido', 'error');
+                // Tentativa de compatibilidade com formato antigo
+                if (data.form || data.questions) {
+                    // É um único formulário, não uma coleção
+                    importedFormsData = [data];
+                    const preview = document.getElementById('import-preview');
+                    preview.innerHTML = `
+                        <div class="alert alert-info">
+                            <strong>1 formulário detectado</strong><br>
+                            • ${escapeHtml(data.name || data.form?.title || 'Sem nome')}
+                        </div>
+                        <div class="alert alert-success">✅ Será importado como novo formulário</div>
+                    `;
+                    document.getElementById('confirm-import-btn').style.display = 'inline-flex';
+                    return;
+                }
+                showToast('Arquivo inválido: estrutura não reconhecida', 'error');
                 return;
             }
+            
             importedFormsData = data.forms;
+            
+            // Mostrar preview detalhado
             const preview = document.getElementById('import-preview');
             preview.innerHTML = `
                 <div class="alert alert-info">
-                    <strong>${data.forms.length} formulário(s)</strong><br>
-                    ${data.forms.map(f => `• ${escapeHtml(f.name)}`).join('<br>')}
+                    <strong>📦 ${data.forms.length} formulário(s) encontrado(s)</strong>
+                    <div style="margin-top: 8px; font-size: 12px;">
+                        ${data.forms.map((f, idx) => ` 
+                            <div style="margin: 4px 0;">
+                                ${idx+1}. ${escapeHtml(f.name || f.form?.title || 'Sem nome')}
+                                <span style="color: var(--text-muted);">(${f.form?.questions?.length || 0} perguntas)</span>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
-                <div class="alert alert-success">Serão adicionados aos existentes</div>
+                <div class="alert alert-success">
+                    ✅ Todos serão importados como NOVOS formulários
+                </div>
+                <div class="alert alert-warning" style="margin-top: 8px;">
+                    ⚠️ As respostas NÃO serão importadas (apenas a estrutura)
+                </div>
             `;
             document.getElementById('confirm-import-btn').style.display = 'inline-flex';
+            
         } catch(err) {
-            showToast('JSON inválido', 'error');
+            console.error(err);
+            showToast('❌ Arquivo JSON inválido', 'error');
+            document.getElementById('import-preview').innerHTML = '<div class="alert alert-error">❌ Erro: Arquivo corrompido ou formato inválido</div>';
         }
     };
     reader.readAsText(file);
 }
 
 async function confirmImport() {
-    if (!importedFormsData) { showToast('Nenhum arquivo', 'error'); return; }
-    let imported = 0;
+    if (!importedFormsData) { 
+        showToast('Nenhum arquivo selecionado', 'error'); 
+        return; 
+    }
     
-    for (const imp of importedFormsData) {
+    const btn = document.getElementById('confirm-import-btn');
+    mostrarLoadingBotao(btn, 'Importando...');
+    mostrarProgresso('📥 Importando formulários...');
+    
+    let importados = 0;
+    let erros = 0;
+    
+    for (let i = 0; i < importedFormsData.length; i++) {
+        const imp = importedFormsData[i];
+        
+        atualizarProgresso(Math.round((i + 1) / importedFormsData.length * 50), `Processando: ${imp.name}...`);
+        
+        // Gerar nome único (evitar duplicatas)
         let newName = imp.name;
-        let c = 1;
-        while (forms.some(f => f.name === newName)) newName = `${imp.name} (cópia ${c++})`;
+        let contador = 1;
+        while (forms.some(f => f.name === newName)) {
+            newName = `${imp.name} (cópia ${contador++})`;
+        }
         
+        // 🔥 GERAR IDs COMPLETAMENTE NOVOS
         const novoId = generateId();
-        const emailsImportados = imp.form.emails || '';
+        const emailsImportados = imp.form?.emails || '';
         
+        // 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs
+        const novasPerguntas = (imp.form?.questions || []).map(q => ({
+            id: generateId(),  // NOVO ID para cada pergunta
+            type: q.type || 'text',
+            title: q.title || 'Nova pergunta',
+            required: q.required || false,
+            options: q.options || ['Opção 1', 'Opção 2'],
+            condition: q.condition ? {
+                dependsOn: null,  // 🔥 RESETAR dependência (será reconfigurada manualmente se necessário)
+                expectedValue: q.condition.expectedValue
+            } : null
+        }));
+        
+        // 🔥 CRIAR FORMULÁRIO IGUAL AO NATIVO
         const newForm = {
             id: novoId,
             name: newName,
             createdAt: new Date().toISOString(),
             form: {
-                title: imp.form.title || imp.name,
-                subtitle: imp.form.subtitle || '',
-                description: imp.form.description || '',
-                banner: imp.form.banner || '',
-                footer: imp.form.footer || '',
-                questions: (imp.form.questions || []).map(q => ({
-                    ...q,
-                    id: generateId(),
-                    condition: q.condition ? { ...q.condition, dependsOn: null } : null
-                })),
-                theme: imp.form.theme || { primary: '#4f46e5' },
-                config: imp.form.config || { showProgress: true },
+                title: imp.form?.title || imp.name,
+                subtitle: imp.form?.subtitle || '',
+                description: imp.form?.description || '',
+                banner: imp.form?.banner || '',
+                footer: imp.form?.footer || '',
+                questions: novasPerguntas,
+                theme: imp.form?.theme || { primary: '#4f46e5' },
+                config: imp.form?.config || { showProgress: true },
                 emails: emailsImportados
             },
-            responses: []
+            responses: []  // 🔥 COMEÇA VAZIO - SEM RESPOSTAS IMPORTADAS
         };
         
+        // Adicionar localmente
         forms.push(newForm);
         
-        mostrarToastInfo(`📤 Enviando "${newName}" para a nuvem...`);
+        atualizarProgresso(50 + Math.round((i + 1) / importedFormsData.length * 50), `Criando aba: ${newName}...`);
         
-        // Cria a aba
-        const cabecalhos = JSON.stringify(['Data/Hora', ...newForm.form.questions.map(q => q.title)]);
+        // 🔥 PASSO 1: CRIAR A ABA NO SHEETS (igual ao createFormWithTemplate)
+        const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
         const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
         
         try {
-            await fetch(urlCriarAba);
-            console.log(`✅ Aba criada: ${newName}`);
-        } catch(e) {
-            console.error('Erro ao criar aba:', e);
+            const respostaAba = await fetch(urlCriarAba);
+            const resultadoAba = await respostaAba.json();
+            console.log(`📊 Resultado criação da aba "${newName}":`, resultadoAba);
+            
+            if (resultadoAba.status !== 'sucesso') {
+                console.warn(`Aviso: ${resultadoAba.mensagem || 'Erro ao criar aba'}`);
+            }
+        } catch (erro) {
+            console.error(`❌ Erro ao criar aba "${newName}":`, erro);
+            // Continua mesmo com erro na aba
         }
         
-        // Salva o formulário
-        await salvarNaNuvem('forms', newForm.id, newForm);
+        // 🔥 PASSO 2: SALVAR NA ABA 'forms' (registo principal)
+        const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
         
-        // 🔥 SALVA O EMAIL SEPARADAMENTE NA ABA CONFIGURACOES
-        await salvarEmailConfiguracao(newName, emailsImportados);
+        if (sucesso) {
+            importados++;
+            console.log(`✅ Formulário "${newName}" importado com sucesso!`);
+        } else {
+            erros++;
+            console.error(`❌ Erro ao salvar "${newName}" na nuvem`);
+        }
         
-        showToast(`"${newName}" importado!`, 'success');
-        imported++;
+        // 🔥 PASSO 3: SALVAR CONFIGURAÇÃO DE EMAILS
+        if (emailsImportados) {
+            await salvarEmailConfiguracao(newName, emailsImportados);
+        }
+        
+        // Pequeno delay para não sobrecarregar
+        await new Promise(r => setTimeout(r, 200));
     }
     
+    // Salvar localmente
     saveData();
+    
+    atualizarProgresso(100, `✅ ${importados} importados, ${erros} erros`);
+    
+    // Recarregar lista
     renderFormsList();
+    
+    // Fechar modais
     closeModal();
-    showToast(`${imported} importado(s)!`, 'success');
+    
+    // Mostrar resultado
+    if (erros === 0) {
+        showToast(`✅ ${importados} formulário(s) importado(s) com sucesso!`, 'success');
+        createConfetti();
+    } else {
+        showToast(`⚠️ ${importados} importados, ${erros} com erro`, 'warning');
+    }
+    
+    setTimeout(() => fecharProgresso(), 2000);
+    pararLoadingBotao(btn);
+    
+    // 🔥 FORÇAR SINCRONIZAÇÃO COMPLETA
+    setTimeout(() => {
+        buscarTudoDaNuvemSilencioso();
+    }, 1000);
 }
 
 // ==================== QR CODE ====================
