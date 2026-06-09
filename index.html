@@ -1362,22 +1362,83 @@ const newForm = {
 function duplicateForm(formId) {
     const original = forms.find(f => f.id === formId);
     if (!original) return;
-    const newForm = {
-        ...original,
-        id: generateId(),  // 🔥 NOVO ID GERADO
-        name: `${original.name} (cópia)`,
-        createdAt: new Date().toISOString(),
-        responses: []
-    };
-    newForm.form.questions = newForm.form.questions.map(q => ({
-        ...q,
-        id: generateId(),  // 🔥 NOVOS IDs para as perguntas
-        condition: q.condition ? { ...q.condition, dependsOn: null } : null
+    
+    // Gerar nome único (evitar duplicatas)
+    let newName = `${original.name} (cópia)`;
+    let contador = 1;
+    while (forms.some(f => f.name === newName)) {
+        newName = `${original.name} (cópia ${contador++})`;
+    }
+    
+    // 🔥 GERAR NOVOS IDs PARA TUDO
+    const novoId = generateId();
+    const emailsImportados = original.form.emails || '';
+    
+    // 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs
+    const novasPerguntas = original.form.questions.map(q => ({
+        id: generateId(),  // NOVO ID para cada pergunta
+        type: q.type || 'text',
+        title: q.title || 'Nova pergunta',
+        required: q.required || false,
+        options: q.options || ['Opção 1', 'Opção 2'],
+        condition: q.condition ? {
+            dependsOn: null,  // RESETAR dependência
+            expectedValue: q.condition.expectedValue
+        } : null
     }));
+    
+    // 🔥 CRIAR FORMULÁRIO IGUAL AO NATIVO
+    const newForm = {
+        id: novoId,
+        name: newName,
+        createdAt: new Date().toISOString(),
+        form: {
+            title: original.form.title,
+            subtitle: original.form.subtitle || '',
+            description: original.form.description || '',
+            banner: original.form.banner || '',
+            footer: original.form.footer || '',
+            questions: novasPerguntas,
+            theme: original.form.theme || { primary: '#4f46e5' },
+            config: original.form.config || { showProgress: true },
+            emails: emailsImportados
+        },
+        responses: []  // ZERA AS RESPOSTAS
+    };
+    
+    // Adicionar localmente
     forms.push(newForm);
     saveData();
+    
+    // 🔥 NOVO: CRIAR A ABA NO SHEETS (igual ao createFormWithTemplate e confirmImport)
+    const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
+    const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+    
+    fetch(urlCriarAba)
+        .then(res => res.json())
+        .then(resultado => {
+            console.log(`📊 Aba criada para "${newName}":`, resultado);
+        })
+        .catch(erro => {
+            console.error(`❌ Erro ao criar aba "${newName}":`, erro);
+        });
+    
+    // 🔥 NOVO: SALVAR NA NUVEM (aba 'forms')
+    salvarNaNuvem('forms', newForm.id, newForm).then(sucesso => {
+        if (sucesso) {
+            console.log(`✅ Formulário "${newName}" salvo na nuvem!`);
+        } else {
+            console.error(`❌ Erro ao salvar "${newName}" na nuvem`);
+        }
+    });
+    
+    // 🔥 NOVO: SALVAR CONFIGURAÇÃO DE EMAILS
+    if (emailsImportados) {
+        salvarEmailConfiguracao(newName, emailsImportados);
+    }
+    
     renderFormsList();
-    showToast('Duplicado!', 'success');
+    showToast(`"${newName}" duplicado com sucesso!`, 'success');
 }
 
 async function excluirDaNuvem(aba, id) {
