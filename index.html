@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Forms CIPA - Criador de Formulários</title>
 <style>
+
 :root {
   --primary: #4f46e5;
   --primary-hover: #4338ca;
@@ -128,6 +129,16 @@ body {
 .header .btn:hover { background: rgba(255,255,255,0.2); border-color: white; }
 .header .btn-primary { background: var(--app-primary); color: white; }
 .header .btn-primary:hover { background: var(--app-primary-hover); }
+
+/* 🔥 NOVO - Botão Novo do App */
+.btn-app-primary {
+  background: var(--app-primary);
+  color: white;
+  border-color: var(--app-primary);
+}
+.btn-app-primary:hover {
+  background: var(--app-primary-hover);
+}
 
 /* Cards */
 .card {
@@ -462,11 +473,11 @@ body {
 <nav class="nav">
   <button class="btn btn-sm" onclick="abrirModalConfigApp()" title="Configurações">⚙️</button>
   <button class="btn btn-sm" onclick="goToHome()">🏠 Início</button>
-  <button class="btn btn-sm btn-primary" onclick="openNewFormModal()">➕ Novo</button>
+  <button class="btn btn-sm btn-app-primary" onclick="openNewFormModal()">➕ Novo</button>
   <button class="btn btn-sm" onclick="openExportModal()">📦 Exportar</button>
   <button class="btn btn-sm" onclick="openImportModal()">📂 Importar</button>
   <button class="btn btn-sm" onclick="sincronizarTudoParaNuvem()">☁️ Enviar Tudo</button>
-  <button class="btn btn-sm btn-primary" onclick="buscarTudoDaNuvem()">📥 Buscar Tudo</button>
+  <button class="btn btn-sm btn-app-primary" onclick="buscarTudoDaNuvem()">📥 Buscar Tudo</button>
 </nav>
     </div>
   </div>
@@ -1280,8 +1291,8 @@ async function createFormWithTemplate(templateType) {
         let template = { title: name, subtitle: '', questions: [] };
         
         const newForm = {
-            id: generateId(),
-            name: name,
+            id: generateId(),  // 🔥 NOVO ID GERADO
+            name: newName,
             createdAt: new Date().toISOString(),
             form: {
                 title: template.title,
@@ -1292,7 +1303,7 @@ async function createFormWithTemplate(templateType) {
                 questions: template.questions,
                 theme: { primary: '#4f46e5' },
                 config: { showProgress: true },
-                emails: ''  // 🔥 CAMPO DE EMAIL INICIALIZADO
+                emails: ''
             },
             responses: []
         };
@@ -1300,19 +1311,22 @@ async function createFormWithTemplate(templateType) {
         forms.push(newForm);
         saveData();
         
-        // 🔥 Envia o nome do formulário explicitamente
+        // 🔥 CRIA PRIMEIRO A ABA NO SHEETS
+        const cabecalhos = JSON.stringify(['Data/Hora']);
+        const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+        
+        try {
+            await fetch(urlAba);
+            console.log(`✅ Aba criada: ${name}`);
+        } catch (erro) {
+            console.error('Erro ao criar aba:', erro);
+        }
+        
+        // 🔥 DEPOIS SALVA O FORMULÁRIO
         const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
         
         if (sucesso) {
-            const cabecalhos = JSON.stringify(['Data/Hora']);
-            const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-            
-            try {
-                await fetch(urlAba);
-                showToast(`"${name}" criado e salvo na nuvem!`, 'success');
-            } catch (erro) {
-                showToast(`"${name}" criado, mas erro ao criar aba`, 'warning');
-            }
+            showToast(`"${name}" criado e salvo na nuvem!`, 'success');
         } else {
             showToast(`"${name}" criado localmente, mas erro na nuvem`, 'warning');
         }
@@ -1332,14 +1346,14 @@ function duplicateForm(formId) {
     if (!original) return;
     const newForm = {
         ...original,
-        id: generateId(),
+        id: generateId(),  // 🔥 NOVO ID GERADO
         name: `${original.name} (cópia)`,
         createdAt: new Date().toISOString(),
         responses: []
     };
     newForm.form.questions = newForm.form.questions.map(q => ({
         ...q,
-        id: generateId(),
+        id: generateId(),  // 🔥 NOVOS IDs para as perguntas
         condition: q.condition ? { ...q.condition, dependsOn: null } : null
     }));
     forms.push(newForm);
@@ -2499,13 +2513,15 @@ function previewImportFile() {
     reader.readAsText(file);
 }
 
-function confirmImport() {
+async function confirmImport() {
     if (!importedFormsData) { showToast('Nenhum arquivo', 'error'); return; }
     let imported = 0;
+    
     for (const imp of importedFormsData) {
         let newName = imp.name;
         let c = 1;
         while (forms.some(f => f.name === newName)) newName = `${imp.name} (cópia ${c++})`;
+        
         const newForm = {
             id: generateId(),
             name: newName,
@@ -2522,23 +2538,59 @@ function confirmImport() {
                     condition: q.condition ? { ...q.condition, dependsOn: null } : null
                 })),
                 theme: imp.form.theme || { primary: '#4f46e5' },
-                config: imp.form.config || { showProgress: true }
+                config: imp.form.config || { showProgress: true },
+                emails: imp.form.emails || ''  // 🔥 IMPORTANTE: salvar emails também
             },
             responses: []
         };
+        
         forms.push(newForm);
+        
+        // 🔥 ENVIA PARA A NUVEM IMEDIATAMENTE
+        mostrarToastInfo(`📤 Enviando "${newName}" para a nuvem...`);
+        
+        const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
+        
+        if (sucesso) {
+            // Cria a aba no Sheets
+            const cabecalhos = JSON.stringify(['Data/Hora']);
+            const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+            try {
+                await fetch(urlAba);
+                console.log(`✅ Aba criada para: ${newName}`);
+            } catch(e) {
+                console.error('Erro ao criar aba:', e);
+            }
+            
+            // 🔥 ATUALIZA O CABEÇALHO COM AS PERGUNTAS (se houver)
+            if (newForm.form.questions && newForm.form.questions.length > 0) {
+                await atualizarCabecalhoAba(newForm.id);
+            }
+            
+            showToast(`"${newName}" importado e salvo na nuvem!`, 'success');
+        } else {
+            showToast(`"${newName}" importado localmente, erro na nuvem`, 'warning');
+        }
+        
         imported++;
     }
+    
     saveData();
     renderFormsList();
     closeModal();
-    showToast(`${imported} importado(s)!`, 'success');
+    showToast(`${imported} importado(s) e sincronizado(s)!`, 'success');
 }
 
 // ==================== QR CODE ====================
 function showQRCode(formId) {
     const form = forms.find(f => f.id === formId);
-    if (!form) return;
+    if (!form) {
+        console.error('Formulário não encontrado:', formId);
+        showToast('Erro: Formulário não encontrado', 'error');
+        return;
+    }
+    
+    console.log('🔗 Gerando QR Code para formulário:', form.name, 'ID:', formId);
     
     currentQRCodeFormId = formId;
     
@@ -2547,7 +2599,7 @@ function showQRCode(formId) {
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
     // 🔥 MUDE AQUI: aponta para form.html em vez da página atual
-    const url = baseUrl + 'form.html?id=' + formId;
+    const url = baseUrl + 'form.html?id=' + formId;  // formId é o ID do formulário atual
     
     document.getElementById('qrcode-form-name').textContent = form.name;
     const container = document.getElementById('qrcode-container');
@@ -2590,7 +2642,7 @@ function shareFormLink(formId) {
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
     // 🔥 MUDE AQUI: aponta para form.html em vez da página atual
-    const url = baseUrl + 'form.html?id=' + formId;
+    const url = baseUrl + 'form.html?id=' + formId;  // formId é o ID do formulário atual
     
     navigator.clipboard.writeText(url).then(
         () => showToast(`Link de "${form.name}" copiado! Envie para os respondentes.`, 'success')
@@ -2732,8 +2784,20 @@ async function sincronizarTudoParaNuvem() {
     let enviados = 0;
     for (let i = 0; i < forms.length; i++) {
         const form = forms[i];
+        
+        // 🔥 GARANTE que todos os campos estão presentes
+        if (!form.form.emails) form.form.emails = '';
+        if (!form.form.theme) form.form.theme = { primary: '#4f46e5' };
+        if (!form.form.config) form.form.config = { showProgress: true };
+        
         const sucesso = await salvarNaNuvem('forms', form.id, form);
-        if (sucesso) enviados++;
+        
+        if (sucesso) {
+            enviados++;
+            // 🔥 ATUALIZA O CABEÇALHO DA ABA
+            await atualizarCabecalhoAba(form.id);
+        }
+        
         atualizarProgresso(Math.round((i + 1) / forms.length * 100), `Enviando ${form.name}...`);
         await new Promise(r => setTimeout(r, 100));
     }
@@ -2770,11 +2834,15 @@ async function buscarTudoDaNuvem() {
                     importados++;
                 } else {
                     const index = forms.findIndex(f => f.id === formCloud.id);
+                    // 🔥 MANTÉM AS RESPOSTAS LOCAIS se houver
+                    const respostasLocais = forms[index].responses || [];
                     forms[index] = formCloud;
+                    forms[index].responses = respostasLocais;
                     atualizados++;
                 }
             }
             
+            // Remove formulários que não existem mais na nuvem
             const idsParaRemover = [];
             for (const formLocal of forms) {
                 if (!idsNaNuvem.includes(formLocal.id)) {
@@ -2788,7 +2856,7 @@ async function buscarTudoDaNuvem() {
             
             saveData();
             
-            // IMPORTANTE: Recarregar respostas após buscar formulários
+            // Recarregar respostas
             atualizarProgresso(70, 'Carregando respostas...');
             for (const form of forms) {
                 const respostas = await carregarRespostasDaNuvem(form.name);
