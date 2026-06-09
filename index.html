@@ -2699,14 +2699,12 @@ async function confirmImport() {
 
 // ==================== QR CODE ====================
 function showQRCode(formId) {
-    // 🔥 BUSCA O FORMULÁRIO PELO ID
     const form = forms.find(f => f.id === formId);
     if (!form) {
-        console.error('❌ Formulário não encontrado! ID:', formId);
         showToast('Erro: Formulário não encontrado', 'error');
         return;
     }
-    
+
     console.log('✅ Gerando QR Code para:', form.name, 'ID:', form.id);
     
     currentQRCodeFormId = form.id;
@@ -2714,8 +2712,8 @@ function showQRCode(formId) {
     let baseUrl = window.location.href.split('?')[0].split('#')[0];
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
-    // 🔥 USA O ID DO FORMULÁRIO CORRETO
-    const url = baseUrl + 'form.html?id=' + form.id;
+    // 🔥 MUDE AQUI: coloque o nome do seu arquivo!
+    const url = baseUrl + 'Formuláriosteste59.html?id=' + form.id;
     
     document.getElementById('qrcode-form-name').textContent = form.name;
     const container = document.getElementById('qrcode-container');
@@ -2738,11 +2736,11 @@ function copyFormLinkFromQR() {
     if (!currentQRCodeFormId) return;
     const form = forms.find(f => f.id === currentQRCodeFormId);
     
-    // Pega a URL base (sem o nome do arquivo)
     let baseUrl = window.location.href.split('?')[0].split('#')[0];
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
-    const url = baseUrl + 'form.html?id=' + currentQRCodeFormId;
+    // 🔥 CORRIGIDO: use o nome do seu arquivo
+    const url = baseUrl + 'Formuláriosteste59.html?id=' + currentQRCodeFormId;
     
     navigator.clipboard.writeText(url).then(
         () => showToast(`Link copiado!`, 'success')
@@ -2759,13 +2757,14 @@ function shareFormLink(formId) {
     let baseUrl = window.location.href.split('?')[0].split('#')[0];
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
-    const url = baseUrl + 'form.html?id=' + form.id;
+    // 🔥 MUDE AQUI: coloque o nome do seu arquivo!
+    const url = baseUrl + 'Formuláriosteste59.html?id=' + form.id;
     
     navigator.clipboard.writeText(url).then(
         () => showToast(`Link de "${form.name}" copiado!`, 'success')
     ).catch(() => showToast(`Link: ${url}`, 'success'));
     
-    console.log('🔗 Link gerado:', url);
+    console.log('🔗 Link gerado com ID:', form.id, 'URL:', url);
 }
 
 // ==================== ATUALIZAR CABEÇALHO DA ABA ====================
@@ -3001,62 +3000,7 @@ async function buscarTudoDaNuvem() {
 // ===== CARREGAR VIA URL =====
 // ===== CARREGAR VIA URL (MODO PÚBLICO) =====
 // ===== CARREGAR VIA URL (MODO PÚBLICO - BUSCA APENAS O FORMULÁRIO ESPECÍFICO) =====
-async function checkUrlForForm() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const formId = urlParams.get('form');
-    
-    if (formId) {
-        console.log('🔗 Link público detectado:', formId);
-        
-        // Esconde header e bottom sheet imediatamente
-        document.querySelector('.header').style.display = 'none';
-        document.querySelector('.bottom-sheet').style.display = 'none';
-        
-        // Mostra loading
-        document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-        const viewPublic = document.getElementById('view-public');
-        viewPublic.classList.remove('hidden');
-        document.getElementById('public-form-container').innerHTML = '<div class="card" style="text-align:center;padding:40px;">⏳ Carregando formulário...</div>';
-        
-        // Limpa a URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        // Tenta encontrar o formulário localmente primeiro
-        let form = forms.find(f => f.id === formId);
-        
-        // Se não encontrou, busca APENAS ele na nuvem
-        if (!form) {
-            try {
-                const url = `${CONFIG.googleApiUrl}?acao=buscarUm&aba=forms&id=${encodeURIComponent(formId)}`;
-                const response = await fetch(url);
-                const result = await response.json();
-                if (result.status === 'sucesso' && result.dados) {
-                    form = result.dados;
-                    forms.push(form);
-                    saveData();
-                    console.log('✅ Formulário carregado da nuvem!');
-                } else {
-                    console.log('❌ Formulário não encontrado na nuvem:', result);
-                }
-            } catch(e) {
-                console.error('Erro na busca:', e);
-            }
-        }
-        
-        if (form) {
-            abrirModoPublico(form);
-        } else {
-            document.getElementById('public-form-container').innerHTML = `
-                <div class="card" style="text-align:center;padding:40px;">
-                    <div style="font-size:48px;">🔍</div>
-                    <h3>Formulário não encontrado</h3>
-                    <p style="color:var(--text-muted);margin-bottom:20px;">O formulário que você procura não existe ou foi removido.</p>
-                    <button class="btn btn-primary" onclick="goToHome()">Voltar para início</button>
-                </div>
-            `;
-        }
-    }
-}       
+// 🔥 JÁ ESTÁ CORRETO - gera NOVO ID 
 
 // Função para mostrar erro amigável quando formulário não é encontrado
 function mostrarErroFormularioNaoEncontrado() {
@@ -3357,11 +3301,142 @@ async function carregarBannerApp() {
 }
 
 // ===== INICIALIZAR =====
-const urlHasForm = new URLSearchParams(window.location.search).get('form');
-if (urlHasForm) {
-    loadData().then(() => checkUrlForForm());
-} else {
-    loadData();
+async function iniciarApp() {
+    await loadData();
+    
+    // Verifica se tem ID do formulário na URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const formId = urlParams.get('id') || urlParams.get('form');
+    
+    if (formId) {
+        console.log('🔗 Modo público detectado! ID:', formId);
+        
+        // Esconde header e bottom sheet
+        const header = document.querySelector('.header');
+        const bottomSheet = document.querySelector('.bottom-sheet');
+        if (header) header.style.display = 'none';
+        if (bottomSheet) bottomSheet.style.display = 'none';
+        
+        // Busca o formulário
+        let form = forms.find(f => f.id === formId);
+        
+        if (!form) {
+            try {
+                const url = `${CONFIG.googleApiUrl}?acao=buscarUm&aba=forms&id=${encodeURIComponent(formId)}`;
+                const response = await fetch(url);
+                const result = await response.json();
+                if (result.status === 'sucesso' && result.dados) {
+                    form = result.dados;
+                    forms.push(form);
+                    saveData();
+                    console.log('✅ Formulário carregado da nuvem!');
+                }
+            } catch(e) {
+                console.error('Erro na busca:', e);
+            }
+        }
+        
+        if (form) {
+            // Esconde todas as views e mostra a pública
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            const viewPublic = document.getElementById('view-public');
+            viewPublic.classList.remove('hidden');
+            renderPublicForm(form);
+        } else {
+            document.getElementById('public-form-container').innerHTML = `
+                <div class="card" style="text-align:center;padding:40px;">
+                    <div style="font-size:48px;">🔍</div>
+                    <h3>Formulário não encontrado</h3>
+                    <button class="btn btn-primary" onclick="goToHome()">Voltar</button>
+                </div>
+            `;
+        }
+    }
+}
+
+// Iniciar
+iniciarApp();
+
+// Função para renderizar formulário público no mesmo arquivo
+function renderPublicForm(form) {
+    const container = document.getElementById('public-form-container');
+    if (!container) return;
+    
+    const f = form.form;
+    
+    container.innerHTML = `
+        <div class="card" style="padding: 24px; max-width: 600px; margin: 0 auto;">
+            ${f.banner ? `<img src="${f.banner}" style="width:100%; border-radius:12px; margin-bottom:20px;">` : ''}
+            <h2 style="font-size:24px; margin-bottom:8px;">${escapeHtml(f.title || form.name)}</h2>
+            ${f.subtitle ? `<p style="color:var(--text-muted); margin-bottom:16px;">${escapeHtml(f.subtitle)}</p>` : ''}
+            ${f.description ? `<div style="margin-bottom:24px;">${escapeHtml(f.description)}</div>` : ''}
+            
+            <form id="public-form" onsubmit="return false;">
+                <div id="public-questions-container"></div>
+                <button type="button" class="btn btn-primary" onclick="submitPublicResponse('${form.id}')" style="width:100%; margin-top:20px;">
+                    📤 Enviar resposta
+                </button>
+            </form>
+            
+            ${f.footer ? `<div style="margin-top:32px; text-align:center; font-size:12px;">${escapeHtml(f.footer)}</div>` : ''}
+        </div>
+    `;
+    
+    // Renderizar perguntas
+    const questionsContainer = document.getElementById('public-questions-container');
+    if (questionsContainer) {
+        questionsContainer.innerHTML = f.questions.map(q => `
+            <div class="form-group" style="margin-bottom:20px;">
+                <label class="label">${escapeHtml(q.title)}${q.required ? ' <span style="color:var(--error);">*</span>' : ''}</label>
+                ${renderPublicInputField(q)}
+            </div>
+        `).join('');
+    }
+}
+
+function renderPublicInputField(q) {
+    const name = `pub_${q.id}`;
+    switch(q.type) {
+        case 'text': return `<input type="text" class="input" name="${name}" style="width:100%;">`;
+        case 'email': return `<input type="email" class="input" name="${name}" style="width:100%;">`;
+        case 'textarea': return `<textarea class="textarea" name="${name}" style="width:100%;"></textarea>`;
+        case 'radio': return `<div>${q.options.map(opt => `<label style="display:block; margin:8px 0;"><input type="radio" name="${name}" value="${escapeHtml(opt)}"> ${escapeHtml(opt)}</label>`).join('')}</div>`;
+        case 'checkbox': return `<div>${q.options.map(opt => `<label style="display:block; margin:8px 0;"><input type="checkbox" name="${name}" value="${escapeHtml(opt)}"> ${escapeHtml(opt)}</label>`).join('')}</div>`;
+        default: return `<input type="text" class="input" name="${name}" style="width:100%;">`;
+    }
+}
+
+async function submitPublicResponse(formId) {
+    const form = forms.find(f => f.id === formId);
+    if (!form) return;
+    
+    const formEl = document.getElementById('public-form');
+    if (!formEl) return;
+    
+    const fd = new FormData(formEl);
+    const response = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
+    
+    for (const q of form.form.questions) {
+        const name = `pub_${q.id}`;
+        let val = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
+        
+        if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
+            showToast(`Por favor, responda: ${q.title}`, 'error');
+            return;
+        }
+        response.data[q.id] = val || '';
+    }
+    
+    if (!form.responses) form.responses = [];
+    form.responses.push(response);
+    saveData();
+    await salvarNaNuvem('forms', form.id, form);
+    
+    showToast('✅ Resposta enviada com sucesso!', 'success');
+    createConfetti();
+    
+    // Limpar formulário
+    formEl.reset();
 }
 
 // ==================== CONFIGURAÇÕES DO APP ====================
