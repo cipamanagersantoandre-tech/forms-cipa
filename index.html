@@ -507,7 +507,7 @@ body {
       Crie formulários com perguntas condicionadas, gráficos e muito mais.
     </p>
     <p id="app-desc-display" style="color: var(--text-muted); max-width: 500px; margin: 0 auto 24px; font-size: 14px; display: none;"></p>
-    <button class="btn btn-primary" onclick="openNewFormModal()">➕ Criar novo</button>
+    <button class="btn btn-app-primary" onclick="openNewFormModal()">➕ Criar novo</button>
   </div>
   <div id="forms-list"></div>
   
@@ -734,7 +734,7 @@ body {
 
 <div class="bottom-sheet">
   <button class="btn" onclick="goToHome()">Início</button>
-  <button class="btn btn-primary" onclick="openNewFormModal()">Novo</button>
+  <button class="btn btn-app-primary" onclick="openNewFormModal()">Novo</button>
 </div>
 
 <!-- Modais -->
@@ -1551,7 +1551,7 @@ function updateCurrentFormTheme() {
     }
     
     saveData();
-    renderLivePreview(); // Recarrega o preview com a nova cor
+    renderLivePreview();
     showToast(`Cor do formulário atualizada!`, 'success');
 }
 
@@ -2522,6 +2522,7 @@ async function confirmImport() {
         let c = 1;
         while (forms.some(f => f.name === newName)) newName = `${imp.name} (cópia ${c++})`;
         
+        // 🔥 CRIA O FORMULÁRIO COM TODOS OS DADOS
         const newForm = {
             id: generateId(),
             name: newName,
@@ -2539,16 +2540,16 @@ async function confirmImport() {
                 })),
                 theme: imp.form.theme || { primary: '#4f46e5' },
                 config: imp.form.config || { showProgress: true },
-                emails: imp.form.emails || ''  // 🔥 IMPORTANTE: salvar emails também
+                emails: imp.form.emails || ''
             },
             responses: []
         };
         
         forms.push(newForm);
         
-        // 🔥 ENVIA PARA A NUVEM IMEDIATAMENTE
         mostrarToastInfo(`📤 Enviando "${newName}" para a nuvem...`);
         
+        // 🔥 ENVIA PARA A NUVEM
         const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
         
         if (sucesso) {
@@ -2562,7 +2563,7 @@ async function confirmImport() {
                 console.error('Erro ao criar aba:', e);
             }
             
-            // 🔥 ATUALIZA O CABEÇALHO COM AS PERGUNTAS (se houver)
+            // 🔥 ATUALIZA O CABEÇALHO COM AS PERGUNTAS
             if (newForm.form.questions && newForm.form.questions.length > 0) {
                 await atualizarCabecalhoAba(newForm.id);
             }
@@ -2594,12 +2595,10 @@ function showQRCode(formId) {
     
     currentQRCodeFormId = formId;
     
-    // Pega a URL base (sem o nome do arquivo)
     let baseUrl = window.location.href.split('?')[0].split('#')[0];
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
-    // 🔥 MUDE AQUI: aponta para form.html em vez da página atual
-    const url = baseUrl + 'form.html?id=' + formId;  // formId é o ID do formulário atual
+    const url = baseUrl + 'form.html?id=' + formId;  // 🔥 USA O ID CORRETO
     
     document.getElementById('qrcode-form-name').textContent = form.name;
     const container = document.getElementById('qrcode-container');
