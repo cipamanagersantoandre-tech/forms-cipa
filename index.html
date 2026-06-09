@@ -1220,33 +1220,32 @@ async function renderFormsList() {
     
     container.innerHTML = `<div class="forms-grid">${forms.map(form => `
         <div class="card form-card">
-<div class="form-card-header">
-    <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
-        ${form.responses ? form.responses.length : 0} respostas
-    </span>
-    <div style="display:flex;gap:4px;">
-        <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
-        <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); gerarNovoLink('${form.id}')" title="Gerar novo link">🔗</button>
-        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
-    </div>
-</div>
-            <div onclick="openFormEditor('${form.id}')">
+            <div class="form-card-header">
+                <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
+                    ${form.responses ? form.responses.length : 0} respostas
+                </span>
+                <div style="display:flex;gap:4px;">
+                    <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
+                    <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); gerarNovoLink('${form.id}')" title="Gerar novo link">🔗</button>
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
+                </div>
+            </div>
+            <div onclick="openFormEditor('${form.id}')" style="cursor:pointer;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                     <div style="width:16px;height:16px;border-radius:50%;background:${form.form?.theme?.primary || '#4f46e5'};border:1px solid var(--border);"></div>
                     <h3 class="form-card-title">${escapeHtml(form.name)}</h3>
                 </div>
                 <p style="color:var(--text-muted);font-size:13px;">${new Date(form.createdAt).toLocaleDateString()}</p>
                 <div class="form-card-stats">
-                    <span>📝 ${form.form?.questions?.length || 0}</span>
-                    <span>📊 ${form.responses ? form.responses.length : 0}</span>
+                    <span>📝 ${form.form?.questions?.length || 0} perguntas</span>
+                    <span>📊 ${form.responses ? form.responses.length : 0} respostas</span>
                 </div>
             </div>
-<div class="form-card-actions">
-    <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
-    <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
-    <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
-    <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
-</div>
+            <div class="form-card-actions">
+                <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
+                <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
+                <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
+                <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
             </div>
         </div>
     `).join('')}</div>`;
