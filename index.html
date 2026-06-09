@@ -1120,6 +1120,21 @@ async function excluirDaNuvem(aba, id) {
     }
 }
 
+// ========== FUNÇÃO PARA SALVAR EMAIL SEPARADAMENTE ==========
+async function salvarEmailConfiguracao(nomeFormulario, emails) {
+  try {
+    const url = `${CONFIG.googleApiUrl}?acao=salvarEmail&nomeFormulario=${encodeURIComponent(nomeFormulario)}&emails=${encodeURIComponent(emails)}`;
+    console.log('📧 Salvando email na configuração:', url);
+    const response = await fetch(url);
+    const result = await response.json();
+    console.log('📧 Resposta:', result);
+    return result.status === 'sucesso';
+  } catch(e) {
+    console.error('❌ Erro ao salvar email:', e);
+    return false;
+  }
+}
+
 // ==================== FORMULÁRIOS ====================
 async function loadData() {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -1292,23 +1307,24 @@ async function createFormWithTemplate(templateType) {
     try {
         let template = { title: name, subtitle: '', questions: [] };
         
-        const newForm = {
-            id: generateId(),  // 🔥 NOVO ID GERADO
-            name: newName,
-            createdAt: new Date().toISOString(),
-            form: {
-                title: template.title,
-                subtitle: template.subtitle || '',
-                description: template.description || '',
-                banner: '',
-                footer: '',
-                questions: template.questions,
-                theme: { primary: '#4f46e5' },
-                config: { showProgress: true },
-                emails: ''
-            },
-            responses: []
-        };
+
+const newForm = {
+    id: generateId(),
+    name: name,           // ← use 'name' em vez de 'newName'
+    createdAt: new Date().toISOString(),
+    form: {
+        title: template.title,
+        subtitle: template.subtitle || '',
+        description: template.description || '',
+        banner: '',
+        footer: '',
+        questions: template.questions,
+        theme: { primary: '#4f46e5' },
+        config: { showProgress: true },
+        emails: ''
+    },
+    responses: []
+};
         
         forms.push(newForm);
         saveData();
@@ -1567,31 +1583,30 @@ async function salvarConfiguracoesAparencia() {
     const formData = getCurrentForm();
     if (!formData) return;
     
-    // Pega os valores atuais dos campos
     const novoEmail = document.getElementById('form-emails').value;
     const novoFooter = document.getElementById('form-footer').value;
     const novaDescricao = document.getElementById('form-desc').value;
     const novoSubtitulo = document.getElementById('form-subtitle').value;
     
-    // Atualiza o objeto formData
     formData.form.emails = novoEmail;
     formData.form.footer = novoFooter;
     formData.form.description = novaDescricao;
     formData.form.subtitle = novoSubtitulo;
     
-    // Salva localmente
     saveData();
     
-    // Mostra loading no botão
     const btn = event.currentTarget;
     const textoOriginal = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Salvando...';
     
     try {
-        // Envia para a nuvem
+        // Salva o formulário normalmente
         await salvarNaNuvem('forms', formData.id, formData);
         await atualizarCabecalhoAba(formData.id);
+        
+        // 🔥 SALVA O EMAIL SEPARADAMENTE NA ABA CONFIGURACOES
+        await salvarEmailConfiguracao(formData.name, novoEmail);
         
         showToast('✅ Configurações salvas com sucesso!', 'success');
     } catch (erro) {
@@ -2524,11 +2539,11 @@ async function confirmImport() {
         let c = 1;
         while (forms.some(f => f.name === newName)) newName = `${imp.name} (cópia ${c++})`;
         
-        // 🔥 CRIA UM ID TOTALMENTE NOVO
         const novoId = generateId();
+        const emailsImportados = imp.form.emails || '';
         
         const newForm = {
-            id: novoId,  // 🔥 USA O NOVO ID
+            id: novoId,
             name: newName,
             createdAt: new Date().toISOString(),
             form: {
@@ -2539,12 +2554,12 @@ async function confirmImport() {
                 footer: imp.form.footer || '',
                 questions: (imp.form.questions || []).map(q => ({
                     ...q,
-                    id: generateId(),  // 🔥 NOVOS IDs para cada pergunta
+                    id: generateId(),
                     condition: q.condition ? { ...q.condition, dependsOn: null } : null
                 })),
                 theme: imp.form.theme || { primary: '#4f46e5' },
                 config: imp.form.config || { showProgress: true },
-                emails: imp.form.emails || ''
+                emails: emailsImportados
             },
             responses: []
         };
@@ -2553,7 +2568,7 @@ async function confirmImport() {
         
         mostrarToastInfo(`📤 Enviando "${newName}" para a nuvem...`);
         
-        // 🔥 CRIA A ABA COM O NOME DO FORMULÁRIO (NÃO COM O ID)
+        // Cria a aba
         const cabecalhos = JSON.stringify(['Data/Hora', ...newForm.form.questions.map(q => q.title)]);
         const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
         
@@ -2564,15 +2579,13 @@ async function confirmImport() {
             console.error('Erro ao criar aba:', e);
         }
         
-        // 🔥 SALVA O FORMULÁRIO NA ABa 'forms'
-        const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
+        // Salva o formulário
+        await salvarNaNuvem('forms', newForm.id, newForm);
         
-        if (sucesso) {
-            showToast(`"${newName}" importado e salvo na nuvem!`, 'success');
-        } else {
-            showToast(`"${newName}" importado localmente, erro na nuvem`, 'warning');
-        }
+        // 🔥 SALVA O EMAIL SEPARADAMENTE NA ABA CONFIGURACOES
+        await salvarEmailConfiguracao(newName, emailsImportados);
         
+        showToast(`"${newName}" importado!`, 'success');
         imported++;
     }
     
@@ -2581,6 +2594,7 @@ async function confirmImport() {
     closeModal();
     showToast(`${imported} importado(s)!`, 'success');
 }
+
 // ==================== QR CODE ====================
 function showQRCode(formId) {
     // 🔥 BUSCA O FORMULÁRIO PELO ID
