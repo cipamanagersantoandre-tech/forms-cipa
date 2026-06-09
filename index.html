@@ -2712,7 +2712,7 @@ function showQRCode(formId) {
     let baseUrl = window.location.href.split('?')[0].split('#')[0];
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
-    // 🔥 MUDE AQUI: coloque o nome do seu arquivo!
+    // 🔥 AGORA USA index.html (arquivo do GitHub)
     const url = baseUrl + 'index.html?id=' + form.id;
     
     document.getElementById('qrcode-form-name').textContent = form.name;
@@ -2757,7 +2757,7 @@ function shareFormLink(formId) {
     let baseUrl = window.location.href.split('?')[0].split('#')[0];
     baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
-    // 🔥 MUDE AQUI: coloque o nome do seu arquivo!
+    // 🔥 AGORA USA index.html
     const url = baseUrl + 'index.html?id=' + form.id;
     
     navigator.clipboard.writeText(url).then(
