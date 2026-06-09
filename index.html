@@ -1220,15 +1220,16 @@ async function renderFormsList() {
     
     container.innerHTML = `<div class="forms-grid">${forms.map(form => `
         <div class="card form-card">
-            <div class="form-card-header">
-                <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
-                    ${form.responses ? form.responses.length : 0} respostas
-                </span>
-                <div style="display:flex;gap:4px;">
-                    <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
-                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
-                </div>
-            </div>
+<div class="form-card-header">
+    <span style="background:var(--primary-light);padding:4px 12px;border-radius:20px;">
+        ${form.responses ? form.responses.length : 0} respostas
+    </span>
+    <div style="display:flex;gap:4px;">
+        <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
+        <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); gerarNovoLink('${form.id}')" title="Gerar novo link">🔗</button>
+        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
+    </div>
+</div>
             <div onclick="openFormEditor('${form.id}')">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                     <div style="width:16px;height:16px;border-radius:50%;background:${form.form?.theme?.primary || '#4f46e5'};border:1px solid var(--border);"></div>
@@ -1243,7 +1244,6 @@ async function renderFormsList() {
 <div class="form-card-actions">
     <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
     <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
-    <button class="btn btn-sm btn-success" onclick="gerarNovoLink('${form.id}')" title="Gerar novo link">🔗 Gerar Link</button>
     <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
     <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
 </div>
