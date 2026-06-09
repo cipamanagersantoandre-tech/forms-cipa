@@ -1036,10 +1036,12 @@ async function salvarNaNuvem(aba, id, dados) {
     
     try {
         const dadosStr = JSON.stringify(dados);
-        // 🔥 CORREÇÃO: Garante que o nome do formulário está sendo enviado
         const nomeDoFormulario = dados.name || dados.form?.title || "Sem nome";
         
-        const url = `${CONFIG.googleApiUrl}?acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&nomeFormulario=${encodeURIComponent(nomeDoFormulario)}&dados=${encodeURIComponent(dadosStr)}`;
+        // 🔥 EXTRAI OS EMAILS DO FORMULÁRIO
+        const emails = dados.form?.emails || "";
+        
+        const url = `${CONFIG.googleApiUrl}?acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&nomeFormulario=${encodeURIComponent(nomeDoFormulario)}&emails=${encodeURIComponent(emails)}&dados=${encodeURIComponent(dadosStr)}`;
         
         console.log('📤 Salvando:', url.substring(0, 200));
         
@@ -2540,7 +2542,7 @@ async function confirmImport() {
                 })),
                 theme: imp.form.theme || { primary: '#4f46e5' },
                 config: imp.form.config || { showProgress: true },
-                emails: imp.form.emails || ''
+                emails: imp.form.emails || ''  // 🔥 JÁ ESTÁ CORRETO ''
             },
             responses: []
         };
