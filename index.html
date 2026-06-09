@@ -3451,23 +3451,46 @@ function extrairFileIdDoDrive(url) {
 
 // Função para fazer upload da imagem para o Google Drive
 async function uploadImagemParaDrive(file, nomeIdentificador) {
+    console.log('🔵 INICIANDO UPLOAD para:', nomeIdentificador);
+    
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = async function(e) {
             const base64 = e.target.result.split(',')[1];
+            console.log('📦 Base64 gerado, tamanho:', base64.length);
             
             try {
-                const url = `${CONFIG.googleApiUrl}?acao=uploadBanner&identificador=${encodeURIComponent(nomeIdentificador)}&arquivo=${encodeURIComponent(base64)}&tipo=${encodeURIComponent(file.type)}`;
+                // Usa POST com JSON (não FormData)
+                const url = `${CONFIG.googleApiUrl}?acao=uploadBanner`;
                 
-                const response = await fetch(url);
+                const dados = {
+                    identificador: nomeIdentificador,
+                    arquivo: base64,
+                    tipo: file.type
+                };
+                
+                console.log('📤 Enviando via POST...');
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(dados)
+                });
+                
                 const result = await response.json();
+                console.log('📦 Resposta do servidor:', result);
                 
                 if (result.status === 'sucesso') {
+                    console.log('✅ Upload concluído! Link:', result.link);
                     resolve(result.link);
                 } else {
-                    reject(new Error(result.mensagem));
+                    reject(new Error(result.mensagem || 'Erro no upload'));
                 }
             } catch(erro) {
+                console.error('❌ Erro no fetch:', erro);
                 reject(erro);
             }
         };
