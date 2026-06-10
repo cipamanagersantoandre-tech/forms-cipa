@@ -1045,15 +1045,29 @@ async function salvarNaNuvem(aba, id, dados) {
     try {
         const dadosStr = JSON.stringify(dados);
         const nomeDoFormulario = dados.name || dados.form?.title || "Sem nome";
-        
-        // 🔥 EXTRAI OS EMAILS DO FORMULÁRIO
         const emails = dados.form?.emails || "";
         
-        const url = `${CONFIG.googleApiUrl}?acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&nomeFormulario=${encodeURIComponent(nomeDoFormulario)}&emails=${encodeURIComponent(emails)}&dados=${encodeURIComponent(dadosStr)}`;
+        // 🔥 MUDANÇA AQUI: AGORA USA POST EM VEZ DE GET
+        const url = `${CONFIG.googleApiUrl}`;
         
-        console.log('📤 Salvando:', url.substring(0, 200));
+        const body = new URLSearchParams();
+        body.append('acao', 'salvar');
+        body.append('aba', aba);
+        body.append('id', id);
+        body.append('nomeFormulario', nomeDoFormulario);
+        body.append('emails', emails);
+        body.append('dados', dadosStr);
         
-        const response = await fetch(url);
+        console.log('📤 Salvando via POST - Formulário:', nomeDoFormulario);
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: body.toString()
+        });
+        
         const result = await response.json();
         console.log('✅ Resposta salvar:', result);
         return result.status === 'sucesso';
