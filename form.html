@@ -363,22 +363,29 @@ function aplicarCondicoes(form) {
       const div = document.querySelector(`.form-group[data-qid="${q.id}"]`);
       if (!div) return;
       
-      if (!q.condition || !q.condition.dependsOn) {
-        div.style.display = 'block';
-      } else {
-        const valorDependencia = respostas[q.condition.dependsOn];
-        let mostrar = false;
+if (!q.condition || !q.condition.dependsOn) {
+    div.style.display = 'block';
+} else {
+    const valorDependencia = respostas[q.condition.dependsOn];
+    let mostrar = false;
+    
+    if (valorDependencia) {
+        // 🔥 NOVO: Suporte para múltiplos valores separados por vírgula
+        const expectedValue = q.condition.expectedValue;
+        const valoresEsperados = expectedValue.split(',').map(v => v.trim());
         
-        if (valorDependencia) {
-          if (Array.isArray(valorDependencia)) {
-            mostrar = valorDependencia.includes(q.condition.expectedValue);
-          } else {
-            mostrar = String(valorDependencia) === String(q.condition.expectedValue);
-          }
+        if (Array.isArray(valorDependencia)) {
+            // Para checkbox: verifica se alguma opção marcada está na lista
+            mostrar = valorDependencia.some(valor => valoresEsperados.includes(String(valor)));
+        } else {
+            // Para outros tipos: verifica se o valor está na lista
+            mostrar = valoresEsperados.includes(String(valorDependencia));
         }
-        
-        div.style.display = mostrar ? 'block' : 'none';
-        
+    }
+    
+    div.style.display = mostrar ? 'block' : 'none';
+}
+
         if (!mostrar) {
           const inputs = div.querySelectorAll('input, select, textarea');
           inputs.forEach(inp => {
