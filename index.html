@@ -2700,18 +2700,47 @@ async function confirmImport() {
         const novoId = generateId();
         const emailsImportados = imp.form?.emails || '';
         
-        // 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs
-        const novasPerguntas = (imp.form?.questions || []).map(q => ({
-            id: generateId(),
-            type: q.type || 'text',
-            title: q.title || 'Nova pergunta',
-            required: q.required || false,
-            options: q.options || ['Opção 1', 'Opção 2'],
-            condition: q.condition ? {
-                dependsOn: null,
-                expectedValue: q.condition.expectedValue
-            } : null
-        }));
+// 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs (PRESERVANDO AS CONDIÇÕES)
+const novasPerguntas = (imp.form?.questions || []).map(q => {
+    // Para cada pergunta, vamos mapear o ID antigo para o novo ID
+    // para poder preservar o dependsOn
+    
+    const novoId = generateId();
+    
+    // Guardar o mapeamento para usar depois
+    if (!window.__idMappingImport) window.__idMappingImport = {};
+    window.__idMappingImport[q.id] = novoId;
+    
+    return {
+        id: novoId,
+        type: q.type || 'text',
+        title: q.title || 'Nova pergunta',
+        required: q.required || false,
+        options: q.options || ['Opção 1', 'Opção 2'],
+        condition: q.condition ? {
+            // 🔥 NOVO: preserva o dependsOn original (vai ser ajustado depois)
+            dependsOn: q.condition.dependsOn,
+            expectedValue: q.condition.expectedValue
+        } : null
+    };
+});
+
+// 🔥 SEGUNDA PASSADA: atualizar os dependsOn para os novos IDs
+novasPerguntas.forEach(pergunta => {
+    if (pergunta.condition && pergunta.condition.dependsOn) {
+        const idAntigo = pergunta.condition.dependsOn;
+        const idNovo = window.__idMappingImport[idAntigo];
+        if (idNovo) {
+            pergunta.condition.dependsOn = idNovo;
+        } else {
+            // Se não encontrou o mapeamento, zera a condição (pergunta mãe não existe)
+            pergunta.condition = null;
+        }
+    }
+});
+
+// Limpar o mapeamento global
+delete window.__idMappingImport;
         
         // 🔥 CRIAR FORMULÁRIO COM NOVO ID
         const newForm = {
