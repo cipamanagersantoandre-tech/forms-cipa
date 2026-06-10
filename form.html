@@ -335,6 +335,18 @@ function renderizarInput(q, idx) {
     `).join('')}</div>`;
     case 'date': return `<input type="date" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
     case 'time': return `<input type="time" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
+    case 'attachment': return `
+        <div class="attachment-container">
+            <input type="file" class="input" name="${name}" id="${id}" 
+                   accept=".pdf,.jpg,.jpeg,.png" 
+                   style="padding: 14px; font-size: 16px;">
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px; padding: 8px; background: var(--bg); border-radius: 8px;">
+                📦 Limite: 10MB<br>
+                📄 Formatos: PDF, JPG, JPEG, PNG<br>
+                📧 Para arquivos maiores, envie para: documentos@empresa.com
+            </div>
+        </div>
+    `;
     default: return `<input type="text" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
   }
 }
@@ -410,11 +422,10 @@ function aplicarCondicoes(form) {
 // ==================== ENVIAR RESPOSTA ====================
 // ==================== ENVIAR RESPOSTA ====================
 async function enviarResposta(formId) {
-    const event = window.event;  // ← adicione esta linha
+    const event = window.event;
     const btn = event.currentTarget;
     const textoOriginal = btn.innerHTML;
     
-    // Desabilita o botão e mostra "Enviando..."
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Enviando...';
     
@@ -430,7 +441,8 @@ async function enviarResposta(formId) {
         const resposta = { 
             id: generateId(), 
             timestamp: new Date().toISOString(), 
-            data: {} 
+            data: {},
+            anexos: []
         };
         let temErro = false;
         
@@ -445,36 +457,84 @@ async function enviarResposta(formId) {
         
         for (const q of perguntasVisiveis) {
             const name = `resp_${q.id}`;
-            let valor = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
             
-            if (q.required && (!valor || (Array.isArray(valor) && valor.length === 0))) {
-                showToast(`Por favor, responda: ${q.title}`, 'error');
-                temErro = true;
-                break;
+            // TRATAMENTO ESPECIAL PARA ANEXO
+            if (q.type === 'attachment') {
+                const fileInput = document.getElementById(`campo_${q.id}`);
+                const file = fileInput?.files[0];
+                
+                if (q.required && !file) {
+                    showToast(`Por favor, anexe o arquivo: ${q.title}`, 'error');
+                    temErro = true;
+                    break;
+                }
+                
+                if (file) {
+                    // Validar tamanho (10MB padrão)
+                    const maxSize = 10 * 1024 * 1024;
+                    if (file.size > maxSize) {
+                        showToast(`❌ Arquivo muito grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Limite: 10MB. Envie para: documentos@empresa.com`, 'error');
+                        temErro = true;
+                        break;
+                    }
+                    
+                    // Validar tipo
+                    const allowedTypes = ['pdf', 'jpg', 'jpeg', 'png'];
+                    const fileExt = file.name.split('.').pop().toLowerCase();
+                    if (!allowedTypes.includes(fileExt)) {
+                        showToast(`❌ Formato não permitido: ${fileExt}. Use: PDF, JPG, JPEG, PNG`, 'error');
+                        temErro = true;
+                        break;
+                    }
+                    
+                    // Converter para Base64
+                    const base64 = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                        reader.readAsDataURL(file);
+                    });
+                    
+                    resposta.anexos.push({
+                        nome: file.name,
+                        tipo: file.type,
+                        tamanho: file.size,
+                        base64: base64,
+                        perguntaTitulo: q.title
+                    });
+                    
+                    resposta.data[q.id] = `📎 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`;
+                } else {
+                    resposta.data[q.id] = '(nenhum arquivo enviado)';
+                }
+            } else {
+                let valor = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
+                if (q.required && (!valor || (Array.isArray(valor) && valor.length === 0))) {
+                    showToast(`Por favor, responda: ${q.title}`, 'error');
+                    temErro = true;
+                    break;
+                }
+                resposta.data[q.id] = valor || '';
             }
-            
-            resposta.data[q.id] = valor || '';
-            console.log(`💾 Salvando resposta para ${q.title} (${q.id}):`, resposta.data[q.id]);
         }
         
         if (!temErro) {
             console.log('📦 Resposta completa:', resposta);
+            console.log('📎 Anexos:', resposta.anexos);
             
+            // Salvar no Sheets
             const sucesso = await salvarResposta(form.id, form.name, form.form.questions, resposta.data);
+            
             if (sucesso) {
+                // Enviar e-mail com anexos
+                await enviarEmailComAnexos(form.name, resposta);
                 mostrarAgradecimento();
                 createConfetti();
             } else {
                 showToast('Erro ao salvar resposta', 'error');
-                // Reabilita o botão em caso de erro
-                btn.disabled = false;
-                btn.innerHTML = textoOriginal;
             }
-        } else {
-            // Reabilita o botão em caso de erro de validação
-            btn.disabled = false;
-            btn.innerHTML = textoOriginal;
         }
+        btn.disabled = false;
+        btn.innerHTML = textoOriginal;
     } catch (erro) {
         console.error('Erro:', erro);
         showToast('Erro ao enviar resposta', 'error');
@@ -558,6 +618,33 @@ async function init() {
       </div>
     `;
   }
+}
+
+async function enviarEmailComAnexos(nomeFormulario, resposta) {
+    try {
+        const url = `${SHEETS_URL}`;
+        
+        const body = new URLSearchParams();
+        body.append('acao', 'enviarEmailComAnexos');
+        body.append('nomeFormulario', nomeFormulario);
+        body.append('respostas', JSON.stringify(resposta.data));
+        body.append('anexos', JSON.stringify(resposta.anexos));
+        body.append('timestamp', resposta.timestamp);
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: body.toString()
+        });
+        
+        const result = await response.json();
+        console.log('📧 Resultado do e-mail:', result);
+        
+    } catch (erro) {
+        console.error('❌ Erro ao enviar e-mail:', erro);
+    }
 }
 
 init();
