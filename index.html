@@ -2772,133 +2772,35 @@ async function confirmImport() {
 
 // ==================== GERAR NOVO LINK ====================
 // ==================== GERAR NOVO LINK E QR CODE ====================
-async function gerarNovoLink(formId) {
+// ==================== GERAR NOVO LINK ====================
+function gerarNovoLink(formId) {
     const form = forms.find(f => f.id === formId);
     if (!form) {
         showToast('Erro: Formulário não encontrado', 'error');
         return;
     }
     
-    // Confirmação antes de prosseguir
-    const confirmado = confirm(`⚠️ ATENÇÃO!\n\nIsso vai gerar um NOVO LINK para "${form.name}".\n\nO link antigo será substituído e NÃO funcionará mais.\n\nDeseja continuar?`);
+    // Pega a URL base
+    let baseUrl = window.location.href.split('?')[0].split('#')[0];
+    baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
     
-    if (!confirmado) return;
+    // Gera o link com o ID do formulário
+    const url = baseUrl + 'form.html?id=' + form.id;
     
-    mostrarProgresso('🔄 Gerando novo link...');
-    atualizarProgresso(30, 'Criando novo ID...');
-    
-    try {
-        // 🔥 SALVAR O NOME E EMAILS ANTES DE MODIFICAR
-        const nomeAntigo = form.name;
-        const emailsAntigos = form.form.emails || '';
-        const perguntasAntigas = form.form.questions;
-        const temaAntigo = form.form.theme || { primary: '#4f46e5' };
-        const bannerAntigo = form.form.banner || '';
-        const descricaoAntiga = form.form.description || '';
-        const subtituloAntigo = form.form.subtitle || '';
-        const footerAntigo = form.form.footer || '';
+    // Copia para a área de transferência
+    navigator.clipboard.writeText(url).then(() => {
+        showToast(`✅ Link de "${form.name}" copiado!`, 'success');
         
-        // 🔥 GERAR NOVO ID
-        const novoId = generateId();
-        
-        // 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs (manter as perguntas)
-        const novasPerguntas = perguntasAntigas.map(q => ({
-            ...q,
-            id: generateId(),  // NOVO ID para cada pergunta
-            condition: q.condition ? {
-                dependsOn: null,
-                expectedValue: q.condition.expectedValue
-            } : null
-        }));
-        
-        // 🔥 CRIAR O NOVO FORMULÁRIO COM O MESMO NOME, MAS NOVO ID
-        const novoForm = {
-            id: novoId,
-            name: nomeAntigo,
-            createdAt: new Date().toISOString(),
-            form: {
-                title: nomeAntigo,
-                subtitle: subtituloAntigo,
-                description: descricaoAntiga,
-                banner: bannerAntigo,
-                footer: footerAntigo,
-                questions: novasPerguntas,
-                theme: temaAntigo,
-                config: { showProgress: true },
-                emails: emailsAntigos
-            },
-            responses: form.responses || []  // Mantém as respostas antigas
-        };
-        
-        // 🔥 REMOVER O FORMULÁRIO ANTIGO
-        const indexAntigo = forms.findIndex(f => f.id === formId);
-        if (indexAntigo !== -1) {
-            forms.splice(indexAntigo, 1);
+        // Pergunta se quer gerar QR Code também
+        if (confirm(`Link copiado!\n\n${url}\n\nDeseja gerar o QR Code também?`)) {
+            showQRCode(form.id);
         }
-        
-        // 🔥 ADICIONAR O NOVO FORMULÁRIO
-        forms.push(novoForm);
-        saveData();
-        
-        atualizarProgresso(60, 'Criando nova aba no Sheets...');
-        
-        // 🔥 CRIAR A NOVA ABA NO SHEETS
-        const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
-        const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(nomeAntigo)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-        
-        await fetch(urlCriarAba);
-        
-        // 🔥 MIGRAR RESPOSTAS ANTIGAS PARA A NOVA ABA (se houver)
-        if (form.responses && form.responses.length > 0) {
-            atualizarProgresso(80, 'Migrando respostas antigas...');
-            
-            for (const resposta of form.responses) {
-                const respostasArray = novasPerguntas.map(q => {
-                    let val = resposta.data[q.id] || resposta.data[q.title] || '';
-                    if (Array.isArray(val)) val = val.join(', ');
-                    return val;
-                });
-                
-                const dadosCompletos = [resposta.timestamp, ...respostasArray];
-                
-                const urlSalvarResposta = `${CONFIG.googleApiUrl}?acao=salvarResposta&nomeFormulario=${encodeURIComponent(nomeAntigo)}&dados=${encodeURIComponent(JSON.stringify(dadosCompletos))}&cabecalhos=${encodeURIComponent(JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]))}`;
-                
-                await fetch(urlSalvarResposta);
-            }
-        }
-        
-        // 🔥 SALVAR NA NUVEM (aba 'forms')
-        await salvarNaNuvem('forms', novoForm.id, novoForm);
-        
-        // 🔥 SALVAR CONFIGURAÇÃO DE EMAILS
-        if (emailsAntigos) {
-            await salvarEmailConfiguracao(nomeAntigo, emailsAntigos);
-        }
-        
-        atualizarProgresso(100, '✅ Novo link gerado com sucesso!');
-        
-        // 🔥 GERAR O QR CODE AUTOMATICAMENTE
-        setTimeout(() => {
-            fecharProgresso();
-            showToast(`✅ Novo link gerado para "${nomeAntigo}"!`, 'success');
-            showQRCode(novoForm.id);
-        }, 500);
-        
-        // Atualizar a lista
-        renderFormsList();
-        
-        // Se estiver no editor, atualizar
-        if (currentFormId === formId) {
-            currentFormId = novoForm.id;
-            openFormEditor(novoForm.id);
-        }
-        
-    } catch (erro) {
-        console.error('Erro ao gerar novo link:', erro);
-        fecharProgresso();
-        showToast('❌ Erro ao gerar novo link', 'error');
-    }
+    }).catch(() => {
+        showToast(`Link: ${url}`, 'info');
+        showQRCode(form.id);
+    });
 }
+
 // ==================== ATUALIZAR CABEÇALHO DA ABA ====================
 async function atualizarCabecalhoAba(formId) {
     const form = forms.find(f => f.id === formId);
