@@ -629,6 +629,37 @@ body {
   </button>
 </div>
 
+<h3 style="margin: 24px 0 16px;">📎 Configurações de Anexos</h3>
+
+<div class="form-group">
+  <label class="label">Tamanho máximo do anexo (MB)</label>
+  <input type="number" class="input" id="form-max-size" value="10" min="1" max="25">
+  <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+    📦 Limite em megabytes. Máximo recomendado: 25MB (limite do e-mail)
+  </div>
+</div>
+
+<div class="form-group">
+  <label class="label">📄 Tipos de arquivo permitidos</label>
+  <input type="text" class="input" id="form-allowed-types" value="pdf,jpg,jpeg,png" placeholder="pdf,jpg,jpeg,png">
+  <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+    📋 Separe por vírgula. Ex: pdf,jpg,png
+  </div>
+</div>
+
+<div class="form-group">
+  <label class="label">📧 E-mail para arquivos grandes (opcional)</label>
+  <input type="email" class="input" id="form-alternative-email" placeholder="documentos@empresa.com">
+  <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+    📨 Se o arquivo exceder o limite, o usuário verá este e-mail para contato
+  </div>
+</div>
+
+<div class="form-group">
+  <label class="label">📝 Mensagem personalizada (opcional)</label>
+  <textarea class="textarea" id="form-attachment-message" rows="2" placeholder="Para arquivos maiores, entre em contato..."></textarea>
+</div>
+
           <h3 style="margin: 24px 0 16px;">🎨 Cores</h3>
           <div class="color-palette">
             <div class="palette-btn" style="background:#4f46e5" onclick="applyPalette('#4f46e5')"></div>
@@ -1278,6 +1309,10 @@ function openFormEditor(formId) {
     document.getElementById('form-desc').value = f.description || '';
     document.getElementById('form-footer').value = f.footer || '';
     document.getElementById('form-emails').value = f.emails || ''; // NOVA LINHA
+    document.getElementById('form-max-size').value = f.attachment?.maxSize || 10;
+    document.getElementById('form-allowed-types').value = f.attachment?.allowedTypes || 'pdf,jpg,jpeg,png';
+    document.getElementById('form-alternative-email').value = f.attachment?.alternativeEmail || '';
+    document.getElementById('form-attachment-message').value = f.attachment?.customMessage || '';
     document.getElementById('theme-primary').value = f.theme?.primary || '#4f46e5';
     document.documentElement.style.setProperty('--primary', f.theme?.primary || '#4f46e5');
     renderBannerPreviewFromUrl(f.banner);
@@ -1540,6 +1575,12 @@ async function updateCurrentFormMeta() {
     formData.form.description = document.getElementById('form-desc').value;
     formData.form.footer = document.getElementById('form-footer').value;
     formData.form.emails = document.getElementById('form-emails').value;
+formData.form.attachment = {
+    maxSize: parseInt(document.getElementById('form-max-size').value) || 10,
+    allowedTypes: document.getElementById('form-allowed-types').value,
+    alternativeEmail: document.getElementById('form-alternative-email').value,
+    customMessage: document.getElementById('form-attachment-message').value
+};
     
     // 🔥 Atualiza o nome principal do formulário
     if (formData.form.title !== formData.name) {
