@@ -2771,104 +2771,134 @@ async function confirmImport() {
 // ==================== QR CODE ====================
 
 // ==================== GERAR NOVO LINK ====================
-function gerarNovoLink(formId) {
+// ==================== GERAR NOVO LINK E QR CODE ====================
+async function gerarNovoLink(formId) {
     const form = forms.find(f => f.id === formId);
     if (!form) {
         showToast('Erro: Formulário não encontrado', 'error');
         return;
     }
     
-    // Pega a URL base
-    let baseUrl = window.location.href.split('?')[0].split('#')[0];
-    baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
+    // Confirmação antes de prosseguir
+    const confirmado = confirm(`⚠️ ATENÇÃO!\n\nIsso vai gerar um NOVO LINK para "${form.name}".\n\nO link antigo será substituído e NÃO funcionará mais.\n\nDeseja continuar?`);
     
-    // Gera o link com o ID do formulário
-    const url = baseUrl + 'form.html?id=' + form.id;
+    if (!confirmado) return;
     
-    // Copia para a área de transferência
-    navigator.clipboard.writeText(url).then(() => {
-        showToast(`✅ Link de "${form.name}" copiado!`, 'success');
+    mostrarProgresso('🔄 Gerando novo link...');
+    atualizarProgresso(30, 'Criando novo ID...');
+    
+    try {
+        // 🔥 SALVAR O NOME E EMAILS ANTES DE MODIFICAR
+        const nomeAntigo = form.name;
+        const emailsAntigos = form.form.emails || '';
+        const perguntasAntigas = form.form.questions;
+        const temaAntigo = form.form.theme || { primary: '#4f46e5' };
+        const bannerAntigo = form.form.banner || '';
+        const descricaoAntiga = form.form.description || '';
+        const subtituloAntigo = form.form.subtitle || '';
+        const footerAntigo = form.form.footer || '';
         
-        // Pergunta se quer gerar QR Code também
-        if (confirm(`Link copiado!\n\n${url}\n\nDeseja gerar o QR Code também?`)) {
-            showQRCode(form.id);
+        // 🔥 GERAR NOVO ID
+        const novoId = generateId();
+        
+        // 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs (manter as perguntas)
+        const novasPerguntas = perguntasAntigas.map(q => ({
+            ...q,
+            id: generateId(),  // NOVO ID para cada pergunta
+            condition: q.condition ? {
+                dependsOn: null,
+                expectedValue: q.condition.expectedValue
+            } : null
+        }));
+        
+        // 🔥 CRIAR O NOVO FORMULÁRIO COM O MESMO NOME, MAS NOVO ID
+        const novoForm = {
+            id: novoId,
+            name: nomeAntigo,
+            createdAt: new Date().toISOString(),
+            form: {
+                title: nomeAntigo,
+                subtitle: subtituloAntigo,
+                description: descricaoAntiga,
+                banner: bannerAntigo,
+                footer: footerAntigo,
+                questions: novasPerguntas,
+                theme: temaAntigo,
+                config: { showProgress: true },
+                emails: emailsAntigos
+            },
+            responses: form.responses || []  // Mantém as respostas antigas
+        };
+        
+        // 🔥 REMOVER O FORMULÁRIO ANTIGO
+        const indexAntigo = forms.findIndex(f => f.id === formId);
+        if (indexAntigo !== -1) {
+            forms.splice(indexAntigo, 1);
         }
-    }).catch(() => {
-        // Se não conseguir copiar, mostra o link
-        showToast(`Link: ${url}`, 'info');
-        showQRCode(form.id);
-    });
-}
-
-function showQRCode(formId) {
-    const form = forms.find(f => f.id === formId);
-    if (!form) {
-        showToast('Erro: Formulário não encontrado', 'error');
-        return;
+        
+        // 🔥 ADICIONAR O NOVO FORMULÁRIO
+        forms.push(novoForm);
+        saveData();
+        
+        atualizarProgresso(60, 'Criando nova aba no Sheets...');
+        
+        // 🔥 CRIAR A NOVA ABA NO SHEETS
+        const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
+        const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(nomeAntigo)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+        
+        await fetch(urlCriarAba);
+        
+        // 🔥 MIGRAR RESPOSTAS ANTIGAS PARA A NOVA ABA (se houver)
+        if (form.responses && form.responses.length > 0) {
+            atualizarProgresso(80, 'Migrando respostas antigas...');
+            
+            for (const resposta of form.responses) {
+                const respostasArray = novasPerguntas.map(q => {
+                    let val = resposta.data[q.id] || resposta.data[q.title] || '';
+                    if (Array.isArray(val)) val = val.join(', ');
+                    return val;
+                });
+                
+                const dadosCompletos = [resposta.timestamp, ...respostasArray];
+                
+                const urlSalvarResposta = `${CONFIG.googleApiUrl}?acao=salvarResposta&nomeFormulario=${encodeURIComponent(nomeAntigo)}&dados=${encodeURIComponent(JSON.stringify(dadosCompletos))}&cabecalhos=${encodeURIComponent(JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]))}`;
+                
+                await fetch(urlSalvarResposta);
+            }
+        }
+        
+        // 🔥 SALVAR NA NUVEM (aba 'forms')
+        await salvarNaNuvem('forms', novoForm.id, novoForm);
+        
+        // 🔥 SALVAR CONFIGURAÇÃO DE EMAILS
+        if (emailsAntigos) {
+            await salvarEmailConfiguracao(nomeAntigo, emailsAntigos);
+        }
+        
+        atualizarProgresso(100, '✅ Novo link gerado com sucesso!');
+        
+        // 🔥 GERAR O QR CODE AUTOMATICAMENTE
+        setTimeout(() => {
+            fecharProgresso();
+            showToast(`✅ Novo link gerado para "${nomeAntigo}"!`, 'success');
+            showQRCode(novoForm.id);
+        }, 500);
+        
+        // Atualizar a lista
+        renderFormsList();
+        
+        // Se estiver no editor, atualizar
+        if (currentFormId === formId) {
+            currentFormId = novoForm.id;
+            openFormEditor(novoForm.id);
+        }
+        
+    } catch (erro) {
+        console.error('Erro ao gerar novo link:', erro);
+        fecharProgresso();
+        showToast('❌ Erro ao gerar novo link', 'error');
     }
-
-    console.log('✅ Gerando QR Code para:', form.name, 'ID:', form.id);
-    
-    currentQRCodeFormId = form.id;
-    
-    let baseUrl = window.location.href.split('?')[0].split('#')[0];
-    baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
-    
-    // 🔥 AGORA USA index.html (arquivo do GitHub)
-    const url = baseUrl + 'form.html?id=' + form.id;
-    
-    document.getElementById('qrcode-form-name').textContent = form.name;
-    const container = document.getElementById('qrcode-container');
-    container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}" style="width:200px;height:200px;border-radius:12px;">`;
-    currentQRCode = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
-    document.getElementById('qrcode-modal').classList.add('active');
 }
-
-function downloadQRCode() {
-    if (!currentQRCode) { showToast('Nenhum QR Code', 'error'); return; }
-    const form = forms.find(f => f.id === currentQRCodeFormId);
-    const link = document.createElement('a');
-    link.href = currentQRCode;
-    link.download = `qrcode_${form.name.replace(/[^a-z0-9]/gi, '_')}.png`;
-    link.click();
-    showToast('QR Code baixado!', 'success');
-}
-
-function copyFormLinkFromQR() {
-    if (!currentQRCodeFormId) return;
-    const form = forms.find(f => f.id === currentQRCodeFormId);
-    
-    let baseUrl = window.location.href.split('?')[0].split('#')[0];
-    baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
-    
-    // 🔥 CORRIGIDO: use o nome do seu arquivo
-    const url = baseUrl + 'form.html?id=' + currentQRCodeFormId;
-    
-    navigator.clipboard.writeText(url).then(
-        () => showToast(`Link copiado!`, 'success')
-    ).catch(() => showToast(`Link: ${url}`, 'success'));
-}
-
-function shareFormLink(formId) {
-    const form = forms.find(f => f.id === formId);
-    if (!form) {
-        showToast('Erro: Formulário não encontrado', 'error');
-        return;
-    }
-    
-    let baseUrl = window.location.href.split('?')[0].split('#')[0];
-    baseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/') + 1);
-    
-    // 🔥 AGORA USA index.html
-    const url = baseUrl + 'form.html?id=' + form.id;
-    
-    navigator.clipboard.writeText(url).then(
-        () => showToast(`Link de "${form.name}" copiado!`, 'success')
-    ).catch(() => showToast(`Link: ${url}`, 'success'));
-    
-    console.log('🔗 Link gerado com ID:', form.id, 'URL:', url);
-}
-
 // ==================== ATUALIZAR CABEÇALHO DA ABA ====================
 async function atualizarCabecalhoAba(formId) {
     const form = forms.find(f => f.id === formId);
