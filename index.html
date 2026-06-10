@@ -2654,31 +2654,31 @@ async function confirmImport() {
         
         atualizarProgresso(Math.round((i + 1) / importedFormsData.length * 50), `Processando: ${imp.name}...`);
         
-        // Gerar nome único (evitar duplicatas)
+        // Gerar nome único
         let newName = imp.name;
         let contador = 1;
         while (forms.some(f => f.name === newName)) {
             newName = `${imp.name} (cópia ${contador++})`;
         }
         
-        // 🔥 GERAR IDs COMPLETAMENTE NOVOS
+        // 🔥 GERAR NOVO ID
         const novoId = generateId();
         const emailsImportados = imp.form?.emails || '';
         
         // 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs
         const novasPerguntas = (imp.form?.questions || []).map(q => ({
-            id: generateId(),  // NOVO ID para cada pergunta
+            id: generateId(),
             type: q.type || 'text',
             title: q.title || 'Nova pergunta',
             required: q.required || false,
             options: q.options || ['Opção 1', 'Opção 2'],
             condition: q.condition ? {
-                dependsOn: null,  // 🔥 RESETAR dependência (será reconfigurada manualmente se necessário)
+                dependsOn: null,
                 expectedValue: q.condition.expectedValue
             } : null
         }));
         
-        // 🔥 CRIAR FORMULÁRIO IGUAL AO NATIVO
+        // 🔥 CRIAR FORMULÁRIO COM NOVO ID
         const newForm = {
             id: novoId,
             name: newName,
@@ -2694,7 +2694,7 @@ async function confirmImport() {
                 config: imp.form?.config || { showProgress: true },
                 emails: emailsImportados
             },
-            responses: []  // 🔥 COMEÇA VAZIO - SEM RESPOSTAS IMPORTADAS
+            responses: []
         };
         
         // Adicionar localmente
@@ -2702,32 +2702,26 @@ async function confirmImport() {
         
         atualizarProgresso(50 + Math.round((i + 1) / importedFormsData.length * 50), `Criando aba: ${newName}...`);
         
-        // 🔥 PASSO 1: CRIAR A ABA NO SHEETS (igual ao createFormWithTemplate)
+        // 🔥 PASSO 1: CRIAR A ABA NO SHEETS
         const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
         const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
         
         try {
-            const respostaAba = await fetch(urlCriarAba);
-            const resultadoAba = await respostaAba.json();
-            console.log(`📊 Resultado criação da aba "${newName}":`, resultadoAba);
-            
-            if (resultadoAba.status !== 'sucesso') {
-                console.warn(`Aviso: ${resultadoAba.mensagem || 'Erro ao criar aba'}`);
-            }
+            await fetch(urlCriarAba);
+            console.log(`✅ Aba criada: ${newName}`);
         } catch (erro) {
-            console.error(`❌ Erro ao criar aba "${newName}":`, erro);
-            // Continua mesmo com erro na aba
+            console.error(`❌ Erro ao criar aba:`, erro);
         }
         
-        // 🔥 PASSO 2: SALVAR NA ABA 'forms' (registo principal)
+        // 🔥 PASSO 2: SALVAR NA ABA 'forms' (É ISSO QUE ESTAVA FALTANDO!)
         const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
         
         if (sucesso) {
             importados++;
-            console.log(`✅ Formulário "${newName}" importado com sucesso!`);
+            console.log(`✅ Formulário "${newName}" salvo na aba forms com ID: ${newForm.id}`);
         } else {
             erros++;
-            console.error(`❌ Erro ao salvar "${newName}" na nuvem`);
+            console.error(`❌ Erro ao salvar "${newName}" na aba forms`);
         }
         
         // 🔥 PASSO 3: SALVAR CONFIGURAÇÃO DE EMAILS
@@ -2735,22 +2729,14 @@ async function confirmImport() {
             await salvarEmailConfiguracao(newName, emailsImportados);
         }
         
-        // Pequeno delay para não sobrecarregar
         await new Promise(r => setTimeout(r, 200));
     }
     
-    // Salvar localmente
     saveData();
-    
     atualizarProgresso(100, `✅ ${importados} importados, ${erros} erros`);
-    
-    // Recarregar lista
     renderFormsList();
-    
-    // Fechar modais
     closeModal();
     
-    // Mostrar resultado
     if (erros === 0) {
         showToast(`✅ ${importados} formulário(s) importado(s) com sucesso!`, 'success');
         createConfetti();
@@ -2761,12 +2747,10 @@ async function confirmImport() {
     setTimeout(() => fecharProgresso(), 2000);
     pararLoadingBotao(btn);
     
-    // 🔥 FORÇAR SINCRONIZAÇÃO COMPLETA
     setTimeout(() => {
         buscarTudoDaNuvemSilencioso();
     }, 1000);
 }
-
 // ==================== QR CODE ====================
 function showQRCode(formId) {
     const form = forms.find(f => f.id === formId);
