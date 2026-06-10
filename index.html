@@ -1828,6 +1828,7 @@ function renderQuestionsList() {
                     <option value="scale" ${q.type==='scale' ? 'selected' : ''}>Escala 1-5</option>
                     <option value="date" ${q.type==='date' ? 'selected' : ''}>📅 Data</option>
                     <option value="time" ${q.type==='time' ? 'selected' : ''}>⏰ Hora</option>
+		           <option value="attachment" ${q.type==='attachment' ? 'selected' : ''}>📎 Anexo (arquivo)</option>
                 </select>
             </div>
             ${['radio', 'checkbox', 'select'].includes(q.type) ? `
