@@ -1045,17 +1045,17 @@ async function salvarNaNuvem(aba, id, dados) {
     try {
         const dadosStr = JSON.stringify(dados);
         const nomeDoFormulario = dados.name || dados.form?.title || "Sem nome";
+        
+        // 🔥 EXTRAI OS EMAILS DO FORMULÁRIO
         const emails = dados.form?.emails || "";
         
-        // IMPORTANTE: O parâmetro 'id' está sendo passado corretamente?
         const url = `${CONFIG.googleApiUrl}?acao=salvar&aba=${encodeURIComponent(aba)}&id=${encodeURIComponent(id)}&nomeFormulario=${encodeURIComponent(nomeDoFormulario)}&emails=${encodeURIComponent(emails)}&dados=${encodeURIComponent(dadosStr)}`;
         
-        console.log('📤 Salvando na aba:', aba, 'ID:', id);
+        console.log('📤 Salvando:', url.substring(0, 200));
         
         const response = await fetch(url);
         const result = await response.json();
         console.log('✅ Resposta salvar:', result);
-        
         return result.status === 'sucesso';
     } catch (e) {
         console.error('❌ Erro ao salvar:', e);
@@ -2652,47 +2652,39 @@ async function confirmImport() {
     for (let i = 0; i < importedFormsData.length; i++) {
         const imp = importedFormsData[i];
         
-        // 🔥 OBTÉM O NOME CORRETAMENTE (pode estar em name ou form.title)
-        const nomeOriginal = imp.name || imp.form?.title || 'Formulário sem nome';
-        
-        atualizarProgresso(Math.round((i + 1) / importedFormsData.length * 50), `Processando: ${nomeOriginal}...`);
+        atualizarProgresso(Math.round((i + 1) / importedFormsData.length * 50), `Processando: ${imp.name}...`);
         
         // Gerar nome único
-        let newName = nomeOriginal;
+        let newName = imp.name;
         let contador = 1;
         while (forms.some(f => f.name === newName)) {
-            newName = `${nomeOriginal} (cópia ${contador++})`;
+            newName = `${imp.name} (cópia ${contador++})`;
         }
         
-        // 🔥 OBTÉM OS EMAILS CORRETAMENTE
+        // 🔥 GERAR NOVO ID
+        const novoId = generateId();
         const emailsImportados = imp.form?.emails || '';
         
-        // 🔥 OBTÉM AS PERGUNTAS CORRETAMENTE
-        const perguntasOriginais = imp.form?.questions || imp.questions || [];
-        
-        // 🔥 GERAR NOVO ID ÚNICO
-        const novoId = generateId();
-        
-        // 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs (mantendo as condições)
-        const novasPerguntas = perguntasOriginais.map(q => ({
-            id: generateId(),  // NOVO ID para cada pergunta
+        // 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs
+        const novasPerguntas = (imp.form?.questions || []).map(q => ({
+            id: generateId(),
             type: q.type || 'text',
             title: q.title || 'Nova pergunta',
             required: q.required || false,
             options: q.options || ['Opção 1', 'Opção 2'],
             condition: q.condition ? {
-                dependsOn: null,  // 🔥 RESETAR dependência (IDs antigos não existem mais)
+                dependsOn: null,
                 expectedValue: q.condition.expectedValue
             } : null
         }));
         
-        // 🔥 CRIAR FORMULÁRIO COMPLETO
+        // 🔥 CRIAR FORMULÁRIO COM NOVO ID
         const newForm = {
             id: novoId,
             name: newName,
             createdAt: new Date().toISOString(),
             form: {
-                title: imp.form?.title || nomeOriginal,
+                title: imp.form?.title || imp.name,
                 subtitle: imp.form?.subtitle || '',
                 description: imp.form?.description || '',
                 banner: imp.form?.banner || '',
@@ -2702,54 +2694,40 @@ async function confirmImport() {
                 config: imp.form?.config || { showProgress: true },
                 emails: emailsImportados
             },
-            responses: []  // ZERA AS RESPOSTAS
+            responses: []
         };
         
-        // =============================================
-        // 🔥 PASSO 1: CRIAR A ABA DO FORMULÁRIO NO SHEETS
-        // =============================================
-        atualizarProgresso(50 + Math.round((i + 1) / importedFormsData.length * 30), `Criando aba: ${newName}...`);
+        // Adicionar localmente
+        forms.push(newForm);
         
+        atualizarProgresso(50 + Math.round((i + 1) / importedFormsData.length * 50), `Criando aba: ${newName}...`);
+        
+        // 🔥 PASSO 1: CRIAR A ABA NO SHEETS
         const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
         const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
         
         try {
-            const respostaAba = await fetch(urlCriarAba);
-            const resultadoAba = await respostaAba.json();
-            console.log(`📊 Aba criada: ${newName}`, resultadoAba);
+            await fetch(urlCriarAba);
+            console.log(`✅ Aba criada: ${newName}`);
         } catch (erro) {
             console.error(`❌ Erro ao criar aba:`, erro);
-            erros++;
-            continue;  // Pula este formulário se não conseguiu criar a aba
         }
         
-        // =============================================
-        // 🔥 PASSO 2: SALVAR NA ABA 'forms'
-        // =============================================
-        atualizarProgresso(80 + Math.round((i + 1) / importedFormsData.length * 20), `Salvando na nuvem: ${newName}...`);
+        // 🔥 PASSO 2: SALVAR NA ABA 'forms' (É ISSO QUE ESTAVA FALTANDO!)
+        const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
         
-        const sucessoForms = await salvarNaNuvem('forms', newForm.id, newForm);
-        
-        if (!sucessoForms) {
-            console.error(`❌ Falha ao salvar ${newName} na aba forms`);
+        if (sucesso) {
+            importados++;
+            console.log(`✅ Formulário "${newName}" salvo na aba forms com ID: ${newForm.id}`);
+        } else {
             erros++;
-            continue;
+            console.error(`❌ Erro ao salvar "${newName}" na aba forms`);
         }
         
-        console.log(`✅ Formulário "${newName}" salvo na aba forms com ID: ${newForm.id}`);
-        
-        // =============================================
         // 🔥 PASSO 3: SALVAR CONFIGURAÇÃO DE EMAILS
-        // =============================================
         if (emailsImportados) {
             await salvarEmailConfiguracao(newName, emailsImportados);
         }
-        
-        // =============================================
-        // 🔥 PASSO 4: ADICIONAR LOCALMENTE
-        // =============================================
-        forms.push(newForm);
-        importados++;
         
         await new Promise(r => setTimeout(r, 200));
     }
@@ -2773,8 +2751,6 @@ async function confirmImport() {
         buscarTudoDaNuvemSilencioso();
     }, 1000);
 }
-
-
 // ==================== QR CODE ====================
 function showQRCode(formId) {
     const form = forms.find(f => f.id === formId);
