@@ -363,7 +363,7 @@ function aplicarCondicoes(form) {
       const div = document.querySelector(`.form-group[data-qid="${q.id}"]`);
       if (!div) return;
       
-      let mostrar = false;  // ← DECLARAR AQUI FORA DO IF/ELSE
+      let mostrar = false;
       
       if (!q.condition || !q.condition.dependsOn) {
         mostrar = true;
@@ -405,21 +405,12 @@ function aplicarCondicoes(form) {
   });
   
   atualizarVisibilidade();
-}  
-  // Adicionar event listeners
-  formEl.querySelectorAll('input, select, textarea').forEach(inp => {
-    inp.removeEventListener('change', atualizarVisibilidade);
-    inp.removeEventListener('input', atualizarVisibilidade);
-    inp.addEventListener('change', atualizarVisibilidade);
-    inp.addEventListener('input', atualizarVisibilidade);
-  });
-  
-  // Executar a primeira vez
-  atualizarVisibilidade();
 }
+
 // ==================== ENVIAR RESPOSTA ====================
 // ==================== ENVIAR RESPOSTA ====================
 async function enviarResposta(formId) {
+    const event = window.event;  // ← adicione esta linha
     const btn = event.currentTarget;
     const textoOriginal = btn.innerHTML;
     
