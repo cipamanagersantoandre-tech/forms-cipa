@@ -1258,7 +1258,7 @@ async function renderFormsList() {
                 <button class="btn btn-sm" onclick="openFormEditor('${form.id}')" title="Editar">✏️</button>
                 <button class="btn btn-sm" onclick="openResponsesView('${form.id}')" title="Respostas">📊</button>
                 <button class="btn btn-sm" onclick="showQRCode('${form.id}')" title="QR Code">📱</button>
-                <button class="btn btn-sm btn-primary" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
+                <button class="btn btn-sm" onclick="shareFormLink('${form.id}')" title="Compartilhar">🔗</button>
             </div>
         </div>
     `).join('')}</div>`;
@@ -1979,13 +1979,25 @@ function setupDynamicPreview() {
                 } else if (inp.type !== 'radio') answers[qid] = inp.value;
             }
         });
-        const visible = formData.form.questions.filter(q => {
-            if (!q.condition?.dependsOn) return true;
-            const dep = answers[q.condition.dependsOn];
-            if (!dep) return false;
-            if (Array.isArray(dep)) return dep.includes(q.condition.expectedValue);
-            return dep === q.condition.expectedValue;
-        });
+
+const visible = formData.form.questions.filter(q => {
+    if (!q.condition?.dependsOn) return true;
+    const dep = answers[q.condition.dependsOn];
+    if (!dep) return false;
+    
+    // 🔥 NOVO: Suporte para múltiplos valores separados por vírgula
+    const expectedValue = q.condition.expectedValue;
+    const valoresEsperados = expectedValue.split(',').map(v => v.trim());
+    
+    if (Array.isArray(dep)) {
+        // Para checkbox: verifica se alguma opção marcada está na lista de valores esperados
+        return dep.some(valor => valoresEsperados.includes(valor));
+    } else {
+        // Para outros tipos: verifica se o valor está na lista
+        return valoresEsperados.includes(dep);
+    }
+});
+
         container.innerHTML = visible.map(q => `
             <div class="form-group" data-qid="${q.id}">
                 <label class="label">${escapeHtml(q.title)}${q.required ? '<span style="color:var(--error);"> *</span>' : ''}</label>
@@ -2067,12 +2079,21 @@ function getVisibleQuestionsFromPreview(form, formData) {
             } else if (inp.type !== 'radio') answers[qid] = inp.value;
         }
     });
+    
     return formData.form.questions.filter(q => {
         if (!q.condition?.dependsOn) return true;
         const dep = answers[q.condition.dependsOn];
         if (!dep) return false;
-        if (Array.isArray(dep)) return dep.includes(q.condition.expectedValue);
-        return dep === q.condition.expectedValue;
+        
+        // 🔥 Suporte para múltiplos valores separados por vírgula
+        const expectedValue = q.condition.expectedValue;
+        const valoresEsperados = expectedValue.split(',').map(v => v.trim());
+        
+        if (Array.isArray(dep)) {
+            return dep.some(valor => valoresEsperados.includes(valor));
+        } else {
+            return valoresEsperados.includes(dep);
+        }
     });
 }
 
