@@ -363,43 +363,49 @@ function aplicarCondicoes(form) {
       const div = document.querySelector(`.form-group[data-qid="${q.id}"]`);
       if (!div) return;
       
-if (!q.condition || !q.condition.dependsOn) {
-    div.style.display = 'block';
-} else {
-    const valorDependencia = respostas[q.condition.dependsOn];
-    let mostrar = false;
-    
-    if (valorDependencia) {
-        // 🔥 NOVO: Suporte para múltiplos valores separados por vírgula
-        const expectedValue = q.condition.expectedValue;
-        const valoresEsperados = expectedValue.split(',').map(v => v.trim());
+      let mostrar = false;  // ← DECLARAR AQUI FORA DO IF/ELSE
+      
+      if (!q.condition || !q.condition.dependsOn) {
+        mostrar = true;
+      } else {
+        const valorDependencia = respostas[q.condition.dependsOn];
         
-        if (Array.isArray(valorDependencia)) {
-            // Para checkbox: verifica se alguma opção marcada está na lista
+        if (valorDependencia) {
+          const expectedValue = q.condition.expectedValue;
+          const valoresEsperados = expectedValue.split(',').map(v => v.trim());
+          
+          if (Array.isArray(valorDependencia)) {
             mostrar = valorDependencia.some(valor => valoresEsperados.includes(String(valor)));
-        } else {
-            // Para outros tipos: verifica se o valor está na lista
+          } else {
             mostrar = valoresEsperados.includes(String(valorDependencia));
+          }
         }
-    }
-    
-    div.style.display = mostrar ? 'block' : 'none';
-}
-
-        if (!mostrar) {
-          const inputs = div.querySelectorAll('input, select, textarea');
-          inputs.forEach(inp => {
-            if (inp.type === 'radio' || inp.type === 'checkbox') {
-              inp.checked = false;
-            } else {
-              inp.value = '';
-            }
-          });
-        }
+      }
+      
+      div.style.display = mostrar ? 'block' : 'none';
+      
+      if (!mostrar) {
+        const inputs = div.querySelectorAll('input, select, textarea');
+        inputs.forEach(inp => {
+          if (inp.type === 'radio' || inp.type === 'checkbox') {
+            inp.checked = false;
+          } else {
+            inp.value = '';
+          }
+        });
       }
     });
   }
   
+  formEl.querySelectorAll('input, select, textarea').forEach(inp => {
+    inp.removeEventListener('change', atualizarVisibilidade);
+    inp.removeEventListener('input', atualizarVisibilidade);
+    inp.addEventListener('change', atualizarVisibilidade);
+    inp.addEventListener('input', atualizarVisibilidade);
+  });
+  
+  atualizarVisibilidade();
+}  
   // Adicionar event listeners
   formEl.querySelectorAll('input, select, textarea').forEach(inp => {
     inp.removeEventListener('change', atualizarVisibilidade);
