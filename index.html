@@ -3426,7 +3426,7 @@ async function gerarNovoLink(formId) {
         return;
     }
     
-    const confirmado = confirm(`⚠️ ATENÇÃO!\n\nIsso vai gerar um NOVO LINK para "${form.name}".\n\nO link antigo será substituído.\n\nDeseja continuar?`);
+    const confirmado = confirm(`⚠️ ATENÇÃO!\n\nIsso vai gerar um NOVO LINK para "${form.name}".\n\nO link antigo será substituído e NÃO funcionará mais.\n\nDeseja continuar?`);
     if (!confirmado) return;
     
     mostrarProgresso('🔄 Gerando novo link...');
@@ -3443,6 +3443,7 @@ async function gerarNovoLink(formId) {
         const subtituloAntigo = form.form.subtitle || '';
         const footerAntigo = form.form.footer || '';
         const respostasAntigas = form.responses || [];
+        const idAntigo = form.id;
         
         // Gera NOVO ID
         const novoId = generateId();
@@ -3473,21 +3474,29 @@ async function gerarNovoLink(formId) {
             responses: respostasAntigas
         };
         
-        // Remove o antigo e adiciona o novo
+        // 🔥 PASSO 1: Excluir o registro ANTIGO da nuvem (aba 'forms')
+        atualizarProgresso(50, 'Removendo link antigo da nuvem...');
+        const excluiu = await excluirDaNuvem('forms', idAntigo);
+        
+        if (excluiu) {
+            console.log(`✅ Registro antigo (${idAntigo}) excluído da nuvem`);
+        } else {
+            console.warn(`⚠️ Não foi possível excluir o registro antigo da nuvem`);
+        }
+        
+        // 🔥 PASSO 2: Salvar o NOVO registro na nuvem
+        atualizarProgresso(70, 'Salvando novo link na nuvem...');
+        const sucesso = await salvarNaNuvem('forms', novoForm.id, novoForm);
+        
+        if (!sucesso) {
+            throw new Error('Erro ao salvar novo formulário na nuvem');
+        }
+        
+        // 🔥 PASSO 3: Atualizar localmente
         const indexAntigo = forms.findIndex(f => f.id === formId);
         if (indexAntigo !== -1) forms.splice(indexAntigo, 1);
         forms.push(novoForm);
         saveData();
-        
-        atualizarProgresso(60, 'Atualizando nuvem...');
-        
-        // Cria nova aba no Sheets
-        const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
-        await fetch(`${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(nomeAntigo)}&cabecalhos=${encodeURIComponent(cabecalhos)}`);
-        
-        // Salva na nuvem
-        await salvarNaNuvem('forms', novoForm.id, novoForm);
-        if (emailsAntigos) await salvarEmailConfiguracao(nomeAntigo, emailsAntigos);
         
         atualizarProgresso(100, '✅ Novo link gerado!');
         
@@ -3495,7 +3504,6 @@ async function gerarNovoLink(formId) {
             fecharProgresso();
             showToast(`✅ Novo link gerado para "${nomeAntigo}"!`, 'success');
             
-            // Pergunta se quer ver o QR Code
             if (confirm('Novo link criado! Deseja ver o QR Code?')) {
                 showQRCode(novoForm.id);
             }
@@ -3505,9 +3513,9 @@ async function gerarNovoLink(formId) {
         if (currentFormId === formId) openFormEditor(novoForm.id);
         
     } catch (erro) {
-        console.error(erro);
+        console.error('Erro ao gerar novo link:', erro);
         fecharProgresso();
-        showToast('❌ Erro ao gerar novo link', 'error');
+        showToast('❌ Erro ao gerar novo link: ' + erro.message, 'error');
     }
 }
 
