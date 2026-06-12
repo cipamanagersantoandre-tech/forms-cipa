@@ -2253,6 +2253,7 @@ function renderResponsesDashboard() {
     if (!formData || !container) return;
     
     const responses = formData.responses || [];
+    const perguntas = formData.form.questions || [];
     
     console.log('📊 RENDERIZANDO RESPOSTAS:');
     console.log('Total de respostas:', responses.length);
@@ -2260,89 +2261,113 @@ function renderResponsesDashboard() {
     if (responses.length === 0) {
         container.innerHTML = `
             <div class="empty-responses card">
-                <p>📭 Nenhuma resposta</p>
+                <p>📭 Nenhuma resposta ainda</p>
                 <button class="btn btn-primary" style="margin-top:16px;" onclick="shareFormLink('${formData.id}')">🔗 Compartilhar</button>
             </div>`;
         return;
     }
     
-    const sorted = [...responses].reverse();
-    const perguntas = formData.form.questions || [];
+    // 🔥 IDENTIFICAR QUAL PERGUNTA É O NOME (se existir)
+    let perguntaNome = null;
+    let perguntaNomeIndex = -1;
+    const keywords = ['nome', 'name', 'respondente', 'cliente', 'pessoa', 'responsável', 'participante'];
     
-    let tabelaHtml = `
-        <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
-                <h3>📋 Respostas (${responses.length})</h3>
-                <div style="display:flex; gap:8px;">
-                    <button class="btn btn-sm btn-danger" onclick="clearCurrentResponses()">🗑️ Limpar todas</button>
-                </div>
-            </div>
-            <div style="overflow-x: auto;">
-                <table class="table" style="width:100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="background: var(--bg-elev-2);">
-                            <th style="padding: 12px; text-align: left;">Data/Hora</th>
-                            ${perguntas.map(q => `<th style="padding: 12px; text-align: left;">${escapeHtml(q.title)}</th>`).join('')}
-                            <th style="padding: 12px; text-align: center;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-    `;
-    
-    sorted.forEach((resposta, idx) => {
-        const data = new Date(resposta.timestamp);
-        const dataFormatada = `${data.toLocaleDateString()} ${data.toLocaleTimeString()}`;
-        const originalIndex = responses.length - 1 - idx;
-        
-        // Extrair valores das respostas - CORRIGIDO
-const valores = perguntas.map(q => {
-    // Primeiro tenta pelo ID da pergunta
-    let valor = resposta.data ? resposta.data[q.id] : null;
-    
-    // Se não achou, tenta pelo TÍTULO da pergunta (é assim que está salvando)
-    if (!valor && resposta.data) {
-        valor = resposta.data[q.title];
-    }
-    
-    // Se ainda não achou, tenta normalizar (remover espaços, pontuação)
-    if (!valor && resposta.data) {
-        const titleNormalizado = q.title.toLowerCase().replace(/[^\w]/g, '');
-        for (const key in resposta.data) {
-            const keyNormalizado = key.toLowerCase().replace(/[^\w]/g, '');
-            if (keyNormalizado === titleNormalizado) {
-                valor = resposta.data[key];
-                break;
-            }
+    for (let i = 0; i < perguntas.length; i++) {
+        const titulo = perguntas[i].title.toLowerCase();
+        if (keywords.some(kw => titulo.includes(kw))) {
+            perguntaNome = perguntas[i];
+            perguntaNomeIndex = i;
+            break;
         }
     }
     
-    if (!valor) valor = '-';
-    if (Array.isArray(valor)) valor = valor.join(', ');
-    return String(valor);
-});
-        
-        tabelaHtml += `
-            <tr style="border-bottom: 1px solid var(--border); cursor: pointer;" onclick="showResponseDetail(${originalIndex})">
-                <td style="padding: 12px;">${escapeHtml(dataFormatada)}</td>
-                ${valores.map(val => `<td style="padding: 12px;">${escapeHtml(val.substring(0, 50))}${val.length > 50 ? '...' : ''}</td>`).join('')}
-                <td style="padding: 12px; text-align: center;">
-                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteSingleResponse(${originalIndex})" style="padding: 4px 8px;">🗑️ Excluir</button>
-                </td>
-            </tr>
-        `;
-    });
+    // Se não achou pergunta de nome, tenta a primeira pergunta de texto
+    if (!perguntaNome) {
+        perguntaNome = perguntas.find(q => q.type === 'text');
+        if (perguntaNome) perguntaNomeIndex = perguntas.findIndex(q => q.id === perguntaNome.id);
+    }
     
-    tabelaHtml += `
-                    </tbody>
-                </table>
+    // Ordenar respostas da mais recente para a mais antiga
+    const sorted = [...responses].reverse();
+    
+    let html = `
+        <div class="responses-dashboard">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <h3>📋 Respostas (${responses.length})</h3>
+                <button class="btn btn-sm btn-danger" onclick="clearCurrentResponses()">🗑️ Limpar todas</button>
             </div>
-            <div style="margin-top: 16px; font-size: 12px; color: var(--text-muted); text-align: center;">
-                💡 Clique em qualquer linha para ver os detalhes completos da resposta
+            <div class="responses-list" style="display: flex; flex-direction: column; gap: 16px;">
+    `;
+    
+    for (let idx = 0; idx < sorted.length; idx++) {
+        const resposta = sorted[idx];
+        const originalIndex = responses.length - 1 - idx;
+        const data = new Date(resposta.timestamp);
+        const dataFormatada = `${data.toLocaleDateString()} ${data.toLocaleTimeString()}`;
+        
+        // 🔥 EXTRAIR O NOME DO RESPONDENTE
+        let nomeRespondente = 'Anônimo';
+        if (perguntaNome) {
+            let nomeValor = resposta.data[perguntaNome.id];
+            if (!nomeValor) nomeValor = resposta.data[perguntaNome.title];
+            if (nomeValor && nomeValor !== '-') {
+                nomeRespondente = nomeValor;
+                if (nomeRespondente.length > 40) nomeRespondente = nomeRespondente.substring(0, 40) + '...';
+            }
+        }
+        
+        // 🔥 EXTRAIR UM PREVIEW DA RESPOSTA (primeiras 100 caracteres)
+        let preview = '';
+        for (const q of perguntas) {
+            if (q.id === perguntaNome?.id) continue;
+            let valor = resposta.data[q.id];
+            if (!valor) valor = resposta.data[q.title];
+            if (valor && valor !== '-' && valor !== '') {
+                if (typeof valor === 'string') {
+                    preview = valor;
+                } else if (Array.isArray(valor)) {
+                    preview = valor.join(', ');
+                } else {
+                    preview = String(valor);
+                }
+                if (preview.length > 100) preview = preview.substring(0, 100) + '...';
+                break;
+            }
+        }
+        
+        if (!preview) preview = 'Sem informações adicionais';
+        
+        html += `
+            <div class="response-card" style="background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 16px; cursor: pointer; transition: all 0.2s;" onclick="showResponseDetail(${originalIndex})">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <span style="background: var(--primary-light); color: var(--primary); padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;">
+                            👤 ${escapeHtml(nomeRespondente)}
+                        </span>
+                        <span style="color: var(--text-muted); font-size: 13px;">
+                            📅 ${escapeHtml(dataFormatada)}
+                        </span>
+                    </div>
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteSingleResponse(${originalIndex})" style="padding: 4px 12px;">
+                        🗑️ Excluir
+                    </button>
+                </div>
+                <div style="color: var(--text-muted); font-size: 14px; border-top: 1px solid var(--border); padding-top: 12px;">
+                    💬 ${escapeHtml(preview)}
+                </div>
+                <div style="margin-top: 12px; font-size: 12px; color: var(--primary); text-align: right;">
+                    Clique para ver detalhes →
+                </div>
+            </div>
+        `;
+    }
+    
+    html += `
             </div>
         </div>
     `;
     
-    container.innerHTML = tabelaHtml;
+    container.innerHTML = html;
 }
 
 function detectNameQuestion(questions) {
