@@ -280,16 +280,15 @@ container.innerHTML = `
     <div class="card">
       ${f.banner ? `<div class="banner-preview"><img src="${f.banner}" alt="Banner"></div>` : ''}
       
-      <div style="margin-bottom: 28px;">
-        <h2 style="font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 8px;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h2 style="font-size: 28px; font-weight: 700; background: linear-gradient(135deg, var(--primary), #8b5cf6); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 12px;">
           ${escapeHtml(f.title || form.name)}
         </h2>
-        ${f.subtitle ? `<p style="color: var(--text-muted); font-size: 15px; margin-bottom: 16px; border-left: 3px solid var(--primary); padding-left: 12px;">
-          ${escapeHtml(f.subtitle)}
-        </p>` : ''}
-        ${f.description ? `<p style="color: var(--text-muted); font-size: 14px; line-height: 1.5;">
+        ${f.subtitle ? `<p style="color: var(--text-muted); font-size: 16px; margin-bottom: 8px;">${escapeHtml(f.subtitle)}</p>` : ''}
+        ${f.description ? `<div style="background: var(--bg); padding: 16px; border-radius: 12px; border-left: 4px solid var(--primary); text-align: left; margin-top: 16px; font-size: 14px; color: var(--text-muted);">
+          <span style="font-weight: 600;">ℹ️ Sobre este formulário</span><br>
           ${escapeHtml(f.description)}
-        </p>` : ''}
+        </div>` : ''}
       </div>
       
       <form id="resposta-form" onsubmit="return false;">
