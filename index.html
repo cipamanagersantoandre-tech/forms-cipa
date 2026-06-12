@@ -1459,8 +1459,8 @@ function duplicateForm(formId) {
             questions: novasPerguntas,
             theme: original.form.theme || { primary: '#4f46e5' },
             config: original.form.config || { showProgress: true },
-            emails: emailsImportados
-	    attachment: original.form.attachment ? { ...original.form.attachment } : { maxSize: 10, allowedTypes: 'pdf,jpg,jpeg,png', alternativeEmail: '', customMessage: '' },
+            emails: emailsImportados,
+            attachment: original.form.attachment ? { ...original.form.attachment } : { maxSize: 10, allowedTypes: 'pdf,jpg,jpeg,png', alternativeEmail: '', customMessage: '' },
         },
         responses: []  // ZERA AS RESPOSTAS
     };
