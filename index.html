@@ -1460,6 +1460,7 @@ function duplicateForm(formId) {
             theme: original.form.theme || { primary: '#4f46e5' },
             config: original.form.config || { showProgress: true },
             emails: emailsImportados
+	    attachment: original.form.attachment ? { ...original.form.attachment } : { maxSize: 10, allowedTypes: 'pdf,jpg,jpeg,png', alternativeEmail: '', customMessage: '' },
         },
         responses: []  // ZERA AS RESPOSTAS
     };
@@ -2614,23 +2615,24 @@ function toggleAllForms(checked) {
 function confirmExport() {
     if (selectedFormsForExport.length === 0) { showToast('Selecione ao menos um', 'error'); return; }
     const toExport = forms.filter(f => selectedFormsForExport.includes(f.id));
-    const exportData = {
-        version: '1.0',
-        exportedAt: new Date().toISOString(),
-        forms: toExport.map(f => ({
-            name: f.name,
-            form: {
-                title: f.form.title,
-                subtitle: f.form.subtitle,
-                description: f.form.description,
-                banner: f.form.banner,
-                footer: f.form.footer,
-                questions: f.form.questions,
-                theme: f.form.theme,
-                config: f.form.config
-            }
-        }))
-    };
+const exportData = {
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    forms: toExport.map(f => ({
+        name: f.name,
+        form: {
+            title: f.form.title,
+            subtitle: f.form.subtitle,
+            description: f.form.description,
+            banner: f.form.banner,
+            footer: f.form.footer,
+            questions: f.form.questions,
+            theme: f.form.theme,
+            config: f.form.config,
+            attachment: f.form.attachment || { maxSize: 10, allowedTypes: 'pdf,jpg,jpeg,png', alternativeEmail: '', customMessage: '' }
+        }
+    }))
+};
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -2785,23 +2787,24 @@ novasPerguntas.forEach(pergunta => {
 delete window.__idMappingImport;
         
         // 🔥 CRIAR FORMULÁRIO COM NOVO ID
-        const newForm = {
-            id: novoId,
-            name: newName,
-            createdAt: new Date().toISOString(),
-            form: {
-                title: imp.form?.title || imp.name,
-                subtitle: imp.form?.subtitle || '',
-                description: imp.form?.description || '',
-                banner: imp.form?.banner || '',
-                footer: imp.form?.footer || '',
-                questions: novasPerguntas,
-                theme: imp.form?.theme || { primary: '#4f46e5' },
-                config: imp.form?.config || { showProgress: true },
-                emails: emailsImportados
-            },
-            responses: []
-        };
+const newForm = {
+    id: novoId,
+    name: newName,
+    createdAt: new Date().toISOString(),
+    form: {
+        title: imp.form?.title || imp.name,
+        subtitle: imp.form?.subtitle || '',
+        description: imp.form?.description || '',
+        banner: imp.form?.banner || '',
+        footer: imp.form?.footer || '',
+        questions: novasPerguntas,
+        theme: imp.form?.theme || { primary: '#4f46e5' },
+        config: imp.form?.config || { showProgress: true },
+        emails: emailsImportados,
+        attachment: imp.form?.attachment || { maxSize: 10, allowedTypes: 'pdf,jpg,jpeg,png', alternativeEmail: '', customMessage: '' }
+    },
+    responses: []
+};
         
         // Adicionar localmente
         forms.push(newForm);
