@@ -276,12 +276,21 @@ function renderizarFormulario(form) {
   const f = form.form;
   const container = document.getElementById('content');
   
-  container.innerHTML = `
+container.innerHTML = `
     <div class="card">
       ${f.banner ? `<div class="banner-preview"><img src="${f.banner}" alt="Banner"></div>` : ''}
-      <h2 style="font-size: 24px; margin-bottom: 8px;">${escapeHtml(f.title || form.name)}</h2>
-      ${f.subtitle ? `<p style="color: var(--text-muted); margin-bottom: 16px;">${escapeHtml(f.subtitle)}</p>` : ''}
-      ${f.description ? `<div style="margin-bottom: 24px; color: var(--text-muted);">${escapeHtml(f.description)}</div>` : ''}
+      
+      <div style="margin-bottom: 28px;">
+        <h2 style="font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 8px;">
+          ${escapeHtml(f.title || form.name)}
+        </h2>
+        ${f.subtitle ? `<p style="color: var(--text-muted); font-size: 15px; margin-bottom: 16px; border-left: 3px solid var(--primary); padding-left: 12px;">
+          ${escapeHtml(f.subtitle)}
+        </p>` : ''}
+        ${f.description ? `<p style="color: var(--text-muted); font-size: 14px; line-height: 1.5;">
+          ${escapeHtml(f.description)}
+        </p>` : ''}
+      </div>
       
       <form id="resposta-form" onsubmit="return false;">
         <div id="perguntas-container"></div>
