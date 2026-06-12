@@ -320,22 +320,12 @@ function renderizarInput(q, idx) {
     case 'text': return `<input type="text" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
     case 'email': return `<input type="email" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
     case 'number': return `<input type="number" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
-case 'textarea': return `
-    <textarea class="textarea" name="${name}" id="${id}" maxlength="2000" style="width:100%; padding: 14px; font-size: 16px; min-height: 100px;" oninput="atualizarContador('${id}')"></textarea>
-    <div style="font-size: 11px; color: var(--text-muted); text-align: right; margin-top: 4px;">
-        <span id="contador_${id}">0</span>/2000 caracteres
-    </div>
-`;
-    <script>
-        function atualizarContador(id) {
-            const textarea = document.getElementById(id);
-            const contador = document.getElementById('contador_' + id);
-            if (textarea && contador) {
-                contador.textContent = textarea.value.length;
-            }
-        }
-    </script>
-`;
+    case 'textarea': return `
+        <textarea class="textarea" name="${name}" id="${id}" maxlength="2000" style="width:100%; padding: 14px; font-size: 16px; min-height: 100px;" oninput="atualizarContador('${id}')"></textarea>
+        <div style="font-size: 11px; color: var(--text-muted); text-align: right; margin-top: 4px;">
+            <span id="contador_${id}">0</span>/2000 caracteres
+        </div>
+    `;
     case 'radio': return `<div class="radio-group" id="${id}">${(q.options||[]).map(opt => `
       <label class="radio-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
         <input type="radio" name="${name}" value="${escapeHtml(opt)}"> 
