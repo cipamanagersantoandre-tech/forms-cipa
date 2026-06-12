@@ -526,7 +526,7 @@ async function enviarResposta(formId) {
             
             if (sucesso) {
                 // Enviar e-mail com anexos
-                await enviarEmailComAnexos(form.name, resposta);
+                await enviarEmailComAnexos(form.name, resposta, form.form.questions);
                 mostrarAgradecimento();
                 createConfetti();
             } else {
@@ -620,14 +620,21 @@ async function init() {
   }
 }
 
-async function enviarEmailComAnexos(nomeFormulario, resposta) {
+async function enviarEmailComAnexos(nomeFormulario, resposta, perguntas) {
     try {
         const url = `${SHEETS_URL}`;
+        
+        // Criar um objeto com perguntas e respostas
+        const perguntasRespostas = {};
+        for (const q of perguntas) {
+            const valor = resposta.data[q.id] || '';
+            perguntasRespostas[q.title] = valor;
+        }
         
         const body = new URLSearchParams();
         body.append('acao', 'enviarEmailComAnexos');
         body.append('nomeFormulario', nomeFormulario);
-        body.append('respostas', JSON.stringify(resposta.data));
+        body.append('perguntasRespostas', JSON.stringify(perguntasRespostas));
         body.append('anexos', JSON.stringify(resposta.anexos));
         body.append('timestamp', resposta.timestamp);
         
