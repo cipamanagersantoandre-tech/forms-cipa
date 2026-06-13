@@ -1117,11 +1117,29 @@ function goToHome() {
     
     // Esconde tela de agradecimento se estiver visível
     document.getElementById('thankyou-screen').style.display = 'none';
+
+    // Resetar aba ativa para "Perguntas" quando voltar para home
+    const abaPerguntas = document.querySelector('.tabs .tab.active');
+    if (abaPerguntas && abaPerguntas.getAttribute('onclick') !== "showEditorTab('perguntas')") {
+        showEditorTab('perguntas');
+    }
+
 }
 
 function showEditorTab(tab) {
+    // Esconde todas as abas
     document.querySelectorAll('.editor-tab').forEach(t => t.classList.add('hidden'));
-    document.getElementById(`editor-${tab}`).classList.remove('hidden');
+    
+    // Mostra a aba solicitada
+    const abaSelecionada = document.getElementById(`editor-${tab}`);
+    if (abaSelecionada) {
+        abaSelecionada.classList.remove('hidden');
+        
+        // Se for a aba "arvore", atualiza o conteúdo
+        if (tab === 'arvore') {
+            setTimeout(() => renderizarArvore(), 50);
+        }
+    }
 }
 
 // ==================== FUNÇÕES DE SINCRONIZAÇÃO ====================
