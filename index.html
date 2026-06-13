@@ -1106,24 +1106,22 @@ function mostrarToastInfo(msg) {
 }
 
 function goToHome() {
+    // Primeiro, resetar a aba para "Perguntas" ANTES de esconder o editor
+    if (currentFormId) {
+        showEditorTab('perguntas');
+    }
+    
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
     document.getElementById('view-home').classList.remove('hidden');
     currentFormId = null;
     renderFormsList();
     
-    // Restaura header e bottom sheet (caso estava no modo público)
+    // Restaura header e bottom sheet
     document.querySelector('.header').style.display = '';
     document.querySelector('.bottom-sheet').style.display = '';
     
     // Esconde tela de agradecimento se estiver visível
     document.getElementById('thankyou-screen').style.display = 'none';
-
-    // Resetar aba ativa para "Perguntas" quando voltar para home
-    const abaPerguntas = document.querySelector('.tabs .tab.active');
-    if (abaPerguntas && abaPerguntas.getAttribute('onclick') !== "showEditorTab('perguntas')") {
-        showEditorTab('perguntas');
-    }
-
 }
 
 function showEditorTab(tab) {
