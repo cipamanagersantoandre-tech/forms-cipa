@@ -537,11 +537,11 @@ body {
         </div>
       </div>
 
-<div class="tabs" style="display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px;">
-  <button class="tab active" onclick="showEditorTab('perguntas')">📝 Perguntas</button>
-  <button class="tab" onclick="showEditorTab('criativos')">🎨 Aparência</button>
-  <button class="tab" onclick="showEditorTab('arvore')">🌳 Visualização</button>
-</div>
+      <div class="tabs" style="display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px;">
+        <button class="tab active" onclick="showEditorTab('perguntas')">📝 Perguntas</button>
+        <button class="tab" onclick="showEditorTab('criativos')">🎨 Aparência</button>
+        <button class="tab" onclick="showEditorTab('arvore')">🌳 Visualização</button>
+      </div>
 
       <!-- Tab Perguntas -->
       <div id="editor-perguntas" class="editor-tab">
@@ -576,31 +576,19 @@ body {
         </div>
       </div>
 
-      <!-- Tab Visualização em Árvore -->
-      <div id="editor-arvore" class="editor-tab hidden">
+      <!-- Tab Criativos -->
+      <div id="editor-criativos" class="editor-tab hidden">
         <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-            <h3 style="margin: 0;">🌳 Estrutura do Formulário</h3>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-sm" onclick="organizarBlocosPorCondicao()" title="Organizar perguntas por blocos">📐 Organizar</button>
-              <button class="btn btn-sm" id="btn-desfazer-arvore" onclick="desfazerMovimentoArvore()" disabled style="opacity:0.5;">↩️ Desfazer</button>
-              <button class="btn btn-sm" onclick="fecharEditorTabArvore()" title="Fechar">✕</button>
-            </div>
-          </div>
-          <div class="alert alert-info" style="margin-bottom: 20px; font-size: 13px;">
-            💡 <strong>Como usar:</strong><br>
-            • Arraste o ícone ⋮⋮ para reorganizar perguntas ou blocos<br>
-            • Arraste uma pergunta para outro bloco para mudar sua condição<br>
-            • O sistema pergunta antes de mover entre blocos<br>
-            • Use o botão "Desfazer" se algo der errado
-          </div>
-          <div id="arvore-visualizacao" style="min-height: 400px; max-height: 600px; overflow-y: auto; padding: 16px; background: var(--bg); border-radius: 12px;">
-            <div style="text-align: center; padding: 40px; color: var(--text-muted);">
-              ⏳ Carregando estrutura...
-            </div>
-          </div>
-        </div>
-      </div>
+          <h3 style="margin-bottom: 16px;">Informações</h3>
+          <div class="form-group">
+  <label class="label">Nome</label>
+  <input type="text" class="input" id="form-title" readonly 
+         style="background: var(--bg-elev-2); cursor: default;" 
+         oninput="updateCurrentFormMeta()">
+  <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+    ⚠️ O nome é gerenciado pelo campo na barra lateral.
+  </div>
+</div>
           <div class="form-group">
   <label class="label">Subtítulo</label>
   <input type="text" class="input" id="form-subtitle">
@@ -705,6 +693,8 @@ body {
         </div>
       </div>
     </div>
+
+
 
     <!-- RESPOSTAS -->
     <div id="view-responses" class="view hidden">
@@ -3707,19 +3697,14 @@ async function iniciarApp() {
     }
 }
 
-// ==================== VARIÁVEIS PARA DESFAZER NA ÁRVORE ====================
-let ultimoEstadoArvore = null;
-let botaoDesfazerArvore = null;
-
 // ==================== FUNÇÕES DA VISUALIZAÇÃO EM ÁRVORE ====================
+
+let ultimoEstadoArvore = null;
 
 function salvarEstadoArvore() {
     const formData = getCurrentForm();
     if (!formData) return;
-    // Salva uma cópia profunda do estado atual das perguntas
     ultimoEstadoArvore = JSON.parse(JSON.stringify(formData.form.questions));
-    
-    // Ativar botão desfazer
     const btn = document.getElementById('btn-desfazer-arvore');
     if (btn) {
         btn.disabled = false;
@@ -3732,29 +3717,19 @@ function desfazerMovimentoArvore() {
         showToast('Nada para desfazer', 'info');
         return;
     }
-    
     const formData = getCurrentForm();
     if (!formData) return;
-    
-    // Restaurar o estado anterior
     formData.form.questions = JSON.parse(JSON.stringify(ultimoEstadoArvore));
     saveData();
-    
-    // Limpar o último estado para não desfazer duas vezes
     ultimoEstadoArvore = null;
-    
-    // Desativar botão desfazer
     const btn = document.getElementById('btn-desfazer-arvore');
     if (btn) {
         btn.disabled = true;
         btn.style.opacity = '0.5';
     }
-    
-    // Recarregar a árvore e a lista de perguntas
     renderizarArvore();
     renderQuestionsList();
     renderLivePreview();
-    
     showToast('✅ Movimento desfeito!', 'success');
 }
 
@@ -3763,339 +3738,68 @@ function renderizarArvore() {
     const formData = getCurrentForm();
     
     if (!formData || !formData.form.questions || formData.form.questions.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 60px; color: var(--text-muted);">
-                📭 Nenhuma pergunta ainda<br>
-                <span style="font-size: 14px;">Volte para a aba "Perguntas" e adicione perguntas ao formulário.</span>
-            </div>
-        `;
+        container.innerHTML = `<div style="text-align: center; padding: 60px; color: var(--text-muted);">📭 Nenhuma pergunta ainda</div>`;
         return;
     }
     
-    // Identificar a pergunta principal (primeira sem condição ou a primeira da lista)
+    // Encontrar pergunta principal (primeira do tipo radio/select sem condição)
     let perguntaPrincipal = null;
-    let indicePrincipal = -1;
-    
-    for (let i = 0; i < formData.form.questions.length; i++) {
-        const q = formData.form.questions[i];
-        if (!q.condition || !q.condition.dependsOn) {
+    for (const q of formData.form.questions) {
+        if ((q.type === 'radio' || q.type === 'select') && (!q.condition || !q.condition.dependsOn)) {
             perguntaPrincipal = q;
-            indicePrincipal = i;
             break;
         }
     }
     
-    // Construir a estrutura em árvore
-    let html = `<div class="arvore-container" style="font-family: monospace; font-size: 14px;">`;
+    if (!perguntaPrincipal) {
+        container.innerHTML = `<div style="text-align: center; padding: 60px; color: var(--text-muted);">⚠️ Crie uma pergunta do tipo "Múltipla escolha" para visualizar a árvore</div>`;
+        return;
+    }
     
-    if (perguntaPrincipal) {
-        // Mostrar a pergunta principal
-        html += `
-            <div class="arvore-item arvore-root" data-qid="${perguntaPrincipal.id}" data-indice="${indicePrincipal}" style="margin-bottom: 16px;">
-                <div class="arvore-header" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--primary-light); border-radius: 8px; margin-bottom: 8px;">
-                    <span class="drag-handle-arvore" draggable="true" data-qid="${perguntaPrincipal.id}" data-tipo="pergunta" style="cursor: grab; padding: 4px 8px; background: var(--bg-elev-2); border-radius: 6px;">⋮⋮</span>
-                    <span style="font-weight: bold;">📌 ${escapeHtml(perguntaPrincipal.title)}</span>
-                    ${perguntaPrincipal.type === 'radio' || perguntaPrincipal.type === 'select' ? '<span style="font-size: 11px; color: var(--text-muted);">(pergunta com opções)</span>' : ''}
-                </div>
-                <div class="arvore-filhos" style="margin-left: 24px; border-left: 2px solid var(--border); padding-left: 16px;">
-        `;
+    let html = `<div style="font-family: monospace; font-size: 14px;">`;
+    html += `<div style="margin-bottom: 16px; padding: 8px; background: var(--primary-light); border-radius: 8px;"><strong>📌 ${escapeHtml(perguntaPrincipal.title)}</strong></div>`;
+    html += `<div style="margin-left: 20px; border-left: 2px solid var(--border); padding-left: 16px;">`;
+    
+    const opcoes = perguntaPrincipal.options || [];
+    for (const opcao of opcoes) {
+        const perguntasDoBloco = formData.form.questions.filter(q => {
+            return q.id !== perguntaPrincipal.id && 
+                   q.condition && 
+                   q.condition.dependsOn === perguntaPrincipal.id && 
+                   q.condition.expectedValue === opcao;
+        });
         
-        // Agrupar perguntas por condição (opção esperada)
-        const opcoesDaPrincipal = perguntaPrincipal.options || [];
-        const perguntasPorOpcao = {};
+        html += `<div style="margin-bottom: 16px;">`;
+        html += `<div style="padding: 6px 8px; background: var(--bg-elev-2); border-radius: 8px; border-left: 4px solid var(--primary);"><strong>📍 ${escapeHtml(opcao)}</strong> (${perguntasDoBloco.length} perguntas)</div>`;
+        html += `<div style="margin-left: 20px;">`;
         
-        // Inicializar array para cada opção
-        for (const opt of opcoesDaPrincipal) {
-            perguntasPorOpcao[opt] = [];
-        }
-        perguntasPorOpcao['*sem-condicao*'] = []; // Para perguntas sem condição
-        
-        // Distribuir as perguntas (exceto a principal)
-        for (let i = 0; i < formData.form.questions.length; i++) {
-            const q = formData.form.questions[i];
-            if (q.id === perguntaPrincipal.id) continue;
-            
-            if (q.condition && q.condition.dependsOn === perguntaPrincipal.id) {
-                const valorEsperado = q.condition.expectedValue;
-                if (perguntasPorOpcao[valorEsperado]) {
-                    perguntasPorOpcao[valorEsperado].push({ ...q, indice: i });
-                } else {
-                    perguntasPorOpcao['*sem-condicao*'].push({ ...q, indice: i });
-                }
-            } else {
-                perguntasPorOpcao['*sem-condicao*'].push({ ...q, indice: i });
+        if (perguntasDoBloco.length === 0) {
+            html += `<div style="padding: 8px; color: var(--text-muted); font-style: italic;">— Nenhuma pergunta —</div>`;
+        } else {
+            for (const pergunta of perguntasDoBloco) {
+                html += `<div style="padding: 6px 8px; margin: 4px 0; background: var(--bg); border-radius: 6px; border: 1px solid var(--border);">❓ ${escapeHtml(pergunta.title)}</div>`;
             }
         }
-        
-        // Renderizar cada opção como um bloco
-        for (const opcao of opcoesDaPrincipal) {
-            const perguntasDoBloco = perguntasPorOpcao[opcao] || [];
-            
-            html += `
-                <div class="arvore-bloco" data-opcao="${escapeHtml(opcao)}" data-pergunta-mãe="${perguntaPrincipal.id}" style="margin-bottom: 20px;">
-                    <div class="arvore-bloco-header" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg-elev-2); border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--primary);">
-                        <span class="drag-handle-bloco" draggable="true" data-opcao="${escapeHtml(opcao)}" data-tipo="bloco" style="cursor: grab; padding: 4px 8px; background: var(--bg-elev); border-radius: 6px;">⋮⋮</span>
-                        <span style="font-weight: 600;">📍 ${escapeHtml(opcao)}</span>
-                        <span style="font-size: 11px; color: var(--text-muted);">(${perguntasDoBloco.length} perguntas)</span>
-                    </div>
-                    <div class="arvore-bloco-perguntas" style="margin-left: 32px;">
-            `;
-            
-            if (perguntasDoBloco.length === 0) {
-                html += `<div style="padding: 8px; color: var(--text-muted); font-style: italic; font-size: 12px;">— Nenhuma pergunta vinculada a esta opção —</div>`;
-            } else {
-                for (const pergunta of perguntasDoBloco) {
-                    html += `
-                        <div class="arvore-pergunta" data-qid="${pergunta.id}" data-indice="${pergunta.indice}" data-opcao="${escapeHtml(opcao)}" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 4px 0; background: var(--bg); border-radius: 6px; border: 1px solid var(--border);">
-                            <span class="drag-handle-pergunta" draggable="true" data-qid="${pergunta.id}" data-tipo="pergunta" data-opcao-atual="${escapeHtml(opcao)}" style="cursor: grab; padding: 4px 8px; background: var(--bg-elev-2); border-radius: 6px;">⋮⋮</span>
-                            <span style="flex: 1;">❓ ${escapeHtml(pergunta.title)}</span>
-                            <span style="font-size: 11px; color: var(--text-muted); background: var(--bg-elev-2); padding: 2px 6px; border-radius: 10px;">${pergunta.type === 'radio' ? 'Escolha' : pergunta.type === 'text' ? 'Texto' : pergunta.type === 'textarea' ? 'Texto longo' : pergunta.type === 'checkbox' ? 'Múltipla' : pergunta.type === 'select' ? 'Menu' : pergunta.type === 'scale' ? 'Nota 1-5' : pergunta.type === 'date' ? 'Data' : pergunta.type === 'time' ? 'Hora' : pergunta.type}</span>
-                        </div>
-                    `;
-                }
-            }
-            
-            html += `
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Renderizar perguntas sem condição (órfãs)
-        const orfas = perguntasPorOpcao['*sem-condicao*'] || [];
-        if (orfas.length > 0) {
-            html += `
-                <div class="arvore-bloco" data-opcao="*sem-condicao*" style="margin-bottom: 20px; opacity: 0.7;">
-                    <div class="arvore-bloco-header" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg-elev-2); border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--warning);">
-                        <span style="font-weight: 600;">⚠️ Sem condição definida</span>
-                        <span style="font-size: 11px;">(não aparecem automaticamente)</span>
-                    </div>
-                    <div class="arvore-bloco-perguntas" style="margin-left: 32px;">
-            `;
-            for (const pergunta of orfas) {
-                html += `
-                    <div class="arvore-pergunta" data-qid="${pergunta.id}" data-indice="${pergunta.indice}" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 4px 0; background: var(--bg); border-radius: 6px; border: 1px solid var(--border);">
-                        <span class="drag-handle-pergunta" draggable="true" data-qid="${pergunta.id}" data-tipo="pergunta" data-opcao-atual="*sem-condicao*" style="cursor: grab; padding: 4px 8px; background: var(--bg-elev-2); border-radius: 6px;">⋮⋮</span>
-                        <span style="flex: 1;">❓ ${escapeHtml(pergunta.title)}</span>
-                        <span style="font-size: 11px; color: var(--warning);">(sem condição)</span>
-                    </div>
-                `;
-            }
-            html += `</div></div>`;
-        }
-        
         html += `</div></div>`;
-    } else {
-        // Não há pergunta principal - mostrar todas em lista simples
-        html += `<div class="arvore-simples">`;
-        for (let i = 0; i < formData.form.questions.length; i++) {
-            const q = formData.form.questions[i];
-            html += `
-                <div class="arvore-pergunta" data-qid="${q.id}" data-indice="${i}" style="display: flex; align-items: center; gap: 8px; padding: 8px; margin: 4px 0; background: var(--bg); border-radius: 6px; border: 1px solid var(--border);">
-                    <span class="drag-handle-pergunta" draggable="true" data-qid="${q.id}" data-tipo="pergunta" style="cursor: grab; padding: 4px 8px; background: var(--bg-elev-2); border-radius: 6px;">⋮⋮</span>
-                    <span style="flex: 1;">❓ ${escapeHtml(q.title)}</span>
-                    <span style="font-size: 11px; color: var(--text-muted);">${q.type}</span>
-                </div>
-            `;
-        }
-        html += `</div>`;
     }
     
-    html += `</div>`;
+    html += `</div></div>`;
     container.innerHTML = html;
-    
-    // Configurar drag and drop na árvore
-    configurarDragDropArvore();
-}
-
-function configurarDragDropArvore() {
-    // Elementos arrastáveis
-    const draggables = document.querySelectorAll('.drag-handle-arvore, .drag-handle-bloco, .drag-handle-pergunta');
-    const dropTargets = document.querySelectorAll('.arvore-bloco, .arvore-bloco-perguntas, .arvore-pergunta');
-    
-    draggables.forEach(el => {
-        el.removeEventListener('dragstart', dragStartArvore);
-        el.removeEventListener('dragend', dragEndArvore);
-        el.addEventListener('dragstart', dragStartArvore);
-        el.addEventListener('dragend', dragEndArvore);
-        el.setAttribute('draggable', 'true');
-    });
-    
-    dropTargets.forEach(el => {
-        el.removeEventListener('dragover', dragOverArvore);
-        el.removeEventListener('dragleave', dragLeaveArvore);
-        el.removeEventListener('drop', dropArvore);
-        el.addEventListener('dragover', dragOverArvore);
-        el.addEventListener('dragleave', dragLeaveArvore);
-        el.addEventListener('drop', dropArvore);
-    });
-}
-
-let itemArrastadoArvore = null;
-
-function dragStartArvore(e) {
-    const target = e.target.closest('[draggable="true"]');
-    if (!target) return;
-    
-    itemArrastadoArvore = {
-        tipo: target.getAttribute('data-tipo'),
-        qid: target.getAttribute('data-qid'),
-        opcao: target.getAttribute('data-opcao'),
-        opcaoAtual: target.getAttribute('data-opcao-atual')
-    };
-    
-    e.dataTransfer.setData('text/plain', JSON.stringify(itemArrastadoArvore));
-    e.dataTransfer.effectAllowed = 'move';
-    target.style.opacity = '0.5';
-}
-
-function dragEndArvore(e) {
-    if (e.target) e.target.style.opacity = '';
-    itemArrastadoArvore = null;
-    document.querySelectorAll('.drag-over-arvore').forEach(el => {
-        el.classList.remove('drag-over-arvore');
-    });
-}
-
-function dragOverArvore(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const target = e.target.closest('.arvore-bloco, .arvore-bloco-perguntas, .arvore-pergunta');
-    if (target) {
-        target.classList.add('drag-over-arvore');
-    }
-}
-
-function dragLeaveArvore(e) {
-    const target = e.target.closest('.arvore-bloco, .arvore-bloco-perguntas, .arvore-pergunta');
-    if (target) {
-        target.classList.remove('drag-over-arvore');
-    }
-}
-
-async function dropArvore(e) {
-    e.preventDefault();
-    const target = e.target.closest('.arvore-bloco, .arvore-bloco-perguntas, .arvore-pergunta');
-    if (target) target.classList.remove('drag-over-arvore');
-    
-    if (!itemArrastadoArvore) return;
-    
-    const formData = getCurrentForm();
-    if (!formData) return;
-    
-    // Salvar estado para desfazer
-    salvarEstadoArvore();
-    
-    // Determinar destino
-    let destino = null;
-    let opcaoDestino = null;
-    let posicaoDestino = null;
-    
-    const blocoDestino = target.closest('.arvore-bloco');
-    if (blocoDestino) {
-        opcaoDestino = blocoDestino.getAttribute('data-opcao');
-    }
-    
-    const perguntaDestino = target.closest('.arvore-pergunta');
-    if (perguntaDestino) {
-        destino = perguntaDestino.getAttribute('data-qid');
-    }
-    
-    // Processar conforme o tipo do item arrastado
-    if (itemArrastadoArvore.tipo === 'pergunta') {
-        const perguntaId = itemArrastadoArvore.qid;
-        const pergunta = formData.form.questions.find(q => q.id === perguntaId);
-        
-        if (!pergunta) return;
-        
-        const opcaoAntiga = itemArrastadoArvore.opcaoAtual;
-        const opcaoNova = opcaoDestino;
-        
-        // Se mudou de bloco (opção)
-        if (opcaoAntiga !== opcaoNova && opcaoNova && opcaoNova !== '*sem-condicao*') {
-            // Perguntar antes de mudar a condição
-            const confirmar = confirm(`🔗 Mover pergunta "${pergunta.title}"\n\nDe: "${opcaoAntiga === '*sem-condicao*' ? 'Sem condição' : opcaoAntiga}"\nPara: "${opcaoNova}"\n\nA condição da pergunta será alterada.\n\nDeseja continuar?`);
-            
-            if (!confirmar) {
-                showToast('Movimento cancelado', 'info');
-                return;
-            }
-            
-            // Encontrar a pergunta principal
-            const perguntaPrincipal = formData.form.questions.find(q => q.type === 'radio' || q.type === 'select');
-            if (perguntaPrincipal) {
-                pergunta.condition = {
-                    dependsOn: perguntaPrincipal.id,
-                    expectedValue: opcaoNova
-                };
-                showToast(`✅ Pergunta movida para "${opcaoNova}"`, 'success');
-            } else {
-                showToast('❌ Não foi possível definir condição: nenhuma pergunta do tipo múltipla escolha encontrada', 'error');
-            }
-        } else if (opcaoNova === '*sem-condicao*') {
-            // Remover condição
-            const confirmar = confirm(`🔓 Remover condição da pergunta "${pergunta.title}"?\n\nEla passará a aparecer sempre (sem depender de nenhuma opção).`);
-            if (confirmar) {
-                pergunta.condition = null;
-                showToast('✅ Condição removida', 'success');
-            }
-        }
-        
-        // Reordenar perguntas (movendo dentro do mesmo bloco)
-        if (destino && destino !== perguntaId) {
-            const indiceOrigem = formData.form.questions.findIndex(q => q.id === perguntaId);
-            const indiceDestino = formData.form.questions.findIndex(q => q.id === destino);
-            
-            if (indiceOrigem !== -1 && indiceDestino !== -1) {
-                const [movida] = formData.form.questions.splice(indiceOrigem, 1);
-                const novoIndice = indiceOrigem < indiceDestino ? indiceDestino - 1 : indiceDestino;
-                formData.form.questions.splice(novoIndice, 0, movida);
-                showToast('📋 Ordem atualizada', 'success');
-            }
-        }
-        
-    } else if (itemArrastadoArvore.tipo === 'bloco') {
-        // Mover bloco inteiro (todas perguntas daquela opção)
-        const opcaoBloco = itemArrastadoArvore.opcao;
-        const opcaoDestinoBloco = opcaoDestino;
-        
-        if (opcaoBloco && opcaoDestinoBloco && opcaoBloco !== opcaoDestinoBloco) {
-            const confirmar = confirm(`📦 Mover TODO o bloco "${opcaoBloco}"\n\nIsso moverá todas as perguntas deste bloco para depois do bloco "${opcaoDestinoBloco}".\n\nDeseja continuar?`);
-            
-            if (confirmar) {
-                // Reordenar os blocos = reordenar as perguntas pela posição da primeira pergunta de cada bloco
-                // Esta é uma operação mais complexa que será implementada em uma segunda versão
-                showToast('⚠️ Movimento de blocos ainda em desenvolvimento. Use o movimento individual de perguntas por enquanto.', 'info');
-            }
-        }
-    }
-    
-    // Salvar e recarregar
-    saveData();
-    renderizarArvore();
-    renderQuestionsList();
-    renderLivePreview();
-    
-    // Atualizar cabeçalho da aba
-    atualizarCabecalhoAba(formData.id);
 }
 
 function organizarBlocosPorCondicao() {
     const formData = getCurrentForm();
     if (!formData) return;
     
-    const perguntas = formData.form.questions;
-    
-    // Salvar estado para desfazer
     salvarEstadoArvore();
     
-    // Encontrar a pergunta principal (primeira sem condição ou do tipo radio/select)
+    const perguntas = formData.form.questions;
     let perguntaPrincipal = null;
     let indicePrincipal = -1;
     
     for (let i = 0; i < perguntas.length; i++) {
         const q = perguntas[i];
-        if ((!q.condition || !q.condition.dependsOn) && (q.type === 'radio' || q.type === 'select')) {
+        if ((q.type === 'radio' || q.type === 'select') && (!q.condition || !q.condition.dependsOn)) {
             perguntaPrincipal = q;
             indicePrincipal = i;
             break;
@@ -4103,14 +3807,13 @@ function organizarBlocosPorCondicao() {
     }
     
     if (!perguntaPrincipal) {
-        showToast('❌ Nenhuma pergunta principal (múltipla escolha) encontrada para organizar', 'error');
+        showToast('❌ Nenhuma pergunta principal (múltipla escolha) encontrada', 'error');
         return;
     }
     
     const opcoes = perguntaPrincipal.options || [];
     const novasPerguntas = [perguntaPrincipal];
     
-    // Para cada opção, adicionar as perguntas que dependem dela
     for (const opcao of opcoes) {
         const perguntasDaOpcao = perguntas.filter(q => {
             return q.id !== perguntaPrincipal.id && 
@@ -4121,7 +3824,6 @@ function organizarBlocosPorCondicao() {
         novasPerguntas.push(...perguntasDaOpcao);
     }
     
-    // Adicionar as demais perguntas (sem condição ou de outras condicionais)
     const outrasPerguntas = perguntas.filter(q => {
         if (q.id === perguntaPrincipal.id) return false;
         if (q.condition && q.condition.dependsOn === perguntaPrincipal.id) return false;
@@ -4131,25 +3833,18 @@ function organizarBlocosPorCondicao() {
     
     formData.form.questions = novasPerguntas;
     saveData();
-    
     renderizarArvore();
     renderQuestionsList();
     renderLivePreview();
-    
     showToast('✅ Formulário organizado por blocos!', 'success');
 }
 
-function fecharEditorTabArvore() {
-    // Voltar para a aba Perguntas
-    showEditorTab('perguntas');
-}
-
-// Sobrescrever a função showEditorTab para suportar a nova aba
+// Atualizar showEditorTab para suportar a nova aba
 const showEditorTabOriginal = showEditorTab;
 window.showEditorTab = function(tab) {
-    if (showEditorTabOriginal) showEditorTabOriginal(tab);
+    showEditorTabOriginal(tab);
     if (tab === 'arvore') {
-        renderizarArvore();
+        setTimeout(() => renderizarArvore(), 100);
     }
 };
 
