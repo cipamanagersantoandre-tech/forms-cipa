@@ -325,6 +325,17 @@ function renderizarInput(q, idx) {
   const id = `campo_${q.id}`;
   
   switch(q.type) {
+case 'info': return `
+    <div class="info-card" style="background: linear-gradient(135deg, var(--primary-light) 0%, var(--bg-elev) 100%); border-left: 4px solid var(--primary); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+            <span style="font-size: 28px;">ℹ️</span>
+            <h3 style="color: var(--primary); margin: 0; font-size: 18px;">Informação importante</h3>
+        </div>
+        <div class="info-content" style="color: var(--text); line-height: 1.6; font-size: 14px;">
+            ${formatarInformativo(q.infoContent || 'Nenhuma informação disponível')}
+        </div>
+    </div>
+`;
     case 'text': return `<input type="text" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
     case 'email': return `<input type="email" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
     case 'number': return `<input type="number" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
@@ -674,6 +685,35 @@ async function enviarEmailComAnexos(nomeFormulario, resposta, perguntas) {
     } catch (erro) {
         console.error('❌ Erro ao enviar e-mail:', erro);
     }
+}
+
+function formatarInformativo(texto) {
+    if (!texto) return '';
+    
+    // Escapar HTML para segurança, mas preservar a formatação que vamos adicionar
+    let textoEscapado = escapeHtml(texto);
+    
+    // Converter **texto** para <strong>texto</strong>
+    textoEscapado = textoEscapado.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Converter *texto* para <em>texto</em>
+    textoEscapado = textoEscapado.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // Converter listas com marcadores - (hífen espaço)
+    textoEscapado = textoEscapado.replace(/^• (.*?)$/gm, '<li>$1</li>');
+    textoEscapado = textoEscapado.replace(/^- (.*?)$/gm, '<li>$1</li>');
+    
+    // Agrupar <li> em <ul>
+    if (textoEscapado.includes('<li>')) {
+        textoEscapado = textoEscapado.replace(/<li>.*?<\/li>/gs, (match) => {
+            return `<ul style="margin: 10px 0 10px 20px; list-style-type: disc;">${match}</ul>`;
+        });
+    }
+    
+    // Converter quebras de linha para <br>
+    textoEscapado = textoEscapado.replace(/\n/g, '<br>');
+    
+    return textoEscapado;
 }
 
 init();
