@@ -540,6 +540,7 @@ body {
       <div class="tabs" style="display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px;">
         <button class="tab active" onclick="showEditorTab('perguntas')">📝 Perguntas</button>
         <button class="tab" onclick="showEditorTab('criativos')">🎨 Aparência</button>
+        <button class="tab" onclick="showEditorTab('arvore')">🌳 Visualização</button>
       </div>
 
       <!-- Tab Perguntas -->
@@ -693,6 +694,26 @@ body {
         </div>
       </div>
     </div>
+
+      <!-- Tab Visualização em Árvore -->
+      <div id="editor-arvore" class="editor-tab hidden">
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <h3 style="margin: 0;">🌳 Estrutura do Formulário</h3>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-sm" onclick="organizarBlocos()" title="Organizar perguntas por blocos">📐 Organizar</button>
+            </div>
+          </div>
+          <div class="alert alert-info" style="margin-bottom: 20px; font-size: 13px;">
+            💡 Apenas visualização. Para editar, vá até a aba "Perguntas".
+          </div>
+          <div id="arvore-visualizacao" style="min-height: 400px; max-height: 600px; overflow-y: auto; padding: 16px; background: var(--bg); border-radius: 12px;">
+            <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+              ⏳ Carregando estrutura...
+            </div>
+          </div>
+        </div>
+      </div>
 
     <!-- RESPOSTAS -->
     <div id="view-responses" class="view hidden">
@@ -4228,6 +4249,119 @@ function atualizarBannerAppPorLink() {
         showToast('✅ Banner do app atualizado via link! Clique em "Salvar" para confirmar.', 'success');
     }
 }
+
+// ==================== FUNÇÕES DA ÁRVORE ====================
+
+function renderizarArvore() {
+    const container = document.getElementById('arvore-visualizacao');
+    const formData = getCurrentForm();
+    
+    if (!formData || !formData.form.questions || formData.form.questions.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px;">📭 Nenhuma pergunta ainda</div>';
+        return;
+    }
+    
+    // Encontrar pergunta principal (primeira do tipo radio/select sem condição)
+    let perguntaPrincipal = null;
+    for (const q of formData.form.questions) {
+        if ((q.type === 'radio' || q.type === 'select') && (!q.condition || !q.condition.dependsOn)) {
+            perguntaPrincipal = q;
+            break;
+        }
+    }
+    
+    if (!perguntaPrincipal) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px;">⚠️ Crie uma pergunta do tipo "Múltipla escolha" para visualizar a árvore</div>';
+        return;
+    }
+    
+    let html = `<div style="font-family: monospace; font-size: 14px;">`;
+    html += `<div style="margin-bottom: 16px; padding: 8px; background: var(--primary-light); border-radius: 8px;"><strong>📌 ${escapeHtml(perguntaPrincipal.title)}</strong></div>`;
+    html += `<div style="margin-left: 20px; border-left: 2px solid var(--border); padding-left: 16px;">`;
+    
+    const opcoes = perguntaPrincipal.options || [];
+    for (const opcao of opcoes) {
+        const perguntasDoBloco = formData.form.questions.filter(q => {
+            return q.id !== perguntaPrincipal.id && 
+                   q.condition && 
+                   q.condition.dependsOn === perguntaPrincipal.id && 
+                   q.condition.expectedValue === opcao;
+        });
+        
+        html += `<div style="margin-bottom: 16px;">`;
+        html += `<div style="padding: 6px 8px; background: var(--bg-elev-2); border-radius: 8px; border-left: 4px solid var(--primary);"><strong>📍 ${escapeHtml(opcao)}</strong> (${perguntasDoBloco.length} perguntas)</div>`;
+        html += `<div style="margin-left: 20px;">`;
+        
+        if (perguntasDoBloco.length === 0) {
+            html += `<div style="padding: 8px; color: var(--text-muted); font-style: italic;">— Nenhuma pergunta —</div>`;
+        } else {
+            for (const pergunta of perguntasDoBloco) {
+                html += `<div style="padding: 6px 8px; margin: 4px 0; background: var(--bg); border-radius: 6px; border: 1px solid var(--border);">❓ ${escapeHtml(pergunta.title)}</div>`;
+            }
+        }
+        html += `</div></div>`;
+    }
+    
+    html += `</div></div>`;
+    container.innerHTML = html;
+}
+
+function organizarBlocos() {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const perguntas = formData.form.questions;
+    let perguntaPrincipal = null;
+    
+    for (let i = 0; i < perguntas.length; i++) {
+        const q = perguntas[i];
+        if ((q.type === 'radio' || q.type === 'select') && (!q.condition || !q.condition.dependsOn)) {
+            perguntaPrincipal = q;
+            break;
+        }
+    }
+    
+    if (!perguntaPrincipal) {
+        showToast('❌ Nenhuma pergunta principal (múltipla escolha) encontrada', 'error');
+        return;
+    }
+    
+    const opcoes = perguntaPrincipal.options || [];
+    const novasPerguntas = [perguntaPrincipal];
+    
+    for (const opcao of opcoes) {
+        const perguntasDaOpcao = perguntas.filter(q => {
+            return q.id !== perguntaPrincipal.id && 
+                   q.condition && 
+                   q.condition.dependsOn === perguntaPrincipal.id && 
+                   q.condition.expectedValue === opcao;
+        });
+        novasPerguntas.push(...perguntasDaOpcao);
+    }
+    
+    const outrasPerguntas = perguntas.filter(q => {
+        if (q.id === perguntaPrincipal.id) return false;
+        if (q.condition && q.condition.dependsOn === perguntaPrincipal.id) return false;
+        return true;
+    });
+    novasPerguntas.push(...outrasPerguntas);
+    
+    formData.form.questions = novasPerguntas;
+    saveData();
+    renderQuestionsList();
+    renderLivePreview();
+    renderizarArvore();
+    showToast('✅ Formulário organizado!', 'success');
+}
+
+// Atualizar a função showEditorTab para renderizar a árvore quando a aba for clicada
+const showEditorTabOriginal = showEditorTab;
+window.showEditorTab = function(tab) {
+    showEditorTabOriginal(tab);
+    if (tab === 'arvore') {
+        setTimeout(() => renderizarArvore(), 100);
+    }
+};
 
 </script>
 </body>
