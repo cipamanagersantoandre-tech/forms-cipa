@@ -540,7 +540,6 @@ body {
       <div class="tabs" style="display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px;">
         <button class="tab active" onclick="showEditorTab('perguntas')">📝 Perguntas</button>
         <button class="tab" onclick="showEditorTab('criativos')">🎨 Aparência</button>
-        <button class="tab" onclick="showEditorTab('arvore')">🌳 Visualização</button>
       </div>
 
       <!-- Tab Perguntas -->
@@ -556,6 +555,7 @@ body {
                 <h3>Minhas perguntas</h3>
                 <button class="btn btn-primary btn-sm" onclick="addQuestion()">➕ Nova</button>
               </div>
+              <button class="btn btn-sm" onclick="abrirModalArvore()" style="margin-bottom: 16px; width: 100%;">🌳 Ver estrutura em árvore</button>
               <div id="questions-list"></div>
               <div id="empty-questions" class="empty-state">
                 <p>📭 Nenhuma pergunta ainda</p>
@@ -693,30 +693,6 @@ body {
         </div>
       </div>
     </div>
-
-      <!-- Tab Visualização em Árvore -->
-      <div id="editor-arvore" class="editor-tab hidden">
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-            <h3 style="margin: 0;">🌳 Estrutura do Formulário</h3>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-sm" onclick="organizarBlocosPorCondicao()" title="Organizar perguntas por blocos">📐 Organizar</button>
-              <button class="btn btn-sm" id="btn-desfazer-arvore" onclick="desfazerMovimentoArvore()" disabled style="opacity:0.5;">↩️ Desfazer</button>
-            </div>
-          </div>
-          <div class="alert alert-info" style="margin-bottom: 20px; font-size: 13px;">
-            💡 <strong>Como usar:</strong><br>
-            • Arraste o ícone ⋮⋮ para reorganizar perguntas<br>
-            • Arraste uma pergunta para outro bloco para mudar sua condição<br>
-            • Use o botão "Desfazer" se algo der errado
-          </div>
-          <div id="arvore-visualizacao" style="min-height: 400px; max-height: 600px; overflow-y: auto; padding: 16px; background: var(--bg); border-radius: 12px;">
-            <div style="text-align: center; padding: 40px; color: var(--text-muted);">
-              ⏳ Carregando estrutura...
-            </div>
-          </div>
-        </div>
-      </div>
 
     <!-- RESPOSTAS -->
     <div id="view-responses" class="view hidden">
@@ -954,6 +930,22 @@ body {
 </div>
 
 <div id="toast-container" class="toast-container"></div>
+<!-- Modal da Árvore -->
+<div id="modal-arvore" class="modal" onclick="fecharModalArvore(event)">
+  <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 700px;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+      <h3>🌳 Estrutura do Formulário</h3>
+      <button class="btn btn-sm" onclick="fecharModalArvore()">✕</button>
+    </div>
+    <div id="arvore-visualizacao" style="max-height: 500px; overflow-y: auto; padding: 16px; background: var(--bg); border-radius: 12px;">
+      <div style="text-align: center; padding: 40px;">⏳ Carregando...</div>
+    </div>
+    <div style="margin-top: 20px;">
+      <button class="btn btn-sm" onclick="organizarBlocos()" style="margin-right: 8px;">📐 Organizar</button>
+      <button class="btn btn-sm" onclick="fecharModalArvore()">Fechar</button>
+    </div>
+  </div>
+</div>
 
 <!-- Página de Agradecimento (para modo pública) -->
 <div id="thankyou-screen" class="thankyou-screen" style="display: none;">
@@ -3719,48 +3711,30 @@ async function iniciarApp() {
     }
 }
 
-// ==================== FUNÇÕES DA VISUALIZAÇÃO EM ÁRVORE ====================
+// ==================== FUNÇÕES DA ÁRVORE ====================
 
-let ultimoEstadoArvore = null;
-
-function salvarEstadoArvore() {
+function abrirModalArvore() {
     const formData = getCurrentForm();
-    if (!formData) return;
-    ultimoEstadoArvore = JSON.parse(JSON.stringify(formData.form.questions));
-    const btn = document.getElementById('btn-desfazer-arvore');
-    if (btn) {
-        btn.disabled = false;
-        btn.style.opacity = '1';
-    }
-}
-
-function desfazerMovimentoArvore() {
-    if (!ultimoEstadoArvore) {
-        showToast('Nada para desfazer', 'info');
+    if (!formData) {
+        showToast('Abra um formulário primeiro', 'error');
         return;
     }
-    const formData = getCurrentForm();
-    if (!formData) return;
-    formData.form.questions = JSON.parse(JSON.stringify(ultimoEstadoArvore));
-    saveData();
-    ultimoEstadoArvore = null;
-    const btn = document.getElementById('btn-desfazer-arvore');
-    if (btn) {
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-    }
-    renderizarArvore();
-    renderQuestionsList();
-    renderLivePreview();
-    showToast('✅ Movimento desfeito!', 'success');
+    renderizarArvoreModal();
+    document.getElementById('modal-arvore').classList.add('active');
 }
 
-function renderizarArvore() {
+function fecharModalArvore(e) {
+    if (!e || e.target.classList.contains('modal')) {
+        document.getElementById('modal-arvore').classList.remove('active');
+    }
+}
+
+function renderizarArvoreModal() {
     const container = document.getElementById('arvore-visualizacao');
     const formData = getCurrentForm();
     
     if (!formData || !formData.form.questions || formData.form.questions.length === 0) {
-        container.innerHTML = `<div style="text-align: center; padding: 60px; color: var(--text-muted);">📭 Nenhuma pergunta ainda</div>`;
+        container.innerHTML = '<div style="text-align: center; padding: 40px;">📭 Nenhuma pergunta ainda</div>';
         return;
     }
     
@@ -3774,7 +3748,7 @@ function renderizarArvore() {
     }
     
     if (!perguntaPrincipal) {
-        container.innerHTML = `<div style="text-align: center; padding: 60px; color: var(--text-muted);">⚠️ Crie uma pergunta do tipo "Múltipla escolha" para visualizar a árvore</div>`;
+        container.innerHTML = '<div style="text-align: center; padding: 40px;">⚠️ Crie uma pergunta do tipo "Múltipla escolha" para visualizar a árvore</div>';
         return;
     }
     
@@ -3809,21 +3783,17 @@ function renderizarArvore() {
     container.innerHTML = html;
 }
 
-function organizarBlocosPorCondicao() {
+function organizarBlocos() {
     const formData = getCurrentForm();
     if (!formData) return;
     
-    salvarEstadoArvore();
-    
     const perguntas = formData.form.questions;
     let perguntaPrincipal = null;
-    let indicePrincipal = -1;
     
     for (let i = 0; i < perguntas.length; i++) {
         const q = perguntas[i];
         if ((q.type === 'radio' || q.type === 'select') && (!q.condition || !q.condition.dependsOn)) {
             perguntaPrincipal = q;
-            indicePrincipal = i;
             break;
         }
     }
@@ -3855,20 +3825,11 @@ function organizarBlocosPorCondicao() {
     
     formData.form.questions = novasPerguntas;
     saveData();
-    renderizarArvore();
     renderQuestionsList();
     renderLivePreview();
-    showToast('✅ Formulário organizado por blocos!', 'success');
+    renderizarArvoreModal();
+    showToast('✅ Formulário organizado!', 'success');
 }
-
-// Atualizar showEditorTab para suportar a nova aba
-const showEditorTabOriginal = showEditorTab;
-window.showEditorTab = function(tab) {
-    showEditorTabOriginal(tab);
-    if (tab === 'arvore') {
-        setTimeout(() => renderizarArvore(), 100);
-    }
-};
 
 // Iniciar
 iniciarApp();
