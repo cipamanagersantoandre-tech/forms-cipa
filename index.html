@@ -1849,6 +1849,7 @@ function renderQuestionsList() {
             </div>
             <div class="form-group">
                 <select class="select" onchange="updateQuestion('${q.id}', 'type', this.value); renderQuestionsList();">
+		    <option value="info" ${q.type==='info' ? 'selected' : ''}>ℹ️ Informativo (leitura)</option>
                     <option value="text" ${q.type==='text' ? 'selected' : ''}>Texto</option>
                     <option value="textarea" ${q.type==='textarea' ? 'selected' : ''}>Texto longo</option>
                     <option value="email" ${q.type==='email' ? 'selected' : ''}>E-mail</option>
@@ -1861,6 +1862,22 @@ function renderQuestionsList() {
                     <option value="time" ${q.type==='time' ? 'selected' : ''}>⏰ Hora</option>
 		           <option value="attachment" ${q.type==='attachment' ? 'selected' : ''}>📎 Anexo (arquivo)</option>
                 </select>
+${q.type === 'info' ? `
+    <div class="form-group" style="background: var(--bg-elev-2); padding: 12px; border-radius: 10px; margin-top: 12px;">
+        <label class="label">📝 Conteúdo do Informativo</label>
+        <textarea class="textarea" rows="6" placeholder="Digite o texto informativo aqui...
+Você pode usar:
+• Listas com marcadores
+• **Negrito** (usando **)
+• *Itálico* (usando *)
+• Títulos com # ## etc
+• Links [texto](url)" 
+    onchange="updateQuestion('${q.id}', 'infoContent', this.value)">${escapeHtml(q.infoContent || '')}</textarea>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            💡 Este texto aparecerá formatado para o usuário. Use ** para negrito, * para itálico.
+        </div>
+    </div>
+` : ''}
             </div>
             ${['radio', 'checkbox', 'select'].includes(q.type) ? `
                 <div class="form-group">
@@ -1908,11 +1925,15 @@ function updateQuestion(id, field, value) {
     if (!formData) return;
     const q = formData.form.questions.find(q => q.id === id);
     if (q) {
-        q[field] = value;
+        if (field === 'infoContent') {
+            q.infoContent = value;
+        } else {
+            q[field] = value;
+        }
         saveData();
+        renderQuestionsList();
         renderLivePreview();
         
-        // Se mudou o título, atualizar cabeçalho
         if (field === 'title') {
             atualizarCabecalhoAba(formData.id);
         }
