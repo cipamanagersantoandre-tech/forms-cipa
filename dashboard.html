@@ -189,7 +189,10 @@
 
 <div class="filter-group">
     <label>👤 Buscar por nome</label>
-    <input type="text" id="filtroNome" placeholder="Digite o nome do participante...">
+    <input type="text" id="filtroNome" list="listaNomes" placeholder="Digite ou selecione um nome...">
+    <datalist id="listaNomes">
+        <option value="">Carregando nomes...</option>
+    </datalist>
 </div>
             <div class="filter-group">
                 <button class="btn btn-primary" onclick="aplicarFiltros()">🔍 Aplicar filtros</button>
@@ -528,17 +531,46 @@ function contarCheckbox(respostas, pergunta, formData) {
         .slice(0, 10);
 }
 
-// Gerar nuvem de palavras
-function gerarWordCloud(respostas, perguntasTexto) {
+// Gerar nuvem de palavras (IGNORANDO nomes dos participantes)
+function gerarWordCloud(respostas, perguntasTexto, formData) {
     const palavras = {};
     const stopWords = ['que', 'como', 'uma', 'para', 'com', 'sem', 'sobre', 'pelo', 'pela', 'mais', 'muito', 'bem', 'pode', 'ser', 'ter', 'fazer', 'gostaria', 'você', 'sua', 'seu', 'ele', 'ela', 'isso', 'aquele', 'aquela'];
     
+    // Pega o ID da pergunta de nome para excluir
+    const perguntaNome = formData.form.questions.find(q => q.title === 'Qual seu nome completo?');
+    const idNome = perguntaNome ? perguntaNome.id : null;
+    
     for (const resposta of respostas) {
         for (const pergunta of perguntasTexto) {
+            // PULA a pergunta de nome completo
+            if (pergunta.id === idNome) {
+                continue;
+            }
+            
             const texto = resposta.data[pergunta.id];
             if (texto && typeof texto === 'string') {
-                const palavrasTexto = texto.toLowerCase().split(/[\s,;.!?]+/);
-                for (const palavra of palavrasTexto) {
+                // Remove possíveis nomes do texto (palavras que começam com letra maiúscula e são curtas)
+                let textoLimpo = texto;
+                
+                // Remove palavras que parecem nomes próprios (começam com maiúscula e têm 2-20 letras)
+                // Mas preserva palavras importantes como "SIPAT", "Saúde", "Segurança"
+                const palavrasImportantes = ['SIPAT', 'Saúde', 'Segurança', 'Bem-estar', 'Empresa', 'Trabalho'];
+                const palavrasTexto = texto.split(/\s+/);
+                const palavrasFiltradas = palavrasTexto.filter(palavra => {
+                    // Se for uma palavra importante, mantém
+                    if (palavrasImportantes.some(imp => palavra.toLowerCase().includes(imp.toLowerCase()))) {
+                        return true;
+                    }
+                    // Se começar com maiúscula e tiver entre 2 e 20 letras, provavelmente é nome
+                    if (palavra.match(/^[A-Z][a-z]{1,19}$/)) {
+                        return false;
+                    }
+                    return true;
+                });
+                textoLimpo = palavrasFiltradas.join(' ');
+                
+                const palavrasDoTexto = textoLimpo.toLowerCase().split(/[\s,;.!?]+/);
+                for (const palavra of palavrasDoTexto) {
                     if (palavra.length > 3 && !stopWords.includes(palavra)) {
                         palavras[palavra] = (palavras[palavra] || 0) + 1;
                     }
@@ -808,7 +840,30 @@ function aplicarFiltros() {
     
     // Processar nuvem de palavras
     const perguntasTexto = formData.form.questions.filter(q => q.type === 'text' || q.type === 'textarea');
-    const wordCloud = gerarWordCloud(dadosFiltrados, perguntasTexto);
+    // Atualizar a lista de nomes no datalist
+    const listaNomes = document.getElementById('listaNomes');
+    if (listaNomes) {
+        // Pega os nomes das respostas filtradas (ou de todas se não tiver filtro)
+        const perguntaNome = formData.form.questions.find(q => q.title === 'Qual seu nome completo?');
+        if (perguntaNome) {
+            const nomes = new Set();
+            for (const resposta of dadosFiltrados) {
+                const nome = resposta.data[perguntaNome.id];
+                if (nome && nome.trim() !== '') {
+                    nomes.add(nome);
+                }
+            }
+            // Ordenar nomes
+            const nomesOrdenados = Array.from(nomes).sort();
+            
+            // Criar as opções do datalist
+            listaNomes.innerHTML = '<option value="">-- Selecione um nome --</option>' +
+                nomesOrdenados.map(nome => `<option value="${escapeHtml(nome)}">${escapeHtml(nome)}</option>`).join('');
+            
+            console.log(`📋 Lista de nomes atualizada: ${nomesOrdenados.length} nomes`);
+        }
+    }
+    const wordCloud = gerarWordCloud(dadosFiltrados, perguntasTexto, formData);
     
     // Renderizar dashboard
     const dashboardHTML = renderizarDashboard(
