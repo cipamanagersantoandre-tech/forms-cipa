@@ -313,26 +313,65 @@ function extrairRespostas(respostasRaw, perguntas) {
     const respostas = [];
     
     if (!respostasRaw || respostasRaw.length === 0) {
+        console.log('⚠️ Nenhuma resposta bruta para processar');
         return respostas;
     }
     
-    for (const row of respostasRaw) {
-        const resposta = { timestamp: row['Data/Hora'] || '', data: {} };
+    console.log('🔧 Processando', respostasRaw.length, 'respostas brutas');
+    console.log('📋 Estrutura da primeira resposta:', JSON.stringify(respostasRaw[0], null, 2));
+    console.log('📋 Perguntas disponíveis:', perguntas.map(p => p.title));
+    
+    for (let i = 0; i < respostasRaw.length; i++) {
+        const row = respostasRaw[i];
+        console.log(`\n📝 Processando resposta ${i + 1}:`, row);
         
+        // Verificar se tem timestamp
+        const timestamp = row['Data/Hora'] || row['data'] || row['timestamp'];
+        
+        if (!timestamp) {
+            console.log('⚠️ Resposta sem timestamp, pulando...');
+            continue;
+        }
+        
+        const resposta = { 
+            timestamp: timestamp, 
+            data: {} 
+        };
+        
+        // Para cada pergunta do formulário, buscar o valor na resposta
         for (const pergunta of perguntas) {
+            // Tenta encontrar o valor pelo título da pergunta
             let valor = row[pergunta.title];
+            
+            // Se não achou, tenta pelo ID (se existir)
+            if (!valor && pergunta.id) {
+                valor = row[pergunta.id];
+            }
+            
+            // Se ainda não achou, procura por chave similar
+            if (!valor) {
+                for (const key in row) {
+                    if (key.toLowerCase().includes(pergunta.title.toLowerCase().substring(0, 10))) {
+                        valor = row[key];
+                        console.log(`🔍 Encontrado valor para "${pergunta.title}" usando chave: ${key}`);
+                        break;
+                    }
+                }
+            }
+            
+            // Limpar valores de anexo
             if (valor && (valor.includes('📎') || valor.includes('(nenhum arquivo'))) {
                 valor = '';
             }
+            
             resposta.data[pergunta.id] = valor || '';
         }
         
-        if (resposta.timestamp) {
-            respostas.push(resposta);
-        }
+        respostas.push(resposta);
+        console.log(`✅ Resposta ${i + 1} processada:`, resposta);
     }
     
-    console.log(`📊 Extraídas ${respostas.length} respostas processadas`);
+    console.log(`\n📊 Total extraído: ${respostas.length} respostas`);
     return respostas;
 }
 
