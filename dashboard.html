@@ -798,11 +798,39 @@ async function carregarListaFormularios() {
         console.log('📦 Resultado:', result);
         
         if (result.status === 'sucesso' && result.dados) {
-            console.log('✅ Formulários encontrados:', result.dados.length);
-            // ... resto do código
+            listaFormularios = result.dados;
+            const seletor = document.getElementById('seletorFormulario');
+            
+            if (!seletor) return;
+            
+            // Limpar e popular o seletor
+            seletor.innerHTML = '<option value="">-- Selecione um formulário --</option>';
+            
+            for (const form of listaFormularios) {
+                const option = document.createElement('option');
+                option.value = form.id;
+                option.textContent = form.name;
+                seletor.appendChild(option);
+            }
+            
+            console.log(`📋 ${listaFormularios.length} formulários carregados`);
+            
+            // Selecionar automaticamente o formulário da SIPAT se existir
+            const formSIPAT = listaFormularios.find(f => f.name === 'Pesquisa Interativa para Planejamento da SIPAT');
+            if (formSIPAT) {
+                seletor.value = formSIPAT.id;
+                trocarFormulario();
+            } else if (listaFormularios.length > 0) {
+                // Se não encontrar o SIPAT, seleciona o primeiro
+                seletor.value = listaFormularios[0].id;
+                trocarFormulario();
+            }
+        } else {
+            console.log('⚠️ Nenhum formulário encontrado');
         }
     } catch (e) {
-        console.error('❌ Erro:', e);
+        console.error('❌ Erro ao carregar lista:', e);
+        showToast('Erro ao carregar formulários', 'error');
     }
 }
 
