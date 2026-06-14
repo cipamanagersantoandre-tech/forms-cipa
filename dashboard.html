@@ -160,12 +160,6 @@
 
     <div class="filters-section">
         <div class="filters-title">🔍 Filtros</div>
-        <div class="filter-group" style="min-width: 250px;">
-            <label>📋 Selecione o formulário</label>
-            <select id="seletorFormulario" onchange="trocarFormulario()">
-                <option value="">Carregando formulários...</option>
-            </select>
-        </div>
         <div class="filters-grid">
             <div class="filter-group">
                 <label>📅 Data inicial</label>
@@ -261,20 +255,46 @@ async function testarConexao() {
     }
 }
 
-// Carregar dados do formulário (não usada diretamente, mantida para compatibilidade)
+// Carregar dados do formulário
 async function carregarFormulario() {
     try {
         const url = `${SHEETS_URL}?acao=carregarTudo&aba=forms`;
+        console.log('📡 Buscando formulários em:', url);
         const response = await fetch(url);
-        const result = await response.json();
         
-        if (result.status === 'sucesso' && result.dados && result.dados.length > 0) {
-            // Retorna o primeiro formulário da lista
-            return result.dados[0];
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+        
+        const result = await response.json();
+        console.log('📦 Resultado bruto:', result);
+        
+        if (result.status === 'sucesso' && result.dados) {
+            console.log(`📋 Encontrados ${result.dados.length} formulários na nuvem`);
+            console.log('📋 Nomes dos formulários:', result.dados.map(f => f.name));
+            
+            // Se tiver apenas um formulário, pega ele
+            if (result.dados.length === 1) {
+                console.log('📋 Usando único formulário:', result.dados[0].name);
+                return result.dados[0];
+            }
+            
+            // Se tiver vários, procura pelo nome
+            let formData = result.dados.find(f => f.name === 'Pesquisa Interativa para Planejamento da SIPAT');
+            
+            if (!formData && result.dados.length > 0) {
+                formData = result.dados[0];
+                console.log('📋 Usando primeiro formulário:', formData.name);
+            }
+            
+            return formData;
+        }
+        
+        console.error('❌ Resposta sem dados:', result);
         return null;
     } catch (e) {
         console.error('❌ Erro ao carregar formulário:', e);
+        showToast('Erro ao conectar com Google Sheets: ' + e.message, 'error');
         return null;
     }
 }
@@ -326,7 +346,7 @@ function extrairRespostas(respostasRaw, perguntas) {
         const respostaData = row.data || row;
         
         // Verificar se tem timestamp
-        const timestamp = row.timestamp || row['Data/Hora'] || new Date().toISOString();
+        const timestamp = row.timestamp || row['Data/Hora'];
         
         if (!timestamp) {
             console.log('⚠️ Resposta sem timestamp, pulando...');
@@ -416,7 +436,8 @@ if (filtros.nome && filtros.nome.trim() !== '') {
     }
 }
 
-
+    return dadosFiltrados;
+}
 
 // Calcular KPIs
 function calcularKPIs(respostas, formData) {
@@ -658,124 +679,54 @@ function renderizarWordCloud(palavras) {
 }
 
 // Renderizar dashboard completo
-// Renderizar dashboard DINÂMICO (se adapta ao formulário)
 function renderizarDashboard(respostas, formData, kpis, areasInteresse, atividadesPreferidas, temasPessoais, mediasEscalas, wordCloud) {
-    let html = renderizarKPIs(kpis);
-    
-    const temParticipacao = formData.form.questions.some(q => q.title === 'Você gostaria de participar mais ativamente da SIPAT, contribuindo com ideias, organização ou atividades?');
-    
-    if (temParticipacao && kpis.participacaoDetalhe) {
-        html += '<div class="section"><div class="section-title">📈 Participação</div><div class="charts-grid"><div class="chart-card"><h3>🎯 Interesse em participar</h3>' + renderizarPizza([
-            { label: 'Sim', count: kpis.participacaoDetalhe.sim, percent: (kpis.participacaoDetalhe.sim / kpis.total) * 100 },
-            { label: 'Talvez', count: kpis.participacaoDetalhe.talvez, percent: (kpis.participacaoDetalhe.talvez / kpis.total) * 100 },
-            { label: 'Não', count: kpis.participacaoDetalhe.nao, percent: (kpis.participacaoDetalhe.nao / kpis.total) * 100 }
-        ]) + '</div></div></div>';
-    }
-    
-    if (areasInteresse && areasInteresse.length > 0) {
-        html += '<div class="section"><div class="section-title">📚 Áreas de Interesse</div><div class="charts-grid"><div class="chart-card">' + renderizarBarChart(areasInteresse) + '</div></div></div>';
-    }
-    
-    if (atividadesPreferidas && atividadesPreferidas.length > 0) {
-        html += '<div class="section"><div class="section-title">🎪 Atividades Preferidas</div><div class="charts-grid"><div class="chart-card">' + renderizarBarChart(atividadesPreferidas) + '</div></div></div>';
-    }
-    
-    if (mediasEscalas && Object.keys(mediasEscalas).length > 0) {
-        html += '<div class="section"><div class="section-title">⭐ Avaliação</div><div class="charts-grid"><div class="chart-card">' + renderizarTabelaEscalas(mediasEscalas) + '</div></div></div>';
-    }
-    
-    if (wordCloud && wordCloud.length > 0) {
-        html += '<div class="section"><div class="section-title">💡 Sugestões</div><div class="charts-grid"><div class="chart-card">' + renderizarWordCloud(wordCloud) + '</div></div></div>';
-    }
-    
-    return html;
-}  // ← GARANTA QUE TEM ESTA CHAVE AQUI!
-
+    return `
+        ${renderizarKPIs(kpis)}
+        
+        <div class="section">
+            <div class="section-title">📈 Análise de Participação</div>
+            <div class="charts-grid">
+                <div class="chart-card"><h3>🎯 Interesse em participar ativamente</h3>${renderizarPizza([
+                    { label: 'Sim', count: kpis.participacaoDetalhe.sim, percent: (kpis.participacaoDetalhe.sim / kpis.total) * 100 },
+                    { label: 'Talvez', count: kpis.participacaoDetalhe.talvez, percent: (kpis.participacaoDetalhe.talvez / kpis.total) * 100 },
+                    { label: 'Não', count: kpis.participacaoDetalhe.nao, percent: (kpis.participacaoDetalhe.nao / kpis.total) * 100 }
+                ])}</div>
+                <div class="chart-card"><h3>🏷️ Identificação dos respondentes</h3>${renderizarPizza([
+                    { label: 'Se identificaram', count: Math.round(kpis.total * kpis.taxaIdentificacao / 100), percent: kpis.taxaIdentificacao },
+                    { label: 'Anônimos', count: Math.round(kpis.total * (100 - kpis.taxaIdentificacao) / 100), percent: 100 - kpis.taxaIdentificacao }
+                ])}</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">📚 Áreas de Interesse (Top 10)</div>
+            <div class="charts-grid"><div class="chart-card"><h3>🗂️ Quais áreas você gostaria de aprender mais?</h3>${renderizarBarChart(areasInteresse, 'Áreas de interesse')}</div></div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">🎪 Atividades Preferidas</div>
+            <div class="charts-grid"><div class="chart-card"><h3>🎮 Que tipo de atividade você gostaria de encontrar?</h3>${renderizarBarChart(atividadesPreferidas, 'Atividades')}</div></div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">💚 Temas para Vida Pessoal</div>
+            <div class="charts-grid"><div class="chart-card"><h3>🏠 Qual tema seria mais útil para sua vida pessoal?</h3>${renderizarBarChart(temasPessoais, 'Temas pessoais')}</div></div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">⭐ Avaliação das Atividades (Média 1-5)</div>
+            <div class="charts-grid"><div class="chart-card"><h3>📊 Interesse nas atividades propostas</h3>${renderizarTabelaEscalas(mediasEscalas)}</div></div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">💡 Sugestões dos Participantes</div>
+            <div class="charts-grid"><div class="chart-card"><h3>☁️ Nuvem de palavras - Palestras e atividades sugeridas</h3>${renderizarWordCloud(wordCloud)}</div></div>
+        </div>
+    `;
+}
 
 // ==================== FUNÇÃO PRINCIPAL ====================
 let dadosGlobais = { respostas: [], formData: null };
-
-// ==================== SELETOR DE FORMULÁRIOS ====================
-let listaFormularios = [];
-
-// Carregar lista de formulários para o seletor
-async function carregarListaFormularios() {
-    try {
-        const url = `${SHEETS_URL}?acao=carregarTudo&aba=forms`;
-        const response = await fetch(url);
-        const result = await response.json();
-        
-        if (result.status === 'sucesso' && result.dados) {
-            listaFormularios = result.dados;
-            const seletor = document.getElementById('seletorFormulario');
-            if (seletor) {
-                seletor.innerHTML = '<option value="">-- Selecione um formulário --</option>';
-                for (const form of listaFormularios) {
-                    const option = document.createElement('option');
-                    option.value = form.id;
-                    option.textContent = form.name;
-                    seletor.appendChild(option);
-                }
-                const formSIPAT = listaFormularios.find(f => f.name === 'Pesquisa Interativa para Planejamento da SIPAT');
-                if (formSIPAT) {
-                    seletor.value = formSIPAT.id;
-                    trocarFormulario();
-                }
-            }
-        }
-    } catch (e) {
-        console.error('Erro:', e);
-    }
-}
-
-// Função chamada quando troca o formulário
-async function trocarFormulario() {
-    const seletor = document.getElementById('seletorFormulario');
-    const formId = seletor.value;
-    
-    if (!formId) {
-        document.getElementById('dashboard-content').innerHTML = '<div class="loading"><p>📋 Selecione um formulário para começar</p></div>';
-        return;
-    }
-    
-    const formData = listaFormularios.find(f => f.id === formId);
-    if (!formData) return;
-    
-    console.log('📋 Formulário selecionado:', formData.name);
-    
-    // Mostrar loading
-    const container = document.getElementById('dashboard-content');
-    container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Carregando dados do formulário...</p></div>';
-    
-    // Carregar respostas do formulário selecionado
-    const respostasRaw = await carregarRespostas(formData.name);
-    const respostas = extrairRespostas(respostasRaw, formData.form.questions);
-    
-    dadosGlobais = { respostas, formData };
-    
-    if (respostas.length === 0) {
-        container.innerHTML = '<div class="loading"><p>📭 Nenhuma resposta encontrada para este formulário.</p></div>';
-        showToast('Nenhuma resposta encontrada!', 'info');
-        return;
-    }
-    
-    // Atualizar o título do header
-    const headerTitle = document.querySelector('.header h1');
-    if (headerTitle) {
-        headerTitle.innerHTML = `📊 Dashboard - ${escapeHtml(formData.name)}`;
-    }
-    
-    // Limpar filtros antes de aplicar
-    document.getElementById('dataInicio').value = '';
-    document.getElementById('dataFim').value = '';
-    document.getElementById('filtroIdentificacao').value = 'todos';
-    document.getElementById('filtroParticipacao').value = 'todos';
-    document.getElementById('filtroNome').value = '';
-    
-    // Aplicar filtros (vai renderizar o dashboard adaptado)
-    aplicarFiltros();
-    showToast(`✅ ${respostas.length} respostas carregadas para "${formData.name}"`, 'success');
-}
 
 async function carregarDados() {
     const container = document.getElementById('dashboard-content');
@@ -843,7 +794,7 @@ function aplicarFiltros() {
         dataFim: document.getElementById('dataFim').value,
         identificacao: document.getElementById('filtroIdentificacao').value,
         participacao: document.getElementById('filtroParticipacao').value,
-        nome: document.getElementById('filtroNome').value
+        nome: document.getElementById('filtroNome').value  // <-- ADICIONE ESTA LINHA
     };
     
     const { respostas, formData } = dadosGlobais;
@@ -859,15 +810,15 @@ function aplicarFiltros() {
     // Calcular KPIs
     const kpis = calcularKPIs(dadosFiltrados, formData);
     
-    // Processar áreas de interesse (se existir a pergunta)
+    // Processar áreas de interesse
     const perguntaAreas = formData.form.questions.find(q => q.title === 'Em quais áreas você gostaria de aprender mais durante a SIPAT?');
     const areasInteresse = perguntaAreas ? contarCheckbox(dadosFiltrados, perguntaAreas, formData) : [];
     
-    // Processar atividades preferidas (se existir a pergunta)
+    // Processar atividades preferidas
     const perguntaAtividades = formData.form.questions.find(q => q.title === 'Que tipo de atividade você gostaria de encontrar durante a SIPAT?');
     const atividadesPreferidas = perguntaAtividades ? contarCheckbox(dadosFiltrados, perguntaAtividades, formData) : [];
     
-    // Processar temas pessoais (se existir a pergunta)
+    // Processar temas pessoais
     const perguntaTemas = formData.form.questions.find(q => q.title === 'Pensando na sua vida pessoal, qual destes temas seria mais útil para você?');
     const temasPessoais = perguntaTemas ? contarCheckbox(dadosFiltrados, perguntaTemas, formData) : [];
     
@@ -889,10 +840,10 @@ function aplicarFiltros() {
     
     // Processar nuvem de palavras
     const perguntasTexto = formData.form.questions.filter(q => q.type === 'text' || q.type === 'textarea');
-    
     // Atualizar a lista de nomes no datalist
     const listaNomes = document.getElementById('listaNomes');
     if (listaNomes) {
+        // Pega os nomes das respostas filtradas (ou de todas se não tiver filtro)
         const perguntaNome = formData.form.questions.find(q => q.title === 'Qual seu nome completo?');
         if (perguntaNome) {
             const nomes = new Set();
@@ -902,13 +853,16 @@ function aplicarFiltros() {
                     nomes.add(nome);
                 }
             }
+            // Ordenar nomes
             const nomesOrdenados = Array.from(nomes).sort();
+            
+            // Criar as opções do datalist
             listaNomes.innerHTML = '<option value="">-- Selecione um nome --</option>' +
                 nomesOrdenados.map(nome => `<option value="${escapeHtml(nome)}">${escapeHtml(nome)}</option>`).join('');
+            
             console.log(`📋 Lista de nomes atualizada: ${nomesOrdenados.length} nomes`);
         }
     }
-    
     const wordCloud = gerarWordCloud(dadosFiltrados, perguntasTexto, formData);
     
     // Renderizar dashboard
@@ -997,11 +951,8 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-window.addEventListener('load', function() {
-    carregarListaFormularios();
-});
-
-
+// Inicializar
+carregarDados();
 </script>
 </body>
 </html>
