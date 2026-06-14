@@ -662,122 +662,41 @@ function renderizarWordCloud(palavras) {
 function renderizarDashboard(respostas, formData, kpis, areasInteresse, atividadesPreferidas, temasPessoais, mediasEscalas, wordCloud) {
     let html = renderizarKPIs(kpis);
     
-    // Seção 1: Análise de Participação (só se tiver as perguntas)
-    const temIdentificacao = formData.form.questions.some(q => q.title === 'Você gostaria de se identificar?');
     const temParticipacao = formData.form.questions.some(q => q.title === 'Você gostaria de participar mais ativamente da SIPAT, contribuindo com ideias, organização ou atividades?');
     
-    if (temIdentificacao || temParticipacao) {
+    if (temParticipacao && kpis.participacaoDetalhe) {
         html += `
             <div class="section">
-                <div class="section-title">📈 Análise de Participação</div>
+                <div class="section-title">📈 Participação</div>
                 <div class="charts-grid">
+                    <div class="chart-card"><h3>🎯 Interesse em participar</h3>${renderizarPizza([
+                        { label: 'Sim', count: kpis.participacaoDetalhe.sim, percent: (kpis.participacaoDetalhe.sim / kpis.total) * 100 },
+                        { label: 'Talvez', count: kpis.participacaoDetalhe.talvez, percent: (kpis.participacaoDetalhe.talvez / kpis.total) * 100 },
+                        { label: 'Não', count: kpis.participacaoDetalhe.nao, percent: (kpis.participacaoDetalhe.nao / kpis.total) * 100 }
+                    ])}</div>
+                </div>
+            </div>
         `;
-        
-        if (temIdentificacao) {
-            html += `<div class="chart-card"><h3>🏷️ Identificação dos respondentes</h3>${renderizarPizza([
-                { label: 'Se identificaram', count: Math.round(kpis.total * kpis.taxaIdentificacao / 100), percent: kpis.taxaIdentificacao },
-                { label: 'Anônimos', count: Math.round(kpis.total * (100 - kpis.taxaIdentificacao) / 100), percent: 100 - kpis.taxaIdentificacao }
-            ])}</div>`;
-        }
-        
-        if (temParticipacao && kpis.participacaoDetalhe) {
-            html += `<div class="chart-card"><h3>🎯 Interesse em participar</h3>${renderizarPizza([
-                { label: 'Sim', count: kpis.participacaoDetalhe.sim, percent: (kpis.participacaoDetalhe.sim / kpis.total) * 100 },
-                { label: 'Talvez', count: kpis.participacaoDetalhe.talvez, percent: (kpis.participacaoDetalhe.talvez / kpis.total) * 100 },
-                { label: 'Não', count: kpis.participacaoDetalhe.nao, percent: (kpis.participacaoDetalhe.nao / kpis.total) * 100 }
-            ])}</div>`;
-        }
-        
-        html += `</div></div>`;
     }
     
-    // Seção 2: Perguntas do tipo checkbox (múltipla escolha)
-    const perguntasCheckbox = formData.form.questions.filter(q => q.type === 'checkbox' && q.options && q.options.length > 0);
-    if (perguntasCheckbox.length > 0) {
-        html += `<div class="section"><div class="section-title">✅ Perguntas de Múltipla Escolha</div><div class="charts-grid">`;
-        
-        for (const pergunta of perguntasCheckbox.slice(0, 4)) {
-            const dados = contarCheckbox(respostas, pergunta, formData);
-            if (dados && dados.length > 0) {
-                html += `<div class="chart-card"><h3>${escapeHtml(pergunta.title)}</h3>${renderizarBarChart(dados, pergunta.title)}</div>`;
-            }
-        }
-        
-        html += `</div></div>`;
+    if (areasInteresse && areasInteresse.length > 0) {
+        html += `<div class="section"><div class="section-title">📚 Áreas de Interesse</div><div class="charts-grid"><div class="chart-card">${renderizarBarChart(areasInteresse)}</div></div></div>`;
     }
     
-    // Seção 3: Perguntas do tipo radio (escolha única)
-    const perguntasRadio = formData.form.questions.filter(q => q.type === 'radio' && q.options && q.options.length > 0);
-    if (perguntasRadio.length > 0) {
-        html += `<div class="section"><div class="section-title">🔘 Perguntas de Escolha Única</div><div class="charts-grid">`;
-        
-        for (const pergunta of perguntasRadio.slice(0, 3)) {
-            const dados = contarRadio(respostas, pergunta);
-            if (dados && dados.length > 0) {
-                html += `<div class="chart-card"><h3>${escapeHtml(pergunta.title)}</h3>${renderizarPizza(dados)}</div>`;
-            }
-        }
-        
-        html += `</div></div>`;
+    if (atividadesPreferidas && atividadesPreferidas.length > 0) {
+        html += `<div class="section"><div class="section-title">🎪 Atividades Preferidas</div><div class="charts-grid"><div class="chart-card">${renderizarBarChart(atividadesPreferidas)}</div></div></div>`;
     }
     
-    // Seção 4: Perguntas do tipo escala
     if (mediasEscalas && Object.keys(mediasEscalas).length > 0) {
-        html += `
-            <div class="section">
-                <div class="section-title">⭐ Avaliação (Média 1-5)</div>
-                <div class="charts-grid">
-                    <div class="chart-card">
-                        <h3>📊 Interesse nas atividades</h3>
-                        ${renderizarTabelaEscalas(mediasEscalas)}
-                    </div>
-                </div>
-            </div>
-        `;
+        html += `<div class="section"><div class="section-title">⭐ Avaliação</div><div class="charts-grid"><div class="chart-card">${renderizarTabelaEscalas(mediasEscalas)}</div></div></div>`;
     }
     
-    // Seção 5: Nuvem de palavras (se houver perguntas de texto)
     if (wordCloud && wordCloud.length > 0) {
-        html += `
-            <div class="section">
-                <div class="section-title">💡 Sugestões dos Participantes</div>
-                <div class="charts-grid">
-                    <div class="chart-card">
-                        <h3>☁️ Nuvem de palavras</h3>
-                        ${renderizarWordCloud(wordCloud)}
-                    </div>
-                </div>
-            </div>
-        `;
+        html += `<div class="section"><div class="section-title">💡 Sugestões</div><div class="charts-grid"><div class="chart-card">${renderizarWordCloud(wordCloud)}</div></div></div>`;
     }
     
     return html;
 }
-
-// Contar respostas de radio
-function contarRadio(respostas, pergunta) {
-    const contagem = {};
-    const opcoes = pergunta.options || [];
-    
-    for (const opcao of opcoes) {
-        contagem[opcao] = 0;
-    }
-    
-    for (const resposta of respostas) {
-        const valor = resposta.data[pergunta.id];
-        if (valor && contagem[valor] !== undefined) {
-            contagem[valor]++;
-        }
-    }
-    
-    const total = respostas.length;
-    return Object.entries(contagem).map(([key, value]) => ({
-        label: key,
-        count: value,
-        percent: total > 0 ? (value / total * 100) : 0
-    }));
-}
-
 
 
 // ==================== FUNÇÃO PRINCIPAL ====================
