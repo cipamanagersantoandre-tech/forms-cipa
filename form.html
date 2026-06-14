@@ -378,12 +378,17 @@ case 'textarea': return `
         <span>${escapeHtml(opt)}</span>
       </label>
     `).join('')}</div>`;
-    case 'checkbox': return `<div class="checkbox-group" id="${id}">${(q.options||[]).map(opt => `
-      <label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
-        <input type="checkbox" name="${name}" value="${escapeHtml(opt)}"> 
-        <span>${escapeHtml(opt)}</span>
-      </label>
-    `).join('')}</div>`;
+case 'checkbox': return `
+    <div class="checkbox-group" id="${id}" data-max="${q.maxSelections || 0}">
+        ${(q.options||[]).map(opt => `
+            <label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+                <input type="checkbox" name="${name}" value="${escapeHtml(opt)}" onclick="limitarCheckbox(this)"> 
+                <span>${escapeHtml(opt)}</span>
+            </label>
+        `).join('')}
+    </div>
+    ${(q.maxSelections && q.maxSelections > 0) ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">⚠️ Máximo de ${q.maxSelections} opção(ões)</div>` : ''}
+`;
     case 'select': return `<select class="select" name="${name}" id="${id}" style="width:100%; padding: 14px;">
       <option value="">Selecione...</option>
       ${(q.options||[]).map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
@@ -769,6 +774,24 @@ function selecionarEscala(elemento, nomeCampo, valor) {
         radio.checked = true;
         const changeEvent = new Event('change', { bubbles: true });
         radio.dispatchEvent(changeEvent);
+    }
+}
+
+function limitarCheckbox(checkboxClicado) {
+    const grupo = checkboxClicado.closest('.checkbox-group');
+    const maxSelecoes = parseInt(grupo.getAttribute('data-max')) || 0;
+    
+    if (maxSelecoes === 0) return;
+    
+    const todosCheckboxes = grupo.querySelectorAll('input[type="checkbox"]');
+    let marcados = 0;
+    todosCheckboxes.forEach(cb => {
+        if (cb.checked) marcados++;
+    });
+    
+    if (marcados > maxSelecoes) {
+        checkboxClicado.checked = false;
+        alert(`⚠️ Você só pode selecionar até ${maxSelecoes} opção(ões).`);
     }
 }
 
