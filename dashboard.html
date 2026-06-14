@@ -321,7 +321,7 @@ function extrairRespostas(respostasRaw, perguntas) {
     
     // Filtrar apenas perguntas com título válido (não vazio e não é "Nova pergunta")
     const perguntasValidas = perguntas.filter(p => p.title && p.title.trim() !== '' && p.title !== 'Nova pergunta');
-    console.log('📋 Perguntas válidas:', perguntasValidas.map(p => p.title));
+    console.log('📋 Perguntas válidas:', perguntasValidas.length);
     
     for (let i = 0; i < respostasRaw.length; i++) {
         const row = respostasRaw[i];
@@ -359,9 +359,11 @@ function extrairRespostas(respostasRaw, perguntas) {
                 }
             }
             
-            // Limpar valores de anexo e textos vazios
-            if (valor && (valor.includes('📎') || valor.includes('(nenhum arquivo') || valor === '-')) {
-                valor = '';
+            // VERIFICAÇÃO DE TIPO: só chama .includes() se for string
+            if (valor && typeof valor === 'string') {
+                if (valor.includes('📎') || valor.includes('(nenhum arquivo') || valor === '-') {
+                    valor = '';
+                }
             }
             
             // Para perguntas de escala, garantir que é número
