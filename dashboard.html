@@ -665,38 +665,31 @@ function renderizarDashboard(respostas, formData, kpis, areasInteresse, atividad
     const temParticipacao = formData.form.questions.some(q => q.title === 'Você gostaria de participar mais ativamente da SIPAT, contribuindo com ideias, organização ou atividades?');
     
     if (temParticipacao && kpis.participacaoDetalhe) {
-        html += `
-            <div class="section">
-                <div class="section-title">📈 Participação</div>
-                <div class="charts-grid">
-                    <div class="chart-card"><h3>🎯 Interesse em participar</h3>${renderizarPizza([
-                        { label: 'Sim', count: kpis.participacaoDetalhe.sim, percent: (kpis.participacaoDetalhe.sim / kpis.total) * 100 },
-                        { label: 'Talvez', count: kpis.participacaoDetalhe.talvez, percent: (kpis.participacaoDetalhe.talvez / kpis.total) * 100 },
-                        { label: 'Não', count: kpis.participacaoDetalhe.nao, percent: (kpis.participacaoDetalhe.nao / kpis.total) * 100 }
-                    ])}</div>
-                </div>
-            </div>
-        `;
+        html += '<div class="section"><div class="section-title">📈 Participação</div><div class="charts-grid"><div class="chart-card"><h3>🎯 Interesse em participar</h3>' + renderizarPizza([
+            { label: 'Sim', count: kpis.participacaoDetalhe.sim, percent: (kpis.participacaoDetalhe.sim / kpis.total) * 100 },
+            { label: 'Talvez', count: kpis.participacaoDetalhe.talvez, percent: (kpis.participacaoDetalhe.talvez / kpis.total) * 100 },
+            { label: 'Não', count: kpis.participacaoDetalhe.nao, percent: (kpis.participacaoDetalhe.nao / kpis.total) * 100 }
+        ]) + '</div></div></div>';
     }
     
     if (areasInteresse && areasInteresse.length > 0) {
-        html += `<div class="section"><div class="section-title">📚 Áreas de Interesse</div><div class="charts-grid"><div class="chart-card">${renderizarBarChart(areasInteresse)}</div></div></div>`;
+        html += '<div class="section"><div class="section-title">📚 Áreas de Interesse</div><div class="charts-grid"><div class="chart-card">' + renderizarBarChart(areasInteresse) + '</div></div></div>';
     }
     
     if (atividadesPreferidas && atividadesPreferidas.length > 0) {
-        html += `<div class="section"><div class="section-title">🎪 Atividades Preferidas</div><div class="charts-grid"><div class="chart-card">${renderizarBarChart(atividadesPreferidas)}</div></div></div>`;
+        html += '<div class="section"><div class="section-title">🎪 Atividades Preferidas</div><div class="charts-grid"><div class="chart-card">' + renderizarBarChart(atividadesPreferidas) + '</div></div></div>';
     }
     
     if (mediasEscalas && Object.keys(mediasEscalas).length > 0) {
-        html += `<div class="section"><div class="section-title">⭐ Avaliação</div><div class="charts-grid"><div class="chart-card">${renderizarTabelaEscalas(mediasEscalas)}</div></div></div>`;
+        html += '<div class="section"><div class="section-title">⭐ Avaliação</div><div class="charts-grid"><div class="chart-card">' + renderizarTabelaEscalas(mediasEscalas) + '</div></div></div>';
     }
     
     if (wordCloud && wordCloud.length > 0) {
-        html += `<div class="section"><div class="section-title">💡 Sugestões</div><div class="charts-grid"><div class="chart-card">${renderizarWordCloud(wordCloud)}</div></div></div>`;
+        html += '<div class="section"><div class="section-title">💡 Sugestões</div><div class="charts-grid"><div class="chart-card">' + renderizarWordCloud(wordCloud) + '</div></div></div>';
     }
     
     return html;
-}
+}  // ← GARANTA QUE TEM ESTA CHAVE AQUI!
 
 
 // ==================== FUNÇÃO PRINCIPAL ====================
