@@ -180,6 +180,10 @@
             <div class="filter-group">
                 <label>🎯 Participação ativa</label>
                 <select id="filtroParticipacao">
+<div class="filter-group">
+    <label>👤 Buscar por nome</label>
+    <input type="text" id="filtroNome" placeholder="Digite o nome do participante...">
+</div>
                     <option value="todos">Todos</option>
                     <option value="Sim">Sim</option>
                     <option value="Talvez">Talvez</option>
@@ -417,6 +421,17 @@ function processarDados(respostas, formData, filtros) {
         dadosFiltrados = dadosFiltrados.filter(r => r.data[perguntaParticipacao.id] === filtros.participacao);
     }
     
+// Aplicar filtro por nome (participante específico)
+if (filtros.nome && filtros.nome.trim() !== '') {
+    const perguntaNome = formData.form.questions.find(q => q.title === 'Qual seu nome completo?');
+    if (perguntaNome) {
+        dadosFiltrados = dadosFiltrados.filter(r => {
+            const nome = r.data[perguntaNome.id] || '';
+            return nome.toLowerCase().includes(filtros.nome.toLowerCase());
+        });
+    }
+}
+
     return dadosFiltrados;
 }
 
@@ -745,7 +760,8 @@ function aplicarFiltros() {
         dataInicio: document.getElementById('dataInicio').value,
         dataFim: document.getElementById('dataFim').value,
         identificacao: document.getElementById('filtroIdentificacao').value,
-        participacao: document.getElementById('filtroParticipacao').value
+        participacao: document.getElementById('filtroParticipacao').value,
+        nome: document.getElementById('filtroNome').value  // <-- ADICIONE ESTA LINHA
     };
     
     const { respostas, formData } = dadosGlobais;
