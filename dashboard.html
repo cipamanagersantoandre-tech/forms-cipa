@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Dashboard SIPAT - Pesquisa Interativa</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
             --primary: #059669;
             --primary-dark: #047857;
@@ -28,21 +23,13 @@
             --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
             --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1);
         }
-
         body {
             font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg);
             color: var(--text);
             line-height: 1.5;
         }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        /* Header */
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
         .header {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
@@ -50,24 +37,14 @@
             margin-bottom: 32px;
             border-radius: var(--radius);
         }
-
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 8px;
-        }
-
-        .header p {
-            opacity: 0.9;
-        }
-
-        /* Cards de KPI */
+        .header h1 { font-size: 28px; margin-bottom: 8px; }
+        .header p { opacity: 0.9; }
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             margin-bottom: 32px;
         }
-
         .kpi-card {
             background: var(--bg-elev);
             border-radius: var(--radius);
@@ -76,30 +53,10 @@
             text-align: center;
             transition: all 0.2s;
         }
-
-        .kpi-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow);
-        }
-
-        .kpi-icon {
-            font-size: 32px;
-            margin-bottom: 12px;
-        }
-
-        .kpi-value {
-            font-size: 36px;
-            font-weight: 800;
-            color: var(--primary);
-            margin-bottom: 4px;
-        }
-
-        .kpi-label {
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        /* Filtros */
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+        .kpi-icon { font-size: 32px; margin-bottom: 12px; }
+        .kpi-value { font-size: 36px; font-weight: 800; color: var(--primary); margin-bottom: 4px; }
+        .kpi-label { font-size: 14px; color: var(--text-muted); }
         .filters-section {
             background: var(--bg-elev);
             border-radius: var(--radius);
@@ -107,36 +64,10 @@
             margin-bottom: 32px;
             border: 1px solid var(--border);
         }
-
-        .filters-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .filters-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            align-items: flex-end;
-        }
-
-        .filter-group {
-            flex: 1;
-            min-width: 180px;
-        }
-
-        .filter-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 4px;
-            color: var(--text-muted);
-        }
-
+        .filters-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .filters-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+        .filter-group { flex: 1; min-width: 180px; }
+        .filter-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--text-muted); }
         .filter-group input, .filter-group select {
             width: 100%;
             padding: 10px 12px;
@@ -145,12 +76,6 @@
             font-size: 14px;
             background: var(--bg);
         }
-
-        .filter-group input:focus, .filter-group select:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
         .btn {
             padding: 10px 20px;
             border: none;
@@ -160,30 +85,11 @@
             transition: all 0.2s;
             font-size: 14px;
         }
-
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
-        }
-
-        .btn-secondary {
-            background: var(--bg);
-            border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover {
-            background: var(--border);
-        }
-
-        /* Seções de gráficos */
-        .section {
-            margin-bottom: 40px;
-        }
-
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-secondary { background: var(--bg); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: var(--border); }
+        .section { margin-bottom: 40px; }
         .section-title {
             font-size: 20px;
             font-weight: 700;
@@ -194,58 +100,15 @@
             padding-bottom: 12px;
             border-bottom: 2px solid var(--primary);
         }
-
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-            gap: 24px;
-        }
-
-        .chart-card {
-            background: var(--bg-elev);
-            border-radius: var(--radius);
-            padding: 20px;
-            border: 1px solid var(--border);
-        }
-
-        .chart-card h3 {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 16px;
-            color: var(--text);
-        }
-
-        /* Gráfico de barras personalizado */
-        .bar-chart {
-            margin-top: 16px;
-        }
-
-        .bar-item {
-            margin-bottom: 16px;
-        }
-
-        .bar-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 13px;
-            margin-bottom: 6px;
-        }
-
-        .bar-label span:first-child {
-            font-weight: 500;
-        }
-
-        .bar-label span:last-child {
-            color: var(--text-muted);
-        }
-
-        .bar-track {
-            background: var(--bg);
-            border-radius: 20px;
-            height: 32px;
-            overflow: hidden;
-        }
-
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 24px; }
+        .chart-card { background: var(--bg-elev); border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); }
+        .chart-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text); }
+        .bar-chart { margin-top: 16px; }
+        .bar-item { margin-bottom: 16px; }
+        .bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+        .bar-label span:first-child { font-weight: 500; }
+        .bar-label span:last-child { color: var(--text-muted); }
+        .bar-track { background: var(--bg); border-radius: 20px; height: 32px; overflow: hidden; }
         .bar-fill {
             background: linear-gradient(90deg, var(--primary), var(--secondary));
             height: 100%;
@@ -259,178 +122,30 @@
             font-weight: 600;
             transition: width 0.5s ease;
         }
-
-        /* Gráfico de pizza simples */
-        .pie-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 24px;
-            align-items: center;
-        }
-
-        .pie-chart {
-            width: 180px;
-            height: 180px;
-            border-radius: 50%;
-            background: conic-gradient(var(--primary) 0% 0%, var(--secondary) 0% 0%);
-            margin: 0 auto;
-        }
-
-        .pie-legend {
-            flex: 1;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-            font-size: 13px;
-        }
-
-        .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 4px;
-        }
-
-        /* Tabela de escalas */
-        .scale-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .scale-table th, .scale-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .scale-table th {
-            font-weight: 600;
-            color: var(--text-muted);
-            font-size: 13px;
-        }
-
-        .stars {
-            color: var(--warning);
-            letter-spacing: 2px;
-        }
-
-        .progress-bar-small {
-            width: 100px;
-            height: 8px;
-            background: var(--bg);
-            border-radius: 4px;
-            overflow: hidden;
-            display: inline-block;
-            margin-left: 8px;
-        }
-
-        .progress-fill-small {
-            height: 100%;
-            background: var(--primary);
-            border-radius: 4px;
-        }
-
-        /* Loading */
-        .loading {
-            text-align: center;
-            padding: 60px;
-            color: var(--text-muted);
-        }
-
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 16px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Toast */
-        .toast-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-
-        .toast {
-            background: var(--bg-elev);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-top: 8px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: var(--shadow-lg);
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(400px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        /* Responsivo */
-        @media (max-width: 768px) {
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .filters-grid {
-                flex-direction: column;
-            }
-            
-            .filter-group {
-                width: 100%;
-            }
-            
-            .section-title {
-                font-size: 18px;
-            }
-        }
-
-        /* Nuvem de palavras */
-        .word-cloud {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            padding: 20px;
-            background: var(--bg);
-            border-radius: var(--radius);
-            min-height: 200px;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .word-cloud span {
-            cursor: pointer;
-            transition: all 0.2s;
-            padding: 4px 8px;
-            border-radius: 20px;
-        }
-
-        .word-cloud span:hover {
-            background: var(--primary-light);
-            transform: scale(1.05);
-        }
-
-        /* Exportar */
-        .export-buttons {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-            justify-content: flex-end;
-        }
+        .pie-container { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+        .pie-chart { width: 180px; height: 180px; border-radius: 50%; margin: 0 auto; }
+        .pie-legend { flex: 1; }
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+        .legend-color { width: 16px; height: 16px; border-radius: 4px; }
+        .scale-table { width: 100%; border-collapse: collapse; }
+        .scale-table th, .scale-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        .scale-table th { font-weight: 600; color: var(--text-muted); font-size: 13px; }
+        .stars { color: var(--warning); letter-spacing: 2px; }
+        .progress-bar-small { width: 100px; height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; display: inline-block; margin-left: 8px; }
+        .progress-fill-small { height: 100%; background: var(--primary); border-radius: 4px; }
+        .loading { text-align: center; padding: 60px; color: var(--text-muted); }
+        .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
+        .toast { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-top: 8px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-lg); animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } .filters-grid { flex-direction: column; } .filter-group { width: 100%; } .section-title { font-size: 18px; } }
+        .word-cloud { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px; background: var(--bg); border-radius: var(--radius); min-height: 200px; align-items: center; justify-content: center; }
+        .word-cloud span { cursor: pointer; transition: all 0.2s; padding: 4px 8px; border-radius: 20px; }
+        .word-cloud span:hover { background: var(--primary-light); transform: scale(1.05); }
+        .export-buttons { display: flex; gap: 12px; margin-bottom: 20px; justify-content: flex-end; }
+        .error-box { background: #fee2e2; border-left: 4px solid var(--error); padding: 20px; border-radius: var(--radius); margin: 20px 0; }
+        .debug-panel { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 20px; font-family: monospace; font-size: 12px; max-height: 300px; overflow: auto; }
     </style>
 </head>
 <body>
@@ -444,9 +159,7 @@
     </div>
 
     <div class="filters-section">
-        <div class="filters-title">
-            🔍 Filtros
-        </div>
+        <div class="filters-title">🔍 Filtros</div>
         <div class="filters-grid">
             <div class="filter-group">
                 <label>📅 Data inicial</label>
@@ -509,34 +222,63 @@ function showToast(msg, type = 'success') {
     setTimeout(() => toast.remove(), 3000);
 }
 
+// Função para testar a conexão com o Google Sheets
+async function testarConexao() {
+    console.log('🔍 Testando conexão com Google Sheets...');
+    try {
+        const url = `${SHEETS_URL}?acao=carregarTudo&aba=forms`;
+        console.log('📡 URL:', url);
+        const response = await fetch(url);
+        console.log('📊 Status:', response.status);
+        const result = await response.json();
+        console.log('📦 Resposta completa:', result);
+        return result;
+    } catch (error) {
+        console.error('❌ Erro na conexão:', error);
+        return { status: 'erro', mensagem: error.message };
+    }
+}
+
 // Carregar dados do formulário
 async function carregarFormulario() {
     try {
         const url = `${SHEETS_URL}?acao=carregarTudo&aba=forms`;
+        console.log('📡 Buscando formulários em:', url);
         const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const result = await response.json();
+        console.log('📦 Resultado bruto:', result);
         
         if (result.status === 'sucesso' && result.dados) {
+            console.log(`📋 Encontrados ${result.dados.length} formulários na nuvem`);
+            console.log('📋 Nomes dos formulários:', result.dados.map(f => f.name));
+            
             // Se tiver apenas um formulário, pega ele
             if (result.dados.length === 1) {
-                console.log('📋 Formulário encontrado:', result.dados[0].name);
+                console.log('📋 Usando único formulário:', result.dados[0].name);
                 return result.dados[0];
             }
             
-            // Se tiver vários, procura pelo nome ou pega o primeiro
+            // Se tiver vários, procura pelo nome
             let formData = result.dados.find(f => f.name === 'Pesquisa Interativa para Planejamento da SIPAT');
             
             if (!formData && result.dados.length > 0) {
-                // Se não encontrar pelo nome, pega o primeiro da lista
                 formData = result.dados[0];
-                console.log('📋 Usando primeiro formulário encontrado:', formData.name);
+                console.log('📋 Usando primeiro formulário:', formData.name);
             }
             
             return formData;
         }
+        
+        console.error('❌ Resposta sem dados:', result);
         return null;
     } catch (e) {
-        console.error('Erro ao carregar formulário:', e);
+        console.error('❌ Erro ao carregar formulário:', e);
+        showToast('Erro ao conectar com Google Sheets: ' + e.message, 'error');
         return null;
     }
 }
@@ -545,15 +287,23 @@ async function carregarFormulario() {
 async function carregarRespostas(nomeFormulario) {
     try {
         const url = `${SHEETS_URL}?acao=carregarRespostas&nomeFormulario=${encodeURIComponent(nomeFormulario)}`;
+        console.log('📡 Buscando respostas em:', url);
         const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const result = await response.json();
+        console.log('📦 Respostas brutas:', result);
         
         if (result.status === 'sucesso' && result.dados) {
+            console.log(`📋 Encontradas ${result.dados.length} respostas`);
             return result.dados;
         }
         return [];
     } catch (e) {
-        console.error('Erro ao carregar respostas:', e);
+        console.error('❌ Erro ao carregar respostas:', e);
         return [];
     }
 }
@@ -561,6 +311,10 @@ async function carregarRespostas(nomeFormulario) {
 // Extrair respostas do formato do Sheets
 function extrairRespostas(respostasRaw, perguntas) {
     const respostas = [];
+    
+    if (!respostasRaw || respostasRaw.length === 0) {
+        return respostas;
+    }
     
     for (const row of respostasRaw) {
         const resposta = { timestamp: row['Data/Hora'] || '', data: {} };
@@ -578,6 +332,7 @@ function extrairRespostas(respostasRaw, perguntas) {
         }
     }
     
+    console.log(`📊 Extraídas ${respostas.length} respostas processadas`);
     return respostas;
 }
 
@@ -698,37 +453,12 @@ function contarCheckbox(respostas, pergunta, formData) {
         }
     }
     
-    // Ordenar por quantidade
     return Object.entries(contagem)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 10);
 }
 
-// Contar respostas de radio
-function contarRadio(respostas, pergunta) {
-    const contagem = {};
-    const opcoes = pergunta.options || [];
-    
-    for (const opcao of opcoes) {
-        contagem[opcao] = 0;
-    }
-    
-    for (const resposta of respostas) {
-        const valor = resposta.data[pergunta.id];
-        if (valor && contagem[valor] !== undefined) {
-            contagem[valor]++;
-        }
-    }
-    
-    const total = respostas.length;
-    return Object.entries(contagem).map(([key, value]) => ({
-        label: key,
-        count: value,
-        percent: total > 0 ? (value / total * 100) : 0
-    }));
-}
-
-// Gerar nuvem de palavras a partir de respostas de texto
+// Gerar nuvem de palavras
 function gerarWordCloud(respostas, perguntasTexto) {
     const palavras = {};
     const stopWords = ['que', 'como', 'uma', 'para', 'com', 'sem', 'sobre', 'pelo', 'pela', 'mais', 'muito', 'bem', 'pode', 'ser', 'ter', 'fazer', 'gostaria', 'você', 'sua', 'seu', 'ele', 'ela', 'isso', 'aquele', 'aquela'];
@@ -756,26 +486,10 @@ function gerarWordCloud(respostas, perguntasTexto) {
 function renderizarKPIs(kpis) {
     return `
         <div class="kpi-grid">
-            <div class="kpi-card">
-                <div class="kpi-icon">📊</div>
-                <div class="kpi-value">${kpis.total}</div>
-                <div class="kpi-label">Total de respostas</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-icon">👤</div>
-                <div class="kpi-value">${kpis.taxaIdentificacao}%</div>
-                <div class="kpi-label">Taxa de identificação</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-icon">🎯</div>
-                <div class="kpi-value">${kpis.taxaParticipacao}%</div>
-                <div class="kpi-label">Querem participar ativamente</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-icon">⭐</div>
-                <div class="kpi-value">${kpis.mediaGeral.toFixed(1)} / 5</div>
-                <div class="kpi-label">Média geral de interesse</div>
-            </div>
+            <div class="kpi-card"><div class="kpi-icon">📊</div><div class="kpi-value">${kpis.total}</div><div class="kpi-label">Total de respostas</div></div>
+            <div class="kpi-card"><div class="kpi-icon">👤</div><div class="kpi-value">${kpis.taxaIdentificacao}%</div><div class="kpi-label">Taxa de identificação</div></div>
+            <div class="kpi-card"><div class="kpi-icon">🎯</div><div class="kpi-value">${kpis.taxaParticipacao}%</div><div class="kpi-label">Querem participar ativamente</div></div>
+            <div class="kpi-card"><div class="kpi-icon">⭐</div><div class="kpi-value">${kpis.mediaGeral.toFixed(1)} / 5</div><div class="kpi-label">Média geral de interesse</div></div>
         </div>
     `;
 }
@@ -790,23 +504,16 @@ function renderizarBarChart(dados, titulo) {
         <div class="bar-chart">
             ${dados.map(([label, count]) => `
                 <div class="bar-item">
-                    <div class="bar-label">
-                        <span>${escapeHtml(label.substring(0, 40))}${label.length > 40 ? '...' : ''}</span>
-                        <span>${count}</span>
-                    </div>
-                    <div class="bar-track">
-                        <div class="bar-fill" style="width: ${(count / maxCount) * 100}%">
-                            ${(count / maxCount * 100).toFixed(0)}%
-                        </div>
-                    </div>
+                    <div class="bar-label"><span>${escapeHtml(label.substring(0, 40))}${label.length > 40 ? '...' : ''}</span><span>${count}</span></div>
+                    <div class="bar-track"><div class="bar-fill" style="width: ${(count / maxCount) * 100}%">${(count / maxCount * 100).toFixed(0)}%</div></div>
                 </div>
             `).join('')}
         </div>
     `;
 }
 
-// Renderizar gráfico de pizza simples
-function renderizarPizza(dados, titulo) {
+// Renderizar gráfico de pizza
+function renderizarPizza(dados) {
     if (!dados || dados.length === 0) return '<div>Sem dados suficientes</div>';
     
     let cores = ['#059669', '#4f46e5', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
@@ -826,11 +533,7 @@ function renderizarPizza(dados, titulo) {
             <div class="pie-chart" style="background: conic-gradient(${conicGradient})"></div>
             <div class="pie-legend">
                 ${dados.map((d, i) => `
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: ${cores[i % cores.length]}"></div>
-                        <span>${escapeHtml(d.label)}</span>
-                        <span style="margin-left: auto; font-weight: 600;">${d.percent.toFixed(1)}% (${d.count})</span>
-                    </div>
+                    <div class="legend-item"><div class="legend-color" style="background: ${cores[i % cores.length]}"></div><span>${escapeHtml(d.label)}</span><span style="margin-left: auto; font-weight: 600;">${d.percent.toFixed(1)}% (${d.count})</span></div>
                 `).join('')}
             </div>
         </div>
@@ -843,23 +546,11 @@ function renderizarTabelaEscalas(mediasEscalas) {
     
     return `
         <table class="scale-table">
-            <thead>
-                <tr><th>Atividade</th><th>Média (1-5)</th><th>Avaliação</th></tr>
-            </thead>
+            <thead><tr><th>Atividade</th><th>Média (1-5)</th><th>Avaliação</th></tr></thead>
             <tbody>
                 ${sorted.map(([nome, media]) => {
                     const estrelas = '★'.repeat(Math.round(media)) + '☆'.repeat(5 - Math.round(media));
-                    return `
-                        <tr>
-                            <td>${escapeHtml(nome)}</td>
-                            <td>${media.toFixed(2)} / 5</td>
-                            <td><span class="stars">${estrelas}</span>
-                                <div class="progress-bar-small">
-                                    <div class="progress-fill-small" style="width: ${(media / 5) * 100}%"></div>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
+                    return `<tr><td>${escapeHtml(nome)}</td><td>${media.toFixed(2)} / 5</td><td><span class="stars">${estrelas}</span><div class="progress-bar-small"><div class="progress-fill-small" style="width: ${(media / 5) * 100}%"></div></div></td></tr>`;
                 }).join('')}
             </tbody>
         </table>
@@ -893,72 +584,41 @@ function renderizarDashboard(respostas, formData, kpis, areasInteresse, atividad
         <div class="section">
             <div class="section-title">📈 Análise de Participação</div>
             <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>🎯 Interesse em participar ativamente</h3>
-                    ${renderizarPizza([
-                        { label: 'Sim', count: kpis.participacaoDetalhe.sim, percent: (kpis.participacaoDetalhe.sim / kpis.total) * 100 },
-                        { label: 'Talvez', count: kpis.participacaoDetalhe.talvez, percent: (kpis.participacaoDetalhe.talvez / kpis.total) * 100 },
-                        { label: 'Não', count: kpis.participacaoDetalhe.nao, percent: (kpis.participacaoDetalhe.nao / kpis.total) * 100 }
-                    ], 'Participação')}
-                </div>
-                <div class="chart-card">
-                    <h3>🏷️ Identificação dos respondentes</h3>
-                    ${renderizarPizza([
-                        { label: 'Se identificaram', count: Math.round(kpis.total * kpis.taxaIdentificacao / 100), percent: kpis.taxaIdentificacao },
-                        { label: 'Anônimos', count: Math.round(kpis.total * (100 - kpis.taxaIdentificacao) / 100), percent: 100 - kpis.taxaIdentificacao }
-                    ], 'Identificação')}
-                </div>
+                <div class="chart-card"><h3>🎯 Interesse em participar ativamente</h3>${renderizarPizza([
+                    { label: 'Sim', count: kpis.participacaoDetalhe.sim, percent: (kpis.participacaoDetalhe.sim / kpis.total) * 100 },
+                    { label: 'Talvez', count: kpis.participacaoDetalhe.talvez, percent: (kpis.participacaoDetalhe.talvez / kpis.total) * 100 },
+                    { label: 'Não', count: kpis.participacaoDetalhe.nao, percent: (kpis.participacaoDetalhe.nao / kpis.total) * 100 }
+                ])}</div>
+                <div class="chart-card"><h3>🏷️ Identificação dos respondentes</h3>${renderizarPizza([
+                    { label: 'Se identificaram', count: Math.round(kpis.total * kpis.taxaIdentificacao / 100), percent: kpis.taxaIdentificacao },
+                    { label: 'Anônimos', count: Math.round(kpis.total * (100 - kpis.taxaIdentificacao) / 100), percent: 100 - kpis.taxaIdentificacao }
+                ])}</div>
             </div>
         </div>
         
         <div class="section">
             <div class="section-title">📚 Áreas de Interesse (Top 10)</div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>🗂️ Quais áreas você gostaria de aprender mais?</h3>
-                    ${renderizarBarChart(areasInteresse, 'Áreas de interesse')}
-                </div>
-            </div>
+            <div class="charts-grid"><div class="chart-card"><h3>🗂️ Quais áreas você gostaria de aprender mais?</h3>${renderizarBarChart(areasInteresse, 'Áreas de interesse')}</div></div>
         </div>
         
         <div class="section">
             <div class="section-title">🎪 Atividades Preferidas</div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>🎮 Que tipo de atividade você gostaria de encontrar?</h3>
-                    ${renderizarBarChart(atividadesPreferidas, 'Atividades')}
-                </div>
-            </div>
+            <div class="charts-grid"><div class="chart-card"><h3>🎮 Que tipo de atividade você gostaria de encontrar?</h3>${renderizarBarChart(atividadesPreferidas, 'Atividades')}</div></div>
         </div>
         
         <div class="section">
             <div class="section-title">💚 Temas para Vida Pessoal</div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>🏠 Qual tema seria mais útil para sua vida pessoal?</h3>
-                    ${renderizarBarChart(temasPessoais, 'Temas pessoais')}
-                </div>
-            </div>
+            <div class="charts-grid"><div class="chart-card"><h3>🏠 Qual tema seria mais útil para sua vida pessoal?</h3>${renderizarBarChart(temasPessoais, 'Temas pessoais')}</div></div>
         </div>
         
         <div class="section">
             <div class="section-title">⭐ Avaliação das Atividades (Média 1-5)</div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>📊 Interesse nas atividades propostas</h3>
-                    ${renderizarTabelaEscalas(mediasEscalas)}
-                </div>
-            </div>
+            <div class="charts-grid"><div class="chart-card"><h3>📊 Interesse nas atividades propostas</h3>${renderizarTabelaEscalas(mediasEscalas)}</div></div>
         </div>
         
         <div class="section">
             <div class="section-title">💡 Sugestões dos Participantes</div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>☁️ Nuvem de palavras - Palestras e atividades sugeridas</h3>
-                    ${renderizarWordCloud(wordCloud)}
-                </div>
-            </div>
+            <div class="charts-grid"><div class="chart-card"><h3>☁️ Nuvem de palavras - Palestras e atividades sugeridas</h3>${renderizarWordCloud(wordCloud)}</div></div>
         </div>
     `;
 }
@@ -971,10 +631,27 @@ async function carregarDados() {
     container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Carregando dados do Google Sheets...</p></div>';
     
     try {
+        // Testar conexão primeiro
+        const teste = await testarConexao();
+        console.log('🔍 Teste de conexão:', teste);
+        
         const formData = await carregarFormulario();
         if (!formData) {
-            container.innerHTML = '<div class="loading"><p>❌ Formulário não encontrado. Verifique o nome do formulário no Google Sheets.</p></div>';
-            showToast('Formulário não encontrado!', 'error');
+            container.innerHTML = `
+                <div class="error-box">
+                    <strong>❌ Formulário não encontrado!</strong><br><br>
+                    <p>Possíveis causas:</p>
+                    <ul>
+                        <li>O Google Sheets pode estar bloqueando requisições externas (CORS)</li>
+                        <li>O Web App do Google Apps Script pode não estar publicado</li>
+                        <li>O nome do formulário pode ser diferente</li>
+                    </ul>
+                    <br>
+                    <button class="btn btn-primary" onclick="testarConexao()">🔍 Testar conexão novamente</button>
+                    <button class="btn btn-secondary" onclick="mostrarDebug()">🐛 Ver detalhes no console</button>
+                </div>
+            `;
+            showToast('Formulário não encontrado! Verifique o console (F12)', 'error');
             return;
         }
         
@@ -983,13 +660,29 @@ async function carregarDados() {
         
         dadosGlobais = { respostas, formData };
         
+        if (respostas.length === 0) {
+            container.innerHTML = '<div class="loading"><p>📭 Nenhuma resposta encontrada ainda.</p><p>Compartilhe o link do formulário para começar a coletar respostas!</p></div>';
+            showToast('Nenhuma resposta encontrada!', 'info');
+            return;
+        }
+        
         // Aplicar filtros iniciais
         aplicarFiltros();
         
     } catch (error) {
-        console.error('Erro:', error);
-        container.innerHTML = '<div class="loading"><p>❌ Erro ao carregar dados. Verifique o console.</p></div>';
-        showToast('Erro ao carregar dados!', 'error');
+        console.error('❌ Erro:', error);
+        container.innerHTML = `
+            <div class="error-box">
+                <strong>❌ Erro ao carregar dados!</strong><br><br>
+                <p>Mensagem: ${error.message}</p><br>
+                <p>Possível causa: O Google Sheets pode estar bloqueando requisições (CORS).</p>
+                <p>Para resolver, você precisa configurar o Google Apps Script para aceitar CORS ou usar um proxy.</p>
+                <br>
+                <button class="btn btn-primary" onclick="carregarDados()">🔄 Tentar novamente</button>
+                <button class="btn btn-secondary" onclick="window.location.reload()">🔄 Recarregar página</button>
+            </div>
+        `;
+        showToast('Erro ao carregar dados: ' + error.message, 'error');
     }
 }
 
@@ -1014,15 +707,15 @@ function aplicarFiltros() {
     // Calcular KPIs
     const kpis = calcularKPIs(dadosFiltrados, formData);
     
-    // Processar áreas de interesse (pergunta 5)
+    // Processar áreas de interesse
     const perguntaAreas = formData.form.questions.find(q => q.title === 'Em quais áreas você gostaria de aprender mais durante a SIPAT?');
     const areasInteresse = perguntaAreas ? contarCheckbox(dadosFiltrados, perguntaAreas, formData) : [];
     
-    // Processar atividades preferidas (pergunta 13)
+    // Processar atividades preferidas
     const perguntaAtividades = formData.form.questions.find(q => q.title === 'Que tipo de atividade você gostaria de encontrar durante a SIPAT?');
     const atividadesPreferidas = perguntaAtividades ? contarCheckbox(dadosFiltrados, perguntaAtividades, formData) : [];
     
-    // Processar temas pessoais (pergunta 7)
+    // Processar temas pessoais
     const perguntaTemas = formData.form.questions.find(q => q.title === 'Pensando na sua vida pessoal, qual destes temas seria mais útil para você?');
     const temasPessoais = perguntaTemas ? contarCheckbox(dadosFiltrados, perguntaTemas, formData) : [];
     
@@ -1071,7 +764,6 @@ function exportarCSV() {
         return;
     }
     
-    // Aplicar filtros atuais
     const filtros = {
         dataInicio: document.getElementById('dataInicio').value,
         dataFim: document.getElementById('dataFim').value,
@@ -1086,26 +778,17 @@ function exportarCSV() {
         return;
     }
     
-    // Criar cabeçalhos
     const headers = ['Data/Hora', ...formData.form.questions.map(q => q.title)];
-    
-    // Criar linhas
     const rows = dadosFiltrados.map(r => [
         new Date(r.timestamp).toLocaleString(),
         ...formData.form.questions.map(q => {
             let val = r.data[q.id] || '';
             if (Array.isArray(val)) return val.join('; ');
-            if (typeof val === 'string' && val.includes(',')) return val;
             return val;
         })
     ]);
     
-    // Montar CSV
-    const csv = [headers, ...rows].map(row => 
-        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-    ).join('\n');
-    
-    // Baixar arquivo
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -1114,6 +797,13 @@ function exportarCSV() {
     URL.revokeObjectURL(link.href);
     
     showToast(`📥 ${dadosFiltrados.length} respostas exportadas!`, 'success');
+}
+
+function mostrarDebug() {
+    console.log('=== DADOS GLOBAIS ===');
+    console.log('Respostas:', dadosGlobais.respostas);
+    console.log('FormData:', dadosGlobais.formData);
+    alert('Verifique o console do navegador (F12) para detalhes');
 }
 
 function escapeHtml(text) {
