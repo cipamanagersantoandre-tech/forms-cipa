@@ -161,6 +161,12 @@
     <div class="filters-section">
         <div class="filters-title">🔍 Filtros</div>
         <div class="filters-grid">
+            <div class="filter-group" style="min-width: 250px;">
+                <label>📋 Selecione o formulário</label>
+                <select id="seletorFormulario" onchange="trocarFormulario()">
+                    <option value="">Carregando formulários...</option>
+                </select>
+            </div>
             <div class="filter-group">
                 <label>📅 Data inicial</label>
                 <input type="date" id="dataInicio">
@@ -227,6 +233,7 @@
 <script>
 // ==================== CONFIGURAÇÃO ====================
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz9WtuMVBlqzqFeI9pGBB0OJoltqbEM_7VXRZcol-BbRJVuUpQSJ_XC5u6VMX9B10b-ig/exec';
+let listaFormularios = [];
 
 // ==================== FUNÇÕES ====================
 function showToast(msg, type = 'success') {
@@ -238,6 +245,23 @@ function showToast(msg, type = 'success') {
     setTimeout(() => toast.remove(), 3000);
 }
 
+// Função para testar a conexão com o Google Sheets
+async function testarConexao() {
+    console.log('🔍 Testando conexão com Google Sheets...');
+    try {
+        const url = `${SHEETS_URL}?acao=carregarTudo&aba=forms`;
+        console.log('📡 URL:', url);
+        const response = await fetch(url);
+        console.log('📊 Status:', response.status);
+        const result = await response.json();
+        console.log('📦 Resposta completa:', result);
+        return result;
+    } catch (error) {
+        console.error('❌ Erro na conexão:', error);
+        return { status: 'erro', mensagem: error.message };
+    }
+}
+
 // Carregar dados do formulário
 async function carregarFormulario() {
     try {
@@ -245,30 +269,87 @@ async function carregarFormulario() {
         const response = await fetch(url);
         const result = await response.json();
         
-        if (result.status === 'sucesso' && result.dados && result.dados.length > 0) {
-            // Procura especificamente o formulário da SIPAT
-            let formData = result.dados.find(f => f.name === 'Pesquisa Interativa para Planejamento da SIPAT');
-            if (!formData) {
-                formData = result.dados[0];
-                console.log('📋 Formulário SIPAT não encontrado, usando:', formData.name);
+        if (result.status === 'sucesso' && result.dados) {
+            listaFormularios = result.dados;
+            const seletor = document.getElementById('seletorFormulario');
+            
+            seletor.innerHTML = '<option value="">-- Selecione um formulário --</option>';
+            for (const form of listaFormularios) {
+                const option = document.createElement('option');
+                option.value = form.id;
+                option.textContent = form.name;
+                seletor.appendChild(option);
             }
-            return formData;
+            
+            // Seleciona o formulário da SIPAT se existir
+            const sipat = listaFormularios.find(f => f.name === 'Pesquisa Interativa para Planejamento da SIPAT');
+            if (sipat) {
+                seletor.value = sipat.id;
+                return sipat;
+            }
+            return listaFormularios[0];
         }
         return null;
     } catch (e) {
-        console.error('❌ Erro ao carregar formulário:', e);
+        console.error('Erro:', e);
         return null;
     }
 }
 
 // Carregar respostas do formulário
+async function trocarFormulario() {
+    const seletor = document.getElementById('seletorFormulario');
+    const formId = seletor.value;
+    if (!formId) return;
+    
+    const formData = listaFormularios.find(f => f.id === formId);
+    if (!formData) return;
+    
+    // Atualiza o título do header
+    const headerTitle = document.querySelector('.header h1');
+    if (headerTitle) {
+        headerTitle.innerHTML = `📊 Dashboard - ${escapeHtml(formData.name)}`;
+    }
+    
+    const container = document.getElementById('dashboard-content');
+    container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Carregando respostas...</p></div>';
+    
+    const respostasRaw = await carregarRespostas(formData.name);
+    const respostas = extrairRespostas(respostasRaw, formData.form.questions);
+    
+    dadosGlobais = { respostas, formData };
+    
+    if (respostas.length === 0) {
+        container.innerHTML = '<div class="loading"><p>📭 Nenhuma resposta encontrada</p></div>';
+        return;
+    }
+    
+    // Limpar filtros
+    document.getElementById('dataInicio').value = '';
+    document.getElementById('dataFim').value = '';
+    document.getElementById('filtroIdentificacao').value = 'todos';
+    document.getElementById('filtroParticipacao').value = 'todos';
+    document.getElementById('filtroNome').value = '';
+    
+    aplicarFiltros();
+    showToast(`✅ ${respostas.length} respostas carregadas`, 'success');
+}
+
 async function carregarRespostas(nomeFormulario) {
     try {
         const url = `${SHEETS_URL}?acao=carregarRespostas&nomeFormulario=${encodeURIComponent(nomeFormulario)}`;
+        console.log('📡 Buscando respostas em:', url);
         const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const result = await response.json();
+        console.log('📦 Respostas brutas:', result);
         
         if (result.status === 'sucesso' && result.dados) {
+            console.log(`📋 Encontradas ${result.dados.length} respostas`);
             return result.dados;
         }
         return [];
@@ -281,33 +362,62 @@ async function carregarRespostas(nomeFormulario) {
 // Extrair respostas do formato do Sheets
 function extrairRespostas(respostasRaw, perguntas) {
     const respostas = [];
+    
+    if (!respostasRaw || respostasRaw.length === 0) {
+        console.log('⚠️ Nenhuma resposta bruta para processar');
+        return respostas;
+    }
+    
+    console.log('🔧 Processando', respostasRaw.length, 'respostas brutas');
+    
+    // Filtrar apenas perguntas com título válido (não vazio e não é "Nova pergunta")
     const perguntasValidas = perguntas.filter(p => p.title && p.title.trim() !== '' && p.title !== 'Nova pergunta');
+    console.log('📋 Perguntas válidas:', perguntasValidas.length);
     
     for (let i = 0; i < respostasRaw.length; i++) {
         const row = respostasRaw[i];
+        
+        // Pega os dados da resposta (estão dentro da propriedade 'data')
         const respostaData = row.data || row;
+        
+        // Verificar se tem timestamp
         const timestamp = row.timestamp || row['Data/Hora'];
         
-        if (!timestamp) continue;
+        if (!timestamp) {
+            console.log('⚠️ Resposta sem timestamp, pulando...');
+            continue;
+        }
         
-        const resposta = { timestamp: timestamp, data: {} };
+        const resposta = { 
+            timestamp: timestamp, 
+            data: {} 
+        };
         
+        // Para cada pergunta válida do formulário, buscar o valor na resposta
         for (const pergunta of perguntasValidas) {
+            // Busca o valor usando o título da pergunta como chave
             let valor = respostaData[pergunta.title];
             
-            if (!valor && pergunta.type === 'checkbox') {
+            // Se não achou, tenta limpar caracteres especiais
+            if (!valor) {
+                const tituloLimpo = pergunta.title.replace(/[^\w\s]/g, '');
                 for (const key in respostaData) {
-                    if (key === pergunta.title) {
+                    const keyLimpa = key.replace(/[^\w\s]/g, '');
+                    if (keyLimpa === tituloLimpo) {
                         valor = respostaData[key];
                         break;
                     }
                 }
             }
             
-            if (typeof valor === 'string' && (valor.includes('📎') || valor === '-')) {
-                valor = '';
+            // VERIFICAÇÃO DE TIPO: só chama .includes() se for string
+            if (valor && typeof valor === 'string') {
+                if (valor.includes('📎') || valor.includes('(nenhum arquivo') || valor === '-') {
+                    valor = '';
+                }
             }
             
+            // Para perguntas de escala, garantir que é número
             if (pergunta.type === 'scale' && valor && !isNaN(parseFloat(valor))) {
                 valor = parseFloat(valor);
             }
@@ -316,8 +426,10 @@ function extrairRespostas(respostasRaw, perguntas) {
         }
         
         respostas.push(resposta);
+        console.log(`✅ Resposta ${i + 1} processada com ${Object.keys(resposta.data).length} campos`);
     }
     
+    console.log(`\n📊 Total extraído: ${respostas.length} respostas`);
     return respostas;
 }
 
@@ -325,6 +437,7 @@ function extrairRespostas(respostasRaw, perguntas) {
 function processarDados(respostas, formData, filtros) {
     let dadosFiltrados = [...respostas];
     
+    // Aplicar filtro de data
     if (filtros.dataInicio) {
         const dataInicio = new Date(filtros.dataInicio);
         dadosFiltrados = dadosFiltrados.filter(r => new Date(r.timestamp) >= dataInicio);
@@ -335,26 +448,29 @@ function processarDados(respostas, formData, filtros) {
         dadosFiltrados = dadosFiltrados.filter(r => new Date(r.timestamp) <= dataFim);
     }
     
+    // Aplicar filtro de identificação
     const perguntaIdentificacao = formData.form.questions.find(q => q.title === 'Você gostaria de se identificar?');
     if (perguntaIdentificacao && filtros.identificacao !== 'todos') {
         dadosFiltrados = dadosFiltrados.filter(r => r.data[perguntaIdentificacao.id] === filtros.identificacao);
     }
     
+    // Aplicar filtro de participação ativa
     const perguntaParticipacao = formData.form.questions.find(q => q.title === 'Você gostaria de participar mais ativamente da SIPAT, contribuindo com ideias, organização ou atividades?');
     if (perguntaParticipacao && filtros.participacao !== 'todos') {
         dadosFiltrados = dadosFiltrados.filter(r => r.data[perguntaParticipacao.id] === filtros.participacao);
     }
     
-    if (filtros.nome && filtros.nome.trim() !== '') {
-        const perguntaNome = formData.form.questions.find(q => q.title === 'Qual seu nome completo?');
-        if (perguntaNome) {
-            dadosFiltrados = dadosFiltrados.filter(r => {
-                const nome = r.data[perguntaNome.id] || '';
-                return nome.toLowerCase().includes(filtros.nome.toLowerCase());
-            });
-        }
+// Aplicar filtro por nome (participante específico)
+if (filtros.nome && filtros.nome.trim() !== '') {
+    const perguntaNome = formData.form.questions.find(q => q.title === 'Qual seu nome completo?');
+    if (perguntaNome) {
+        dadosFiltrados = dadosFiltrados.filter(r => {
+            const nome = r.data[perguntaNome.id] || '';
+            return nome.toLowerCase().includes(filtros.nome.toLowerCase());
+        });
     }
-    
+}
+
     return dadosFiltrados;
 }
 
@@ -362,6 +478,7 @@ function processarDados(respostas, formData, filtros) {
 function calcularKPIs(respostas, formData) {
     const total = respostas.length;
     
+    // Taxa de identificação
     const perguntaIdentificacao = formData.form.questions.find(q => q.title === 'Você gostaria de se identificar?');
     let taxaIdentificacao = 0;
     if (perguntaIdentificacao) {
@@ -369,6 +486,7 @@ function calcularKPIs(respostas, formData) {
         taxaIdentificacao = total > 0 ? Math.round((identificados / total) * 100) : 0;
     }
     
+    // Taxa de participação ativa
     const perguntaParticipacao = formData.form.questions.find(q => q.title === 'Você gostaria de participar mais ativamente da SIPAT, contribuindo com ideias, organização ou atividades?');
     let taxaParticipacao = 0;
     let participacaoDetalhe = { sim: 0, talvez: 0, nao: 0 };
@@ -379,6 +497,7 @@ function calcularKPIs(respostas, formData) {
         taxaParticipacao = total > 0 ? Math.round((participacaoDetalhe.sim / total) * 100) : 0;
     }
     
+    // Média de interesse nas atividades (escalas)
     const perguntasEscala = formData.form.questions.filter(q => q.type === 'scale');
     let somaEscalas = 0;
     let totalEscalas = 0;
@@ -442,24 +561,50 @@ function contarCheckbox(respostas, pergunta, formData) {
         }
     }
     
-    return Object.entries(contagem).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    return Object.entries(contagem)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
 }
 
-// Gerar nuvem de palavras
+// Gerar nuvem de palavras (IGNORANDO nomes dos participantes)
 function gerarWordCloud(respostas, perguntasTexto, formData) {
     const palavras = {};
     const stopWords = ['que', 'como', 'uma', 'para', 'com', 'sem', 'sobre', 'pelo', 'pela', 'mais', 'muito', 'bem', 'pode', 'ser', 'ter', 'fazer', 'gostaria', 'você', 'sua', 'seu', 'ele', 'ela', 'isso', 'aquele', 'aquela'];
     
+    // Pega o ID da pergunta de nome para excluir
     const perguntaNome = formData.form.questions.find(q => q.title === 'Qual seu nome completo?');
     const idNome = perguntaNome ? perguntaNome.id : null;
     
     for (const resposta of respostas) {
         for (const pergunta of perguntasTexto) {
-            if (pergunta.id === idNome) continue;
+            // PULA a pergunta de nome completo
+            if (pergunta.id === idNome) {
+                continue;
+            }
             
             const texto = resposta.data[pergunta.id];
             if (texto && typeof texto === 'string') {
-                const palavrasDoTexto = texto.toLowerCase().split(/[\s,;.!?]+/);
+                // Remove possíveis nomes do texto (palavras que começam com letra maiúscula e são curtas)
+                let textoLimpo = texto;
+                
+                // Remove palavras que parecem nomes próprios (começam com maiúscula e têm 2-20 letras)
+                // Mas preserva palavras importantes como "SIPAT", "Saúde", "Segurança"
+                const palavrasImportantes = ['SIPAT', 'Saúde', 'Segurança', 'Bem-estar', 'Empresa', 'Trabalho'];
+                const palavrasTexto = texto.split(/\s+/);
+                const palavrasFiltradas = palavrasTexto.filter(palavra => {
+                    // Se for uma palavra importante, mantém
+                    if (palavrasImportantes.some(imp => palavra.toLowerCase().includes(imp.toLowerCase()))) {
+                        return true;
+                    }
+                    // Se começar com maiúscula e tiver entre 2 e 20 letras, provavelmente é nome
+                    if (palavra.match(/^[A-Z][a-z]{1,19}$/)) {
+                        return false;
+                    }
+                    return true;
+                });
+                textoLimpo = palavrasFiltradas.join(' ');
+                
+                const palavrasDoTexto = textoLimpo.toLowerCase().split(/[\s,;.!?]+/);
                 for (const palavra of palavrasDoTexto) {
                     if (palavra.length > 3 && !stopWords.includes(palavra)) {
                         palavras[palavra] = (palavras[palavra] || 0) + 1;
@@ -469,7 +614,9 @@ function gerarWordCloud(respostas, perguntasTexto, formData) {
         }
     }
     
-    return Object.entries(palavras).sort((a, b) => b[1] - a[1]).slice(0, 30);
+    return Object.entries(palavras)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 30);
 }
 
 // Renderizar KPI cards
@@ -485,7 +632,7 @@ function renderizarKPIs(kpis) {
 }
 
 // Renderizar gráfico de barras
-function renderizarBarChart(dados) {
+function renderizarBarChart(dados, titulo) {
     if (!dados || dados.length === 0) return '<div>Sem dados suficientes</div>';
     
     const maxCount = Math.max(...dados.map(d => d[1]));
@@ -495,7 +642,7 @@ function renderizarBarChart(dados) {
             ${dados.map(([label, count]) => `
                 <div class="bar-item">
                     <div class="bar-label"><span>${escapeHtml(label.substring(0, 40))}${label.length > 40 ? '...' : ''}</span><span>${count}</span></div>
-                    <div class="bar-track"><div class="bar-fill" style="width: ${(count / maxCount) * 100}%">${Math.round((count / maxCount) * 100)}%</div></div>
+                    <div class="bar-track"><div class="bar-fill" style="width: ${(count / maxCount) * 100}%">${(count / maxCount * 100).toFixed(0)}%</div></div>
                 </div>
             `).join('')}
         </div>
@@ -536,9 +683,7 @@ function renderizarTabelaEscalas(mediasEscalas) {
     
     return `
         <table class="scale-table">
-            <thead>
-                <tr><th>Atividade</th><th>Média (1-5)</th><th>Avaliação</th></tr>
-            </thead>
+            <thead><tr><th>Atividade</th><th>Média (1-5)</th><th>Avaliação</th></tr></thead>
             <tbody>
                 ${sorted.map(([nome, media]) => {
                     const estrelas = '★'.repeat(Math.round(media)) + '☆'.repeat(5 - Math.round(media));
@@ -590,17 +735,17 @@ function renderizarDashboard(respostas, formData, kpis, areasInteresse, atividad
         
         <div class="section">
             <div class="section-title">📚 Áreas de Interesse (Top 10)</div>
-            <div class="charts-grid"><div class="chart-card"><h3>🗂️ Quais áreas você gostaria de aprender mais?</h3>${renderizarBarChart(areasInteresse)}</div></div>
+            <div class="charts-grid"><div class="chart-card"><h3>🗂️ Quais áreas você gostaria de aprender mais?</h3>${renderizarBarChart(areasInteresse, 'Áreas de interesse')}</div></div>
         </div>
         
         <div class="section">
             <div class="section-title">🎪 Atividades Preferidas</div>
-            <div class="charts-grid"><div class="chart-card"><h3>🎮 Que tipo de atividade você gostaria de encontrar?</h3>${renderizarBarChart(atividadesPreferidas)}</div></div>
+            <div class="charts-grid"><div class="chart-card"><h3>🎮 Que tipo de atividade você gostaria de encontrar?</h3>${renderizarBarChart(atividadesPreferidas, 'Atividades')}</div></div>
         </div>
         
         <div class="section">
             <div class="section-title">💚 Temas para Vida Pessoal</div>
-            <div class="charts-grid"><div class="chart-card"><h3>🏠 Qual tema seria mais útil para sua vida pessoal?</h3>${renderizarBarChart(temasPessoais)}</div></div>
+            <div class="charts-grid"><div class="chart-card"><h3>🏠 Qual tema seria mais útil para sua vida pessoal?</h3>${renderizarBarChart(temasPessoais, 'Temas pessoais')}</div></div>
         </div>
         
         <div class="section">
@@ -610,7 +755,7 @@ function renderizarDashboard(respostas, formData, kpis, areasInteresse, atividad
         
         <div class="section">
             <div class="section-title">💡 Sugestões dos Participantes</div>
-            <div class="charts-grid"><div class="chart-card"><h3>☁️ Nuvem de palavras</h3>${renderizarWordCloud(wordCloud)}</div></div>
+            <div class="charts-grid"><div class="chart-card"><h3>☁️ Nuvem de palavras - Palestras e atividades sugeridas</h3>${renderizarWordCloud(wordCloud)}</div></div>
         </div>
     `;
 }
@@ -623,9 +768,27 @@ async function carregarDados() {
     container.innerHTML = '<div class="loading"><div class="spinner"></div><p>Carregando dados do Google Sheets...</p></div>';
     
     try {
+        // Testar conexão primeiro
+        const teste = await testarConexao();
+        console.log('🔍 Teste de conexão:', teste);
+        
         const formData = await carregarFormulario();
         if (!formData) {
-            container.innerHTML = '<div class="error-box"><strong>❌ Formulário não encontrado!</strong></div>';
+            container.innerHTML = `
+                <div class="error-box">
+                    <strong>❌ Formulário não encontrado!</strong><br><br>
+                    <p>Possíveis causas:</p>
+                    <ul>
+                        <li>O Google Sheets pode estar bloqueando requisições externas (CORS)</li>
+                        <li>O Web App do Google Apps Script pode não estar publicado</li>
+                        <li>O nome do formulário pode ser diferente</li>
+                    </ul>
+                    <br>
+                    <button class="btn btn-primary" onclick="testarConexao()">🔍 Testar conexão novamente</button>
+                    <button class="btn btn-secondary" onclick="mostrarDebug()">🐛 Ver detalhes no console</button>
+                </div>
+            `;
+            showToast('Formulário não encontrado! Verifique o console (F12)', 'error');
             return;
         }
         
@@ -635,15 +798,28 @@ async function carregarDados() {
         dadosGlobais = { respostas, formData };
         
         if (respostas.length === 0) {
-            container.innerHTML = '<div class="loading"><p>📭 Nenhuma resposta encontrada ainda.</p></div>';
+            container.innerHTML = '<div class="loading"><p>📭 Nenhuma resposta encontrada ainda.</p><p>Compartilhe o link do formulário para começar a coletar respostas!</p></div>';
+            showToast('Nenhuma resposta encontrada!', 'info');
             return;
         }
         
+        // Aplicar filtros iniciais
         aplicarFiltros();
         
     } catch (error) {
         console.error('❌ Erro:', error);
-        container.innerHTML = `<div class="error-box"><strong>❌ Erro ao carregar dados!</strong><br>${error.message}</div>`;
+        container.innerHTML = `
+            <div class="error-box">
+                <strong>❌ Erro ao carregar dados!</strong><br><br>
+                <p>Mensagem: ${error.message}</p><br>
+                <p>Possível causa: O Google Sheets pode estar bloqueando requisições (CORS).</p>
+                <p>Para resolver, você precisa configurar o Google Apps Script para aceitar CORS ou usar um proxy.</p>
+                <br>
+                <button class="btn btn-primary" onclick="carregarDados()">🔄 Tentar novamente</button>
+                <button class="btn btn-secondary" onclick="window.location.reload()">🔄 Recarregar página</button>
+            </div>
+        `;
+        showToast('Erro ao carregar dados: ' + error.message, 'error');
     }
 }
 
@@ -666,33 +842,86 @@ function aplicarFiltros() {
         return;
     }
     
+    // Calcular KPIs
     const kpis = calcularKPIs(dadosFiltrados, formData);
     
-    const perguntaAreas = formData.form.questions.find(q => q.title === 'Em quais áreas você gostaria de aprender mais durante a SIPAT?');
-    const areasInteresse = perguntaAreas ? contarCheckbox(dadosFiltrados, perguntaAreas, formData) : [];
+    // INÍCIO DA RENDERIZAÇÃO DINÂMICA
+    let html = renderizarKPIs(kpis);
     
-    const perguntaAtividades = formData.form.questions.find(q => q.title === 'Que tipo de atividade você gostaria de encontrar durante a SIPAT?');
-    const atividadesPreferidas = perguntaAtividades ? contarCheckbox(dadosFiltrados, perguntaAtividades, formData) : [];
-    
-    const perguntaTemas = formData.form.questions.find(q => q.title === 'Pensando na sua vida pessoal, qual destes temas seria mais útil para você?');
-    const temasPessoais = perguntaTemas ? contarCheckbox(dadosFiltrados, perguntaTemas, formData) : [];
-    
-    const mediasEscalas = {};
-    const perguntasEscala = formData.form.questions.filter(q => q.type === 'scale');
-    for (const pergunta of perguntasEscala) {
-        let soma = 0, count = 0;
-        for (const resposta of dadosFiltrados) {
-            const valor = resposta.data[pergunta.id];
-            if (valor && !isNaN(parseFloat(valor))) {
-                soma += parseFloat(valor);
-                count++;
-            }
+    // 1. PERGUNTAS DO TIPO CHECKBOX (múltipla escolha)
+    const perguntasCheckbox = formData.form.questions.filter(q => q.type === 'checkbox' && q.options && q.options.length > 0);
+    for (const pergunta of perguntasCheckbox) {
+        const dados = contarCheckbox(dadosFiltrados, pergunta, formData);
+        if (dados.length > 0) {
+            html += `
+                <div class="section">
+                    <div class="section-title">✅ ${escapeHtml(pergunta.title)}</div>
+                    <div class="charts-grid">
+                        <div class="chart-card">${renderizarBarChart(dados, pergunta.title)}</div>
+                    </div>
+                </div>
+            `;
         }
-        mediasEscalas[pergunta.title] = count > 0 ? (soma / count) : 0;
     }
     
-    const perguntasTexto = formData.form.questions.filter(q => q.type === 'text' || q.type === 'textarea');
+    // 2. PERGUNTAS DO TIPO RADIO (escolha única)
+    const perguntasRadio = formData.form.questions.filter(q => q.type === 'radio' && q.options && q.options.length > 0);
+    for (const pergunta of perguntasRadio) {
+        const dados = contarRadio(dadosFiltrados, pergunta, formData);
+        if (dados.length > 0 && dados.some(d => d.count > 0)) {
+            html += `
+                <div class="section">
+                    <div class="section-title">🔘 ${escapeHtml(pergunta.title)}</div>
+                    <div class="charts-grid">
+                        <div class="chart-card">${renderizarPizza(dados)}</div>
+                    </div>
+                </div>
+            `;
+        }
+    }
     
+    // 3. PERGUNTAS DO TIPO ESCALA
+    const perguntasEscala = formData.form.questions.filter(q => q.type === 'scale');
+    if (perguntasEscala.length > 0) {
+        const mediasEscalas = {};
+        for (const pergunta of perguntasEscala) {
+            let soma = 0, count = 0;
+            for (const resposta of dadosFiltrados) {
+                const valor = resposta.data[pergunta.id];
+                if (valor && !isNaN(parseFloat(valor))) {
+                    soma += parseFloat(valor);
+                    count++;
+                }
+            }
+            mediasEscalas[pergunta.title] = count > 0 ? (soma / count) : 0;
+        }
+        html += `
+            <div class="section">
+                <div class="section-title">⭐ Avaliação (Média 1-5)</div>
+                <div class="charts-grid">
+                    <div class="chart-card">${renderizarTabelaEscalas(mediasEscalas)}</div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // 4. NUVEM DE PALAVRAS (perguntas de texto)
+    const perguntasTexto = formData.form.questions.filter(q => q.type === 'text' || q.type === 'textarea');
+    if (perguntasTexto.length > 0) {
+        const wordCloud = gerarWordCloud(dadosFiltrados, perguntasTexto, formData);
+        if (wordCloud.length > 0) {
+            html += `
+                <div class="section">
+                    <div class="section-title">💡 Sugestões dos Participantes</div>
+                    <div class="charts-grid">
+                        <div class="chart-card">${renderizarWordCloud(wordCloud)}</div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    // Atualizar a lista de nomes no datalist
     const listaNomes = document.getElementById('listaNomes');
     if (listaNomes) {
         const perguntaNome = formData.form.questions.find(q => q.title === 'Qual seu nome completo?');
@@ -700,7 +929,9 @@ function aplicarFiltros() {
             const nomes = new Set();
             for (const resposta of dadosFiltrados) {
                 const nome = resposta.data[perguntaNome.id];
-                if (nome && nome.trim() !== '') nomes.add(nome);
+                if (nome && nome.trim() !== '') {
+                    nomes.add(nome);
+                }
             }
             const nomesOrdenados = Array.from(nomes).sort();
             listaNomes.innerHTML = '<option value="">-- Selecione um nome --</option>' +
@@ -708,23 +939,39 @@ function aplicarFiltros() {
         }
     }
     
-    const wordCloud = gerarWordCloud(dadosFiltrados, perguntasTexto, formData);
-    
-    const dashboardHTML = renderizarDashboard(
-        dadosFiltrados, formData, kpis, areasInteresse, 
-        atividadesPreferidas, temasPessoais, mediasEscalas, wordCloud
-    );
-    
-    document.getElementById('dashboard-content').innerHTML = dashboardHTML;
-    showToast(`✅ ${dadosFiltrados.length} respostas carregadas!`, 'success');
+    document.getElementById('dashboard-content').innerHTML = html;
+    showToast(`✅ ${dadosFiltrados.length} respostas carregadas com sucesso!`, 'success');
 }
+
+function contarRadio(respostas, pergunta, formData) {
+    const contagem = {};
+    const opcoes = pergunta.options || [];
+    
+    for (const opcao of opcoes) {
+        contagem[opcao] = 0;
+    }
+    
+    for (const resposta of respostas) {
+        const valor = resposta.data[pergunta.id];
+        if (valor && contagem[valor] !== undefined) {
+            contagem[valor]++;
+        }
+    }
+    
+    const total = respostas.length;
+    return Object.entries(contagem).map(([key, value]) => ({
+        label: key,
+        count: value,
+        percent: total > 0 ? (value / total * 100) : 0
+    }));
+}
+   
 
 function limparFiltros() {
     document.getElementById('dataInicio').value = '';
     document.getElementById('dataFim').value = '';
     document.getElementById('filtroIdentificacao').value = 'todos';
     document.getElementById('filtroParticipacao').value = 'todos';
-    document.getElementById('filtroNome').value = '';
     aplicarFiltros();
 }
 
@@ -735,8 +982,22 @@ function exportarCSV() {
         return;
     }
     
+    const filtros = {
+        dataInicio: document.getElementById('dataInicio').value,
+        dataFim: document.getElementById('dataFim').value,
+        identificacao: document.getElementById('filtroIdentificacao').value,
+        participacao: document.getElementById('filtroParticipacao').value
+    };
+    
+    const dadosFiltrados = processarDados(respostas, formData, filtros);
+    
+    if (dadosFiltrados.length === 0) {
+        showToast('Nenhum dado para exportar com os filtros atuais', 'error');
+        return;
+    }
+    
     const headers = ['Data/Hora', ...formData.form.questions.map(q => q.title)];
-    const rows = respostas.map(r => [
+    const rows = dadosFiltrados.map(r => [
         new Date(r.timestamp).toLocaleString(),
         ...formData.form.questions.map(q => {
             let val = r.data[q.id] || '';
@@ -752,15 +1013,25 @@ function exportarCSV() {
     link.download = `dashboard_sipat_${new Date().toISOString().slice(0, 19)}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
-    showToast(`📥 ${respostas.length} respostas exportadas!`, 'success');
+    
+    showToast(`📥 ${dadosFiltrados.length} respostas exportadas!`, 'success');
+}
+
+function mostrarDebug() {
+    console.log('=== DADOS GLOBAIS ===');
+    console.log('Respostas:', dadosGlobais.respostas);
+    console.log('FormData:', dadosGlobais.formData);
+    alert('Verifique o console do navegador (F12) para detalhes');
 }
 
 function filtrarUltimosDias(dias) {
     const dataFim = new Date();
     const dataInicio = new Date();
     dataInicio.setDate(dataInicio.getDate() - dias);
+    
     document.getElementById('dataInicio').value = dataInicio.toISOString().split('T')[0];
     document.getElementById('dataFim').value = dataFim.toISOString().split('T')[0];
+    
     aplicarFiltros();
     showToast(`📅 Mostrando últimos ${dias} dias`, 'success');
 }
