@@ -635,16 +635,31 @@ function renderizarKPIs(kpis) {
 function renderizarBarChart(dados, titulo) {
     if (!dados || dados.length === 0) return '<div>Sem dados suficientes</div>';
     
-    const maxCount = Math.max(...dados.map(d => d[1]));
+    // Encontra o maior valor (ignorando zeros para o cálculo da escala)
+    let maxCount = 0;
+    for (const item of dados) {
+        if (item[1] > maxCount) maxCount = item[1];
+    }
+    
+    // Se todos os valores são zero, usa 1 como base para mostrar todas as barras vazias
+    const escalaMaxima = maxCount === 0 ? 1 : maxCount;
     
     return `
         <div class="bar-chart">
-            ${dados.map(([label, count]) => `
-                <div class="bar-item">
-                    <div class="bar-label"><span>${escapeHtml(label.substring(0, 40))}${label.length > 40 ? '...' : ''}</span><span>${count}</span></div>
-                    <div class="bar-track"><div class="bar-fill" style="width: ${(count / maxCount) * 100}%">${(count / maxCount * 100).toFixed(0)}%</div></div>
-                </div>
-            `).join('')}
+            ${dados.map(([label, count]) => {
+                const percentual = (count / escalaMaxima) * 100;
+                const largura = percentual.toFixed(0);
+                return `
+                    <div class="bar-item">
+                        <div class="bar-label"><span>${escapeHtml(label.substring(0, 40))}</span><span>${count}</span></div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: ${largura}%; background: ${count === 0 ? '#e2e8f0' : 'linear-gradient(90deg, var(--primary), var(--secondary))'}">
+                                ${count > 0 ? Math.round(percentual) + '%' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
         </div>
     `;
 }
