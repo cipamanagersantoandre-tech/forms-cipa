@@ -943,7 +943,7 @@ function aplicarFiltros() {
         dataFim: document.getElementById('dataFim').value,
         identificacao: document.getElementById('filtroIdentificacao').value,
         participacao: document.getElementById('filtroParticipacao').value,
-        nome: document.getElementById('filtroNome').value  // <-- ADICIONE ESTA LINHA
+        nome: document.getElementById('filtroNome').value
     };
     
     const { respostas, formData } = dadosGlobais;
@@ -959,15 +959,15 @@ function aplicarFiltros() {
     // Calcular KPIs
     const kpis = calcularKPIs(dadosFiltrados, formData);
     
-    // Processar áreas de interesse
+    // Processar áreas de interesse (se existir a pergunta)
     const perguntaAreas = formData.form.questions.find(q => q.title === 'Em quais áreas você gostaria de aprender mais durante a SIPAT?');
     const areasInteresse = perguntaAreas ? contarCheckbox(dadosFiltrados, perguntaAreas, formData) : [];
     
-    // Processar atividades preferidas
+    // Processar atividades preferidas (se existir a pergunta)
     const perguntaAtividades = formData.form.questions.find(q => q.title === 'Que tipo de atividade você gostaria de encontrar durante a SIPAT?');
     const atividadesPreferidas = perguntaAtividades ? contarCheckbox(dadosFiltrados, perguntaAtividades, formData) : [];
     
-    // Processar temas pessoais
+    // Processar temas pessoais (se existir a pergunta)
     const perguntaTemas = formData.form.questions.find(q => q.title === 'Pensando na sua vida pessoal, qual destes temas seria mais útil para você?');
     const temasPessoais = perguntaTemas ? contarCheckbox(dadosFiltrados, perguntaTemas, formData) : [];
     
@@ -989,10 +989,10 @@ function aplicarFiltros() {
     
     // Processar nuvem de palavras
     const perguntasTexto = formData.form.questions.filter(q => q.type === 'text' || q.type === 'textarea');
+    
     // Atualizar a lista de nomes no datalist
     const listaNomes = document.getElementById('listaNomes');
     if (listaNomes) {
-        // Pega os nomes das respostas filtradas (ou de todas se não tiver filtro)
         const perguntaNome = formData.form.questions.find(q => q.title === 'Qual seu nome completo?');
         if (perguntaNome) {
             const nomes = new Set();
@@ -1002,16 +1002,13 @@ function aplicarFiltros() {
                     nomes.add(nome);
                 }
             }
-            // Ordenar nomes
             const nomesOrdenados = Array.from(nomes).sort();
-            
-            // Criar as opções do datalist
             listaNomes.innerHTML = '<option value="">-- Selecione um nome --</option>' +
                 nomesOrdenados.map(nome => `<option value="${escapeHtml(nome)}">${escapeHtml(nome)}</option>`).join('');
-            
             console.log(`📋 Lista de nomes atualizada: ${nomesOrdenados.length} nomes`);
         }
     }
+    
     const wordCloud = gerarWordCloud(dadosFiltrados, perguntasTexto, formData);
     
     // Renderizar dashboard
@@ -1105,6 +1102,7 @@ function escapeHtml(text) {
 
 // Inicializar - primeiro carrega a lista de formulários
 carregarListaFormularios();
+
 </script>
 </body>
 </html>
