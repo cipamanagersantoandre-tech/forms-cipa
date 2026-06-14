@@ -190,6 +190,14 @@
                 <button class="btn btn-primary" onclick="aplicarFiltros()">🔍 Aplicar filtros</button>
                 <button class="btn btn-secondary" onclick="limparFiltros()">🔄 Limpar</button>
             </div>
+<div class="filter-group">
+    <label>⏱️ Período rápido</label>
+    <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" onclick="filtrarUltimosDias(7)" style="padding: 8px 12px;">7 dias</button>
+        <button class="btn btn-secondary" onclick="filtrarUltimosDias(30)" style="padding: 8px 12px;">30 dias</button>
+        <button class="btn btn-secondary" onclick="filtrarUltimosDias(90)" style="padding: 8px 12px;">90 dias</button>
+    </div>
+</div>
         </div>
     </div>
 
@@ -850,6 +858,18 @@ function mostrarDebug() {
     console.log('Respostas:', dadosGlobais.respostas);
     console.log('FormData:', dadosGlobais.formData);
     alert('Verifique o console do navegador (F12) para detalhes');
+}
+
+function filtrarUltimosDias(dias) {
+    const dataFim = new Date();
+    const dataInicio = new Date();
+    dataInicio.setDate(dataInicio.getDate() - dias);
+    
+    document.getElementById('dataInicio').value = dataInicio.toISOString().split('T')[0];
+    document.getElementById('dataFim').value = dataFim.toISOString().split('T')[0];
+    
+    aplicarFiltros();
+    showToast(`📅 Mostrando últimos ${dias} dias`, 'success');
 }
 
 function escapeHtml(text) {
