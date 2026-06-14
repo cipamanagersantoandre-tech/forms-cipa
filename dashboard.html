@@ -659,7 +659,7 @@ function renderizarWordCloud(palavras) {
 
 // Renderizar dashboard completo
 // Renderizar dashboard DINÂMICO (se adapta ao formulário)
-function renderizarDashboard(respostas, formData, kpis, areasInteresse, atividadesPreferidas, temasPessoais, mediasEscalas, wordCloud, perguntasExtras) {
+function renderizarDashboard(respostas, formData, kpis, areasInteresse, atividadesPreferidas, temasPessoais, mediasEscalas, wordCloud) {
     let html = renderizarKPIs(kpis);
     
     // Seção 1: Análise de Participação (só se tiver as perguntas)
@@ -696,7 +696,7 @@ function renderizarDashboard(respostas, formData, kpis, areasInteresse, atividad
     if (perguntasCheckbox.length > 0) {
         html += `<div class="section"><div class="section-title">✅ Perguntas de Múltipla Escolha</div><div class="charts-grid">`;
         
-        for (const pergunta of perguntasCheckbox.slice(0, 4)) { // Limita a 4 para não ficar muito grande
+        for (const pergunta of perguntasCheckbox.slice(0, 4)) {
             const dados = contarCheckbox(respostas, pergunta, formData);
             if (dados && dados.length > 0) {
                 html += `<div class="chart-card"><h3>${escapeHtml(pergunta.title)}</h3>${renderizarBarChart(dados, pergunta.title)}</div>`;
