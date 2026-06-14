@@ -1075,10 +1075,10 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-}  // ← FECHA ALGUMA FUNÇÃO QUE FICOU ABERTA
-
-// Inicializar - primeiro carrega a lista de formulários
-carregarListaFormularios();
+// Aguarda a página carregar completamente
+window.addEventListener('load', function() {
+    carregarListaFormularios();
+});
 
 </script>
 </body>
