@@ -512,16 +512,27 @@ function showToast(msg, type = 'success') {
 // Carregar dados do formulário
 async function carregarFormulario() {
     try {
-        // Primeiro, buscar a estrutura do formulário
         const url = `${SHEETS_URL}?acao=carregarTudo&aba=forms`;
         const response = await fetch(url);
         const result = await response.json();
         
         if (result.status === 'sucesso' && result.dados) {
-            const formData = result.dados.find(f => f.name === 'Pesquisa Interativa para Planejamento da SIPAT');
-            if (formData) {
-                return formData;
+            // Se tiver apenas um formulário, pega ele
+            if (result.dados.length === 1) {
+                console.log('📋 Formulário encontrado:', result.dados[0].name);
+                return result.dados[0];
             }
+            
+            // Se tiver vários, procura pelo nome ou pega o primeiro
+            let formData = result.dados.find(f => f.name === 'Pesquisa Interativa para Planejamento da SIPAT');
+            
+            if (!formData && result.dados.length > 0) {
+                // Se não encontrar pelo nome, pega o primeiro da lista
+                formData = result.dados[0];
+                console.log('📋 Usando primeiro formulário encontrado:', formData.name);
+            }
+            
+            return formData;
         }
         return null;
     } catch (e) {
