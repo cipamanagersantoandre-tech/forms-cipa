@@ -1342,6 +1342,9 @@ async function renderFormsList() {
 <div style="display:flex;gap:4px;">
     <button class="btn btn-sm" onclick="event.stopPropagation(); gerarNovoLink('${form.id}')" title="Gerar novo link">🔄</button>
     <button class="btn btn-sm" onclick="event.stopPropagation(); duplicateForm('${form.id}')" title="Duplicar">📋</button>
+    <button class="btn btn-sm" onclick="event.stopPropagation(); toggleLockForm('${form.id}')" title="${form.locked ? '🔒 Travei, só senha destrava' : '🔓 Clicar para travar'}">
+        ${form.locked ? '🔒' : '🔓'}
+    </button>
     <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteForm('${form.id}')" title="Excluir">🗑️</button>
 </div>
             </div>
@@ -1370,6 +1373,12 @@ function openFormEditor(formId) {
     currentFormId = formId;
     const formData = forms.find(f => f.id === formId);
     if (!formData) return;
+    
+    // 🔥 LINHAS NOVAS (VERIFICA SE ESTÁ TRAVADO)
+    if (formData.locked) {
+        showToast("🔒 Este formulário está TRAVADO. Desbloqueie na tela inicial para editar.", "error");
+        return;
+    }
     document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
     document.getElementById('view-editor').classList.remove('hidden');
     document.getElementById('current-form-name').textContent = formData.name;
@@ -1440,8 +1449,9 @@ async function createFormWithTemplate(templateType) {
 
 const newForm = {
     id: generateId(),
-    name: name,           // ← use 'name' em vez de 'newName'
+    name: name,
     createdAt: new Date().toISOString(),
+    locked: false,  // ← ADICIONE ESTA LINHA
     form: {
         title: template.title,
         subtitle: template.subtitle || '',
@@ -1589,6 +1599,16 @@ async function excluirDaNuvem(aba, id) {
 }
 
 function deleteForm(formId) {
+    const form = forms.find(f => f.id === formId);
+    if (!form) return;
+    
+    // 🔥 LINHAS NOVAS (VERIFICA SE ESTÁ TRAVADO)
+    if (form.locked) {
+        showToast("🔒 Formulário TRAVADO. Desbloqueie na tela inicial para excluir.", "error");
+        return;
+    }
+    // 🔥 FIM DAS LINHAS NOVAS
+    
     confirmAction('Excluir', 'Excluir formulário? Todas as respostas serão perdidas.', async () => {
         mostrarProgresso('🗑️ Excluindo da nuvem...');
         atualizarProgresso(30, 'Removendo da planilha...');
@@ -4639,6 +4659,46 @@ function initPublicScales() {
             }
         });
     }, 50);
+}
+
+// ==================== FUNÇÃO TRAVAR/DESTRAVAR FORMULÁRIO ====================
+async function toggleLockForm(formId) {
+    const form = forms.find(f => f.id === formId);
+    if (!form) return;
+    
+    // Se já está travado, precisa de senha para destravar
+    if (form.locked) {
+        const senha = prompt("🔐 Digite a senha do responsável para DESTRAVAR este formulário:");
+        if (!senha) return;
+        
+        // Buscar a senha correta da configuração do app
+        const url = `${CONFIG.googleApiUrl}?acao=carregarConfigApp`;
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        let senhaCorreta = "";
+        if (result.status === 'sucesso' && result.dados) {
+            const config = {};
+            result.dados.forEach(item => { config[item.chave] = item.valor; });
+            senhaCorreta = config.senha_responsavel || "";
+        }
+        
+        if (senha !== senhaCorreta) {
+            showToast("❌ Senha incorreta! Não foi possível destravar.", "error");
+            return;
+        }
+        
+        form.locked = false;
+        showToast(`🔓 Formulário "${form.name}" DESTRAVADO!`, "success");
+    } else {
+        // Está destravado -> qualquer um pode travar (sem senha)
+        form.locked = true;
+        showToast(`🔒 Formulário "${form.name}" TRAVADO!`, "success");
+    }
+    
+    saveData();
+    await salvarNaNuvem('forms', form.id, form);
+    renderFormsList();
 }
 
 </script>
