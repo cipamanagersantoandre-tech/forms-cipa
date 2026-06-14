@@ -326,7 +326,7 @@ function extrairRespostas(respostasRaw, perguntas) {
         const respostaData = row.data || row;
         
         // Verificar se tem timestamp
-        const timestamp = row.timestamp || row['Data/Hora'];
+        const timestamp = row.timestamp || row['Data/Hora'] || new Date().toISOString();
         
         if (!timestamp) {
             console.log('⚠️ Resposta sem timestamp, pulando...');
