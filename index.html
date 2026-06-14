@@ -3345,6 +3345,7 @@ function renderPublicForm(form) {
 }
 
 // Configurar perguntas condicionais no modo público
+// Configurar perguntas condicionais no modo público
 function setupPublicFormConditions(form) {
     function updateVisibility() {
         const answers = {};
@@ -3371,8 +3372,13 @@ function setupPublicFormConditions(form) {
             if (!q.condition?.dependsOn) return true;
             const depValue = answers[q.condition.dependsOn];
             if (!depValue) return false;
-            if (Array.isArray(depValue)) return depValue.includes(q.condition.expectedValue);
-            return String(depValue) === String(q.condition.expectedValue);
+            
+            // Suporte para múltiplos valores separados por vírgula
+            const expectedValue = q.condition.expectedValue;
+            const valoresEsperados = expectedValue.split(',').map(v => v.trim());
+            
+            if (Array.isArray(depValue)) return depValue.some(val => valoresEsperados.includes(val));
+            return valoresEsperados.includes(String(depValue));
         });
         
         container.innerHTML = visibleQuestions.map(q => `
@@ -3383,6 +3389,9 @@ function setupPublicFormConditions(form) {
                 ${renderPublicInput(q)}
             </div>
         `).join('');
+        
+        // Inicializar escalas após renderizar
+        initPublicScales();
         
         // Reaplicar event listeners
         formEl.querySelectorAll('input, select, textarea').forEach(inp => {
@@ -3395,7 +3404,11 @@ function setupPublicFormConditions(form) {
     
     updateVisibility();
 }
+    
+    updateVisibility();
+}
 
+// Renderizar input no modo público
 // Renderizar input no modo público
 function renderPublicInput(q) {
     const name = `pub_${q.id}`;
@@ -3420,11 +3433,17 @@ function renderPublicInput(q) {
             <option value="">Selecione...</option>
             ${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
         </select>`;
-case 'scale': return `<div style="display: flex; gap: 8px; flex-wrap: wrap;">${[1,2,3,4,5].map(n => `
-            <label style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer;" onclick="this.querySelector('input').checked=true; this.style.background='var(--primary-light)'; this.style.borderColor='var(--primary)';">
-                ${n}<input type="radio" name="${name}" value="${n}" style="display: none;">
-            </label>
-        `).join('')}</div>`;
+        case 'scale': return `
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;" class="scale-container" data-name="${name}">
+                ${[1,2,3,4,5].map(n => `
+                    <label style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer; transition: all 0.2s;" 
+                           class="scale-option" data-value="${n}">
+                        ${n}
+                        <input type="radio" name="${name}" value="${n}" style="display: none;">
+                    </label>
+                `).join('')}
+            </div>
+        `;
         case 'date': return `<input type="date" class="input" name="${name}" style="width:100%; padding: 14px;">`;
         case 'time': return `<input type="time" class="input" name="${name}" style="width:100%; padding: 14px;">`;
         default: return `<input type="text" class="input" name="${name}" style="width:100%; padding: 14px;">`;
@@ -4578,6 +4597,41 @@ function atualizarBannerAppPorLink() {
         preview.style.display = 'block';
         showToast('✅ Banner do app atualizado via link! Clique em "Salvar" para confirmar.', 'success');
     }
+}
+
+// Inicializar escalas no modo público (após renderizar)
+function initPublicScales() {
+    setTimeout(() => {
+        document.querySelectorAll('.scale-container').forEach(container => {
+            const radios = container.querySelectorAll('input[type="radio"]');
+            const labels = container.querySelectorAll('.scale-option');
+            
+            labels.forEach((label, index) => {
+                label.removeEventListener('click', scaleClickHandler);
+                label.addEventListener('click', scaleClickHandler);
+            });
+            
+            function scaleClickHandler(e) {
+                const label = e.currentTarget;
+                const radio = label.querySelector('input[type="radio"]');
+                if (radio) {
+                    radio.checked = true;
+                    // Resetar todos os estilos
+                    labels.forEach(l => {
+                        l.style.background = 'var(--bg)';
+                        l.style.borderColor = 'var(--border)';
+                    });
+                    // Destacar o selecionado
+                    label.style.background = 'var(--primary-light)';
+                    label.style.borderColor = 'var(--primary)';
+                    
+                    // Disparar evento change para condições
+                    const changeEvent = new Event('change', { bubbles: true });
+                    radio.dispatchEvent(changeEvent);
+                }
+            }
+        });
+    }, 50);
 }
 
 </script>
