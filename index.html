@@ -1891,7 +1891,7 @@ function renderQuestionsList() {
             </div>
             <div class="form-group">
                 <select class="select" onchange="updateQuestion('${q.id}', 'type', this.value); renderQuestionsList();">
-		    <option value="info" ${q.type==='info' ? 'selected' : ''}>ℹ️ Informativo (leitura)</option>
+                    <option value="info" ${q.type==='info' ? 'selected' : ''}>ℹ️ Informativo (leitura)</option>
                     <option value="text" ${q.type==='text' ? 'selected' : ''}>Texto</option>
                     <option value="textarea" ${q.type==='textarea' ? 'selected' : ''}>Texto longo</option>
                     <option value="email" ${q.type==='email' ? 'selected' : ''}>E-mail</option>
@@ -1902,45 +1902,43 @@ function renderQuestionsList() {
                     <option value="scale" ${q.type==='scale' ? 'selected' : ''}>Escala 1-5</option>
                     <option value="date" ${q.type==='date' ? 'selected' : ''}>📅 Data</option>
                     <option value="time" ${q.type==='time' ? 'selected' : ''}>⏰ Hora</option>
-		           <option value="attachment" ${q.type==='attachment' ? 'selected' : ''}>📎 Anexo (arquivo)</option>
+                    <option value="attachment" ${q.type==='attachment' ? 'selected' : ''}>📎 Anexo (arquivo)</option>
                 </select>
-${q.type === 'info' ? `
-    <div class="form-group" style="background: var(--bg-elev-2); padding: 12px; border-radius: 10px; margin-top: 12px;">
-        <label class="label">📝 Conteúdo do Informativo</label>
-        <textarea class="textarea" rows="6" placeholder="Digite o texto informativo aqui...
-Você pode usar:
-• Listas com marcadores
-• **Negrito** (usando **)
-• *Itálico* (usando *)
-• Títulos com # ## etc
-• Links [texto](url)" 
-    onchange="updateQuestion('${q.id}', 'infoContent', this.value)">${escapeHtml(q.infoContent || '')}</textarea>
-        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-            💡 Este texto aparecerá formatado para o usuário. Use ** para negrito, * para itálico.
-        </div>
-    </div>
-` : ''}
             </div>
-case 'checkbox': return `
-    <div class="form-group">
-        <label class="label">Opções</label>
-        ${q.options.map((opt, i) => `
-            <div class="option-row">
-                <input type="text" class="input" value="${escapeHtml(opt)}" onchange="updateOption('${q.id}', ${i}, this.value)">
-                <button class="btn btn-sm" onclick="deleteOption('${q.id}', ${i})" style="background:none;">✕</button>
-            </div>
-        `).join('')}
-        <button class="btn btn-sm" onclick="addOption('${q.id}')">➕ Opção</button>
-    </div>
-    <div class="form-group">
-        <label class="label">🔢 Limite máximo de seleções</label>
-        <input type="number" class="input" value="${q.maxSelections || 0}" min="0" 
-               onchange="updateQuestion('${q.id}', 'maxSelections', this.value)">
-        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-            💡 0 = sem limite | 1 = só uma opção | 2 = até duas opções
-        </div>
-    </div>
-`;
+            
+            ${q.type === 'info' ? `
+                <div class="form-group" style="background: var(--bg-elev-2); padding: 12px; border-radius: 10px; margin-top: 12px;">
+                    <label class="label">📝 Conteúdo do Informativo</label>
+                    <textarea class="textarea" rows="6" placeholder="Digite o texto informativo aqui..." onchange="updateQuestion('${q.id}', 'infoContent', this.value)">${escapeHtml(q.infoContent || '')}</textarea>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                        💡 Use ** para negrito, * para itálico.
+                    </div>
+                </div>
+            ` : ''}
+            
+            ${(q.type === 'radio' || q.type === 'checkbox' || q.type === 'select') ? `
+                <div class="form-group">
+                    <label class="label">Opções</label>
+                    ${q.options.map((opt, i) => `
+                        <div class="option-row">
+                            <input type="text" class="input" value="${escapeHtml(opt)}" onchange="updateOption('${q.id}', ${i}, this.value)">
+                            <button class="btn btn-sm" onclick="deleteOption('${q.id}', ${i})" style="background:none;">✕</button>
+                        </div>
+                    `).join('')}
+                    <button class="btn btn-sm" onclick="addOption('${q.id}')">➕ Opção</button>
+                </div>
+                ${q.type === 'checkbox' ? `
+                    <div class="form-group">
+                        <label class="label">🔢 Limite máximo de seleções</label>
+                        <input type="number" class="input" value="${q.maxSelections || 0}" min="0" 
+                               onchange="updateQuestion('${q.id}', 'maxSelections', this.value)">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                            💡 0 = sem limite | 1 = só uma opção | 2 = até duas opções
+                        </div>
+                    </div>
+                ` : ''}
+            ` : ''}
+            
             <label class="checkbox-option" style="margin-top:12px;">
                 <input type="checkbox" ${q.required ? 'checked' : ''} onchange="updateQuestion('${q.id}', 'required', this.checked)">
                 <span>Obrigatória</span>
@@ -1955,9 +1953,9 @@ case 'checkbox': return `
             </button>
         </div>
     `).join('');
+    
     setTimeout(() => setupDragAndDrop(), 50);
 }
-
 function deleteQuestion(id) {
     const formData = getCurrentForm();
     if (!formData) return;
