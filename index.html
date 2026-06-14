@@ -2657,6 +2657,15 @@ function renderMobileInput(q) {
         case 'select': return `<select class="select" name="${name}"><option value="">Selecione...</option>${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}</select>`;
         case 'date': return `<input type="date" class="input" name="${name}" style="padding:14px;font-size:16px;">`;
         case 'time': return `<input type="time" class="input" name="${name}" style="padding:14px;font-size:16px;">`;
+        case 'scale': return `
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                ${[1,2,3,4,5].map(n => `
+                    <label style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer;" onclick="this.querySelector('input').checked=true; this.style.background='var(--primary-light)'; this.style.borderColor='var(--primary)';">
+                        ${n}<input type="radio" name="${name}" value="${n}" style="display: none;">
+                    </label>
+                `).join('')}
+            </div>
+        `;
         default: return `<input type="text" class="input" name="${name}" style="padding:14px;font-size:16px;">`;
     }
 }
@@ -3345,7 +3354,6 @@ function renderPublicForm(form) {
 }
 
 // Configurar perguntas condicionais no modo público
-// Configurar perguntas condicionais no modo público
 function setupPublicFormConditions(form) {
     function updateVisibility() {
         const answers = {};
@@ -3373,7 +3381,6 @@ function setupPublicFormConditions(form) {
             const depValue = answers[q.condition.dependsOn];
             if (!depValue) return false;
             
-            // Suporte para múltiplos valores separados por vírgula
             const expectedValue = q.condition.expectedValue;
             const valoresEsperados = expectedValue.split(',').map(v => v.trim());
             
@@ -3390,10 +3397,8 @@ function setupPublicFormConditions(form) {
             </div>
         `).join('');
         
-        // Inicializar escalas após renderizar
         initPublicScales();
         
-        // Reaplicar event listeners
         formEl.querySelectorAll('input, select, textarea').forEach(inp => {
             inp.removeEventListener('change', updateVisibility);
             inp.addEventListener('change', updateVisibility);
@@ -3404,11 +3409,7 @@ function setupPublicFormConditions(form) {
     
     updateVisibility();
 }
-    
-    updateVisibility();
-}
 
-// Renderizar input no modo público
 // Renderizar input no modo público
 function renderPublicInput(q) {
     const name = `pub_${q.id}`;
