@@ -2168,7 +2168,7 @@ function renderDynamicInput(q) {
         case 'select': return `<select class="select" name="${name}"><option value="">Selecione...</option>${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}</select>`;
         case 'date': return `<input type="date" class="input" name="${name}">`;
         case 'time': return `<input type="time" class="input" name="${name}">`;
-        case 'scale': return `<div style="display:flex;gap:12px;">${[1,2,3,4,5].map(n => `<label style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:10px;border:1px solid var(--border);cursor:pointer;"><input type="radio" name="${name}" value="${n}" style="display:none;"> ${n}</label>`).join('')}</div>`;
+        case 'scale': return `<div style="display:flex;gap:12px;">${[1,2,3,4,5].map(n => `<label style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:10px;border:1px solid var(--border);cursor:pointer;" onclick="this.querySelector('input').checked=true; this.style.background='var(--primary-light)'; this.style.borderColor='var(--primary)';">${n}<input type="radio" name="${name}" value="${n}" style="display:none;"></label>`).join('')}</div>`;
         default: return `<input type="text" class="input" name="${name}" placeholder="...">`;
     }
 }
@@ -2264,7 +2264,7 @@ function renderTestInput(q) {
         case 'select': return `<select class="select" name="${name}"><option value="">Selecione...</option>${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}</select>`;
         case 'date': return `<input type="date" class="input" name="${name}">`;
         case 'time': return `<input type="time" class="input" name="${name}">`;
-        case 'scale': return `<div style="display:flex;gap:12px;">${[1,2,3,4,5].map(n => `<label style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:10px;border:1px solid var(--border);"><input type="radio" name="${name}" value="${n}" style="display:none;"> ${n}</label>`).join('')}</div>`;
+        case 'scale': return `<div style="display:flex;gap:12px;">${[1,2,3,4,5].map(n => `<label style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:10px;border:1px solid var(--border);cursor:pointer;" onclick="this.querySelector('input').checked=true; this.style.background='var(--primary-light)'; this.style.borderColor='var(--primary)';">${n}<input type="radio" name="${name}" value="${n}" style="display:none;"></label>`).join('')}</div>`;
         default: return `<input type="text" class="input" name="${name}">`;
     }
 }
@@ -3420,9 +3420,9 @@ function renderPublicInput(q) {
             <option value="">Selecione...</option>
             ${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
         </select>`;
-        case 'scale': return `<div style="display: flex; gap: 8px; flex-wrap: wrap;">${[1,2,3,4,5].map(n => `
-            <label style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="radio" name="${name}" value="${n}" style="display: none;"> ${n}
+case 'scale': return `<div style="display: flex; gap: 8px; flex-wrap: wrap;">${[1,2,3,4,5].map(n => `
+            <label style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer;" onclick="this.querySelector('input').checked=true; this.style.background='var(--primary-light)'; this.style.borderColor='var(--primary)';">
+                ${n}<input type="radio" name="${name}" value="${n}" style="display: none;">
             </label>
         `).join('')}</div>`;
         case 'date': return `<input type="date" class="input" name="${name}" style="width:100%; padding: 14px;">`;
