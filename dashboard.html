@@ -318,15 +318,19 @@ function extrairRespostas(respostasRaw, perguntas) {
     }
     
     console.log('🔧 Processando', respostasRaw.length, 'respostas brutas');
-    console.log('📋 Estrutura da primeira resposta:', JSON.stringify(respostasRaw[0], null, 2));
-    console.log('📋 Perguntas disponíveis:', perguntas.map(p => p.title));
+    
+    // Filtrar apenas perguntas com título válido (não vazio e não é "Nova pergunta")
+    const perguntasValidas = perguntas.filter(p => p.title && p.title.trim() !== '' && p.title !== 'Nova pergunta');
+    console.log('📋 Perguntas válidas:', perguntasValidas.map(p => p.title));
     
     for (let i = 0; i < respostasRaw.length; i++) {
         const row = respostasRaw[i];
-        console.log(`\n📝 Processando resposta ${i + 1}:`, row);
+        
+        // Pega os dados da resposta (estão dentro da propriedade 'data')
+        const respostaData = row.data || row;
         
         // Verificar se tem timestamp
-        const timestamp = row['Data/Hora'] || row['data'] || row['timestamp'];
+        const timestamp = row.timestamp || row['Data/Hora'];
         
         if (!timestamp) {
             console.log('⚠️ Resposta sem timestamp, pulando...');
@@ -338,37 +342,38 @@ function extrairRespostas(respostasRaw, perguntas) {
             data: {} 
         };
         
-        // Para cada pergunta do formulário, buscar o valor na resposta
-        for (const pergunta of perguntas) {
-            // Tenta encontrar o valor pelo título da pergunta
-            let valor = row[pergunta.title];
+        // Para cada pergunta válida do formulário, buscar o valor na resposta
+        for (const pergunta of perguntasValidas) {
+            // Busca o valor usando o título da pergunta como chave
+            let valor = respostaData[pergunta.title];
             
-            // Se não achou, tenta pelo ID (se existir)
-            if (!valor && pergunta.id) {
-                valor = row[pergunta.id];
-            }
-            
-            // Se ainda não achou, procura por chave similar
+            // Se não achou, tenta limpar caracteres especiais
             if (!valor) {
-                for (const key in row) {
-                    if (key.toLowerCase().includes(pergunta.title.toLowerCase().substring(0, 10))) {
-                        valor = row[key];
-                        console.log(`🔍 Encontrado valor para "${pergunta.title}" usando chave: ${key}`);
+                const tituloLimpo = pergunta.title.replace(/[^\w\s]/g, '');
+                for (const key in respostaData) {
+                    const keyLimpa = key.replace(/[^\w\s]/g, '');
+                    if (keyLimpa === tituloLimpo) {
+                        valor = respostaData[key];
                         break;
                     }
                 }
             }
             
-            // Limpar valores de anexo
-            if (valor && (valor.includes('📎') || valor.includes('(nenhum arquivo'))) {
+            // Limpar valores de anexo e textos vazios
+            if (valor && (valor.includes('📎') || valor.includes('(nenhum arquivo') || valor === '-')) {
                 valor = '';
+            }
+            
+            // Para perguntas de escala, garantir que é número
+            if (pergunta.type === 'scale' && valor && !isNaN(parseFloat(valor))) {
+                valor = parseFloat(valor);
             }
             
             resposta.data[pergunta.id] = valor || '';
         }
         
         respostas.push(resposta);
-        console.log(`✅ Resposta ${i + 1} processada:`, resposta);
+        console.log(`✅ Resposta ${i + 1} processada com ${Object.keys(resposta.data).length} campos`);
     }
     
     console.log(`\n📊 Total extraído: ${respostas.length} respostas`);
