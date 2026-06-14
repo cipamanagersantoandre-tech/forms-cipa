@@ -1921,18 +1921,26 @@ Você pode usar:
     </div>
 ` : ''}
             </div>
-            ${['radio', 'checkbox', 'select'].includes(q.type) ? `
-                <div class="form-group">
-                    <label class="label">Opções</label>
-                    ${q.options.map((opt, i) => `
-                        <div class="option-row">
-                            <input type="text" class="input" value="${escapeHtml(opt)}" onchange="updateOption('${q.id}', ${i}, this.value)">
-                            <button class="btn btn-sm" onclick="deleteOption('${q.id}', ${i})" style="background:none;">✕</button>
-                        </div>
-                    `).join('')}
-                    <button class="btn btn-sm" onclick="addOption('${q.id}')">➕ Opção</button>
-                </div>
-            ` : ''}
+case 'checkbox': return `
+    <div class="form-group">
+        <label class="label">Opções</label>
+        ${q.options.map((opt, i) => `
+            <div class="option-row">
+                <input type="text" class="input" value="${escapeHtml(opt)}" onchange="updateOption('${q.id}', ${i}, this.value)">
+                <button class="btn btn-sm" onclick="deleteOption('${q.id}', ${i})" style="background:none;">✕</button>
+            </div>
+        `).join('')}
+        <button class="btn btn-sm" onclick="addOption('${q.id}')">➕ Opção</button>
+    </div>
+    <div class="form-group">
+        <label class="label">🔢 Limite máximo de seleções</label>
+        <input type="number" class="input" value="${q.maxSelections || 0}" min="0" 
+               onchange="updateQuestion('${q.id}', 'maxSelections', this.value)">
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            💡 0 = sem limite | 1 = só uma opção | 2 = até duas opções
+        </div>
+    </div>
+`;
             <label class="checkbox-option" style="margin-top:12px;">
                 <input type="checkbox" ${q.required ? 'checked' : ''} onchange="updateQuestion('${q.id}', 'required', this.checked)">
                 <span>Obrigatória</span>
