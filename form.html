@@ -127,6 +127,33 @@ body {
   cursor: not-allowed;
   transform: none;
 }
+
+.scale-container {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.scale-option {
+    flex: 1;
+    text-align: center;
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+}
+.scale-option:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+}
+.scale-option.selected {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
 </style>
 </head>
 <body>
@@ -361,11 +388,16 @@ case 'textarea': return `
       <option value="">Selecione...</option>
       ${(q.options||[]).map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
     </select>`;
-    case 'scale': return `<div style="display: flex; gap: 8px; flex-wrap: wrap;" id="${id}">${[1,2,3,4,5].map(n => `
-      <label style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer;">
-        <input type="radio" name="${name}" value="${n}" style="display: none;"> ${n}
-      </label>
-    `).join('')}</div>`;
+case 'scale': return `
+    <div class="scale-container" data-name="${name}" data-qid="${q.id}">
+        ${[1,2,3,4,5].map(n => `
+            <div class="scale-option" data-value="${n}" onclick="selecionarEscala(this, '${name}', '${n}')">
+                ${n}
+                <input type="radio" name="${name}" value="${n}" style="display: none;">
+            </div>
+        `).join('')}
+    </div>
+`;
     case 'date': return `<input type="date" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
     case 'time': return `<input type="time" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
     case 'attachment': return `
@@ -714,6 +746,30 @@ function formatarInformativo(texto) {
     textoEscapado = textoEscapado.replace(/\n/g, '<br>');
     
     return textoEscapado;
+}
+
+function selecionarEscala(elemento, nomeCampo, valor) {
+    const container = elemento.closest('.scale-container');
+    const todasOpcoes = container.querySelectorAll('.scale-option');
+    
+    todasOpcoes.forEach(opt => {
+        opt.classList.remove('selected');
+        opt.style.background = 'var(--bg)';
+        opt.style.borderColor = 'var(--border)';
+        opt.style.color = 'var(--text)';
+    });
+    
+    elemento.classList.add('selected');
+    elemento.style.background = 'var(--primary)';
+    elemento.style.borderColor = 'var(--primary)';
+    elemento.style.color = 'white';
+    
+    const radio = elemento.querySelector('input[type="radio"]');
+    if (radio) {
+        radio.checked = true;
+        const changeEvent = new Event('change', { bubbles: true });
+        radio.dispatchEvent(changeEvent);
+    }
 }
 
 init();
