@@ -788,43 +788,21 @@ let listaFormularios = [];
 
 // Carregar lista de formulários para o seletor
 async function carregarListaFormularios() {
+    console.log('🔵 CARREGANDO LISTA DE FORMULÁRIOS...');
     try {
         const url = `${SHEETS_URL}?acao=carregarTudo&aba=forms`;
+        console.log('📡 URL:', url);
         const response = await fetch(url);
+        console.log('📊 Status:', response.status);
         const result = await response.json();
+        console.log('📦 Resultado:', result);
         
         if (result.status === 'sucesso' && result.dados) {
-            listaFormularios = result.dados;
-            const seletor = document.getElementById('seletorFormulario');
-            
-            if (!seletor) return;
-            
-            // Limpar e popular o seletor
-            seletor.innerHTML = '<option value="">-- Selecione um formulário --</option>';
-            
-            for (const form of listaFormularios) {
-                const option = document.createElement('option');
-                option.value = form.id;
-                option.textContent = form.name;
-                seletor.appendChild(option);
-            }
-            
-            console.log(`📋 ${listaFormularios.length} formulários carregados`);
-            
-            // Selecionar automaticamente o formulário da SIPAT se existir
-            const formSIPAT = listaFormularios.find(f => f.name === 'Pesquisa Interativa para Planejamento da SIPAT');
-            if (formSIPAT) {
-                seletor.value = formSIPAT.id;
-                trocarFormulario();
-            } else if (listaFormularios.length > 0) {
-                // Se não encontrar o SIPAT, seleciona o primeiro
-                seletor.value = listaFormularios[0].id;
-                trocarFormulario();
-            }
+            console.log('✅ Formulários encontrados:', result.dados.length);
+            // ... resto do código
         }
     } catch (e) {
-        console.error('Erro ao carregar lista:', e);
-        showToast('Erro ao carregar formulários', 'error');
+        console.error('❌ Erro:', e);
     }
 }
 
@@ -1097,10 +1075,10 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Inicializar - primeiro carrega a lista de formulários
+// Inicializar
 carregarListaFormularios();
 
-}  // ← ADICIONE ESTA CHAVE AQUI!
+}  // ← ESTA CHAVE EXTRA PODE SER NECESSÁRIA
 
 </script>
 </body>
