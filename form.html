@@ -262,6 +262,29 @@ async function buscarFormulario(formId) {
   }
 }
 
+// 🆕 ADICIONAR ESTA FUNÇÃO AQUI (depois de buscarFormulario)
+// ==================== BUSCAR SETORES ====================
+async function buscarSetores(nomeFormulario) {
+  try {
+    const url = `${SHEETS_URL}?acao=carregarSetores&nomeFormulario=${encodeURIComponent(nomeFormulario)}`;
+    console.log('🔍 Buscando setores:', url);
+    const response = await fetch(url);
+    const result = await response.json();
+    console.log('📦 Setores recebidos:', result);
+    
+    if (result.status === 'sucesso') {
+      return {
+        setores: result.setores || [],
+        maxSelecoes: result.maxSelecoes || 0
+      };
+    }
+    return { setores: [], maxSelecoes: 0 };
+  } catch (e) {
+    console.error('Erro ao buscar setores:', e);
+    return { setores: [], maxSelecoes: 0 };
+  }
+}
+
 // ==================== SALVAR RESPOSTA ====================
 async function salvarResposta(formId, nomeFormulario, perguntas, respostas) {
     try {
@@ -330,6 +353,9 @@ container.innerHTML = `
   `;
   
   renderizarPerguntas(form);
+  
+  // 🆕 LINHA ADICIONADA
+  carregarSetoresEAdicionarPergunta(form);
 }
 
 function renderizarPerguntas(form) {
@@ -487,6 +513,64 @@ function aplicarCondicoes(form) {
   });
   
   atualizarVisibilidade();
+}
+
+// ==================== CARREGAR SETORES E ADICIONAR PERGUNTA ====================
+async function carregarSetoresEAdicionarPergunta(form) {
+  try {
+    const resultado = await buscarSetores(form.name);
+    
+    if (!resultado.setores || resultado.setores.length === 0) {
+      console.log('ℹ️ Nenhum setor configurado para este formulário');
+      return;
+    }
+    
+    // Filtrar apenas setores ativos
+    const setoresAtivos = resultado.setores.filter(s => s.ativo !== false);
+    
+    if (setoresAtivos.length === 0) {
+      console.log('ℹ️ Nenhum setor ativo encontrado');
+      return;
+    }
+    
+    const maxSelecoes = resultado.maxSelecoes || 0;
+    
+    // Verificar se já existe uma pergunta de setor
+    const perguntaSetorExistente = form.form.questions.some(q => 
+      q.title && (q.title.toLowerCase().includes('setor') || 
+                  q.title.toLowerCase().includes('departamento') ||
+                  q.title.toLowerCase().includes('área') ||
+                  q.title.toLowerCase().includes('area'))
+    );
+    
+    if (perguntaSetorExistente) {
+      console.log('ℹ️ Já existe uma pergunta de setor no formulário');
+      return;
+    }
+    
+    // Criar pergunta de setor
+    const perguntaSetor = {
+      id: generateId(),
+      type: 'checkbox',
+      title: '🏢 Qual(is) setor(es) você pertence?',
+      required: false,
+      options: setoresAtivos.map(s => s.setor),
+      maxSelections: maxSelecoes,
+      isSetorQuestion: true,
+      condition: null
+    };
+    
+    // Adicionar no início das perguntas
+    form.form.questions.unshift(perguntaSetor);
+    
+    // Re-renderizar as perguntas
+    renderizarPerguntas(form);
+    
+    console.log(`✅ Pergunta de setor adicionada com ${setoresAtivos.length} opções, max: ${maxSelecoes}`);
+    
+  } catch (erro) {
+    console.error('❌ Erro ao carregar setores:', erro);
+  }
 }
 
 // ==================== ENVIAR RESPOSTA ====================
