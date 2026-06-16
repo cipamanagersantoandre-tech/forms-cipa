@@ -678,6 +678,41 @@ body {
   <textarea class="textarea" id="form-attachment-message" rows="2" placeholder="Para arquivos maiores, entre em contato..."></textarea>
 </div>
 
+<!-- NOVA SEÇÃO: SETORES E E-MAIS -->
+<h3 style="margin: 24px 0 16px;">🏢 Setores e E-mails Responsáveis</h3>
+
+<div style="background: var(--bg-elev-2); padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+  <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+    📌 Configure os setores que aparecerão na pergunta "Qual seu setor?".<br>
+    💡 O respondente poderá escolher <strong>vários setores</strong>, e cada um receberá o e-mail com as respostas.
+  </p>
+
+  <div class="form-group">
+    <label class="label">🔢 Máximo de setores que o respondente pode escolher</label>
+    <input type="number" class="input" id="form-max-setores" value="0" min="0" max="20" style="width: 100px;">
+    <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+      💡 0 = sem limite | 1 = só um setor | 3 = até três setores
+    </div>
+  </div>
+
+  <div id="setores-container" style="margin-top: 16px;">
+    <!-- Os setores serão preenchidos dinamicamente pelo JavaScript -->
+  </div>
+
+  <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+    <button class="btn btn-sm" onclick="adicionarSetor()" style="flex: 1; justify-content: center;">
+      ➕ Adicionar setor
+    </button>
+    <button class="btn btn-sm btn-danger" onclick="removerTodosSetores()" style="flex: 1; justify-content: center;">
+      🗑️ Remover todos
+    </button>
+  </div>
+
+  <button class="btn btn-primary" onclick="salvarSetoresConfig()" style="margin-top: 12px; width: 100%; justify-content: center;">
+    💾 Salvar configuração de setores
+  </button>
+</div>
+
           <h3 style="margin: 24px 0 16px;">🎨 Cores</h3>
           <div class="color-palette">
             <div class="palette-btn" style="background:#4f46e5" onclick="applyPalette('#4f46e5')"></div>
@@ -1399,6 +1434,11 @@ function openFormEditor(formId) {
     renderBannerPreviewFromUrl(f.banner);
     renderQuestionsList();
     renderLivePreview();
+    
+    // 🆕 CARREGAR SETORES
+    setTimeout(() => {
+        carregarSetoresConfig();
+    }, 100);
 }
 
 async function openResponsesView(formId) {
@@ -4700,6 +4740,184 @@ async function toggleLockForm(formId) {
     await salvarNaNuvem('forms', form.id, form);
     renderFormsList();
 }
+
+// ==================== SETORES ====================
+
+// Adicionar uma nova linha de setor
+function adicionarSetor() {
+    const container = document.getElementById('setores-container');
+    if (!container) return;
+    
+    const index = container.querySelectorAll('.setor-row').length;
+    
+    const row = document.createElement('div');
+    row.className = 'setor-row';
+    row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap;';
+    row.innerHTML = `
+        <input type="text" class="input setor-nome" placeholder="Nome do setor" style="flex: 2; min-width: 120px;">
+        <input type="email" class="input setor-email" placeholder="E-mail do setor" style="flex: 3; min-width: 180px;">
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap;">
+            <input type="checkbox" class="setor-ativo" checked> Ativo
+        </label>
+        <button class="btn btn-sm btn-danger" onclick="removerSetor(this)" style="padding: 8px 12px;">✕</button>
+    `;
+    container.appendChild(row);
+}
+
+// Remover um setor
+function removerSetor(btn) {
+    const row = btn.closest('.setor-row');
+    if (row) row.remove();
+}
+
+// Remover todos os setores
+function removerTodosSetores() {
+    const container = document.getElementById('setores-container');
+    if (!container) return;
+    if (container.querySelectorAll('.setor-row').length === 0) return;
+    
+    if (confirm('🗑️ Remover TODOS os setores?')) {
+        container.innerHTML = '';
+        showToast('Todos os setores removidos', 'info');
+    }
+}
+
+// Carregar setores do formulário atual
+async function carregarSetoresConfig() {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const container = document.getElementById('setores-container');
+    if (!container) return;
+    
+    // Limpar container
+    container.innerHTML = '';
+    
+    // Buscar setores do formData (local)
+    const setores = formData.form.setores || [];
+    const maxSelecoes = formData.form.maxSelecoes || 0;
+    
+    // Atualizar campo de máximo de seleções
+    const maxInput = document.getElementById('form-max-setores');
+    if (maxInput) maxInput.value = maxSelecoes;
+    
+    if (setores.length === 0) {
+        // Adicionar 3 linhas vazias como exemplo
+        for (let i = 0; i < 3; i++) {
+            adicionarSetor();
+        }
+        return;
+    }
+    
+    // Preencher com os setores salvos
+    for (const setor of setores) {
+        const row = document.createElement('div');
+        row.className = 'setor-row';
+        row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px; align-items: center; flex-wrap: wrap;';
+        row.innerHTML = `
+            <input type="text" class="input setor-nome" value="${escapeHtml(setor.setor)}" placeholder="Nome do setor" style="flex: 2; min-width: 120px;">
+            <input type="email" class="input setor-email" value="${escapeHtml(setor.email)}" placeholder="E-mail do setor" style="flex: 3; min-width: 180px;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap;">
+                <input type="checkbox" class="setor-ativo" ${setor.ativo !== false ? 'checked' : ''}> Ativo
+            </label>
+            <button class="btn btn-sm btn-danger" onclick="removerSetor(this)" style="padding: 8px 12px;">✕</button>
+        `;
+        container.appendChild(row);
+    }
+}
+
+// Salvar configuração de setores
+async function salvarSetoresConfig() {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const container = document.getElementById('setores-container');
+    const rows = container.querySelectorAll('.setor-row');
+    const setores = [];
+    let temErro = false;
+    
+    // Pegar o máximo de seleções
+    const maxInput = document.getElementById('form-max-setores');
+    const maxSelecoes = parseInt(maxInput.value) || 0;
+    
+    for (const row of rows) {
+        const nome = row.querySelector('.setor-nome').value.trim();
+        const email = row.querySelector('.setor-email').value.trim();
+        const ativo = row.querySelector('.setor-ativo').checked;
+        
+        // Pular linhas vazias
+        if (!nome && !email) continue;
+        
+        if (!nome) {
+            showToast('❌ Preencha o nome de todos os setores', 'error');
+            temErro = true;
+            break;
+        }
+        
+        if (!email) {
+            showToast(`❌ Preencha o e-mail do setor "${nome}"`, 'error');
+            temErro = true;
+            break;
+        }
+        
+        if (!email.includes('@')) {
+            showToast(`❌ E-mail inválido para o setor "${nome}": ${email}`, 'error');
+            temErro = true;
+            break;
+        }
+        
+        setores.push({ 
+            setor: nome, 
+            email: email,
+            ativo: ativo
+        });
+    }
+    
+    if (temErro) return;
+    
+    if (setores.length === 0) {
+        showToast('❌ Adicione pelo menos um setor', 'error');
+        return;
+    }
+    
+    // Salvar no formData (local)
+    formData.form.setores = setores;
+    formData.form.maxSelecoes = maxSelecoes;
+    saveData();
+    
+    // Salvar na nuvem (Google Sheets)
+    const btn = event?.currentTarget || document.querySelector('#editor-criativos .btn-primary');
+    if (btn) {
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Salvando...';
+        
+        try {
+            // Salvar na aba 'setores_' + nomeFormulario
+            const url = `${CONFIG.googleApiUrl}?acao=salvarSetores&nomeFormulario=${encodeURIComponent(formData.name)}&setores=${encodeURIComponent(JSON.stringify(setores))}&maxSelecoes=${maxSelecoes}`;
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            console.log('📦 Resposta salvarSetores:', result);
+            
+            if (result.status === 'sucesso') {
+                showToast(`✅ ${setores.length} setores salvos com sucesso!`, 'success');
+                createConfetti();
+            } else {
+                showToast('❌ Erro ao salvar setores: ' + (result.mensagem || 'Erro desconhecido'), 'error');
+            }
+        } catch (erro) {
+            console.error('❌ Erro ao salvar setores:', erro);
+            showToast('❌ Erro de conexão: ' + erro.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+}
+
+// Sobrescrever a função openFormEditor para carregar setores
+// (já existe, vamos adicionar a chamada no final)
 
 </script>
 </body>
