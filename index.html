@@ -5047,10 +5047,14 @@ async function salvarSetoresConfig() {
     
     if (temErro) return;
     
-    if (setores.length === 0) {
-        showToast('❌ Adicione pelo menos um setor', 'error');
+// Permite salvar com 0 setores (apagar todos)
+if (setores.length === 0) {
+    // Se não houver setores, só limpa a planilha
+    if (!confirm('⚠️ Você está removendo TODOS os setores. Deseja continuar?')) {
         return;
     }
+    // Continua para salvar vazio
+}
     
     // Salvar no formData (local)
     formData.form.setores = setores;
