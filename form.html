@@ -326,7 +326,7 @@ function renderizarFormulario(form) {
   const f = form.form;
   const container = document.getElementById('content');
   
-container.innerHTML = `
+  container.innerHTML = `
     <div class="card">
       ${f.banner ? `<div class="banner-preview"><img src="${f.banner}" alt="Banner"></div>` : ''}
       
@@ -352,7 +352,9 @@ container.innerHTML = `
     </div>
   `;
   
-  renderizarPerguntas(form);
+  // 🔥 CARREGA SETORES ANTES DE RENDERIZAR
+  carregarSetoresParaFormulario(form);
+}
   
   // 🆕 LINHA ADICIONADA
   carregarSetoresEAdicionarPergunta(form);
@@ -361,6 +363,9 @@ container.innerHTML = `
 function renderizarPerguntas(form) {
   const container = document.getElementById('perguntas-container');
   const questions = form.form.questions || [];
+  
+  // 🔥 GUARDA O NOME DO FORMULÁRIO
+  container.setAttribute('data-form-name', form.name);
   
   container.innerHTML = questions.map((q, idx) => `
     <div class="form-group" data-qid="${q.id}" data-condition='${JSON.stringify(q.condition || null)}'>
@@ -376,6 +381,12 @@ function renderizarPerguntas(form) {
 function renderizarInput(q, idx) {
   const name = `resp_${q.id}`;
   const id = `campo_${q.id}`;
+  
+  // 🔥 VERIFICA SE É PERGUNTA DE SETOR
+  let opcoesParaExibir = q.options || [];
+  if (q.linkedToSectors && q.sectorIds && q.sectorIds.length > 0) {
+    opcoesParaExibir = q.sectorIds;
+  }
   
   switch(q.type) {
 case 'info': return `
@@ -398,27 +409,27 @@ case 'textarea': return `
         🔤 Limite: 2000 caracteres
     </div>
 `;
-    case 'radio': return `<div class="radio-group" id="${id}">${(q.options||[]).map(opt => `
-      <label class="radio-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
-        <input type="radio" name="${name}" value="${escapeHtml(opt)}"> 
+case 'radio': return `<div class="radio-group" id="${id}">${(opcoesParaExibir || []).map(opt => `
+  <label class="radio-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+    <input type="radio" name="${name}" value="${escapeHtml(opt)}"> 
+    <span>${escapeHtml(opt)}</span>
+  </label>
+`).join('')}</div>`;
+case 'checkbox': return `
+  <div class="checkbox-group" id="${id}" data-max="${q.maxSelections || 0}">
+    ${(opcoesParaExibir || []).map(opt => `
+      <label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+        <input type="checkbox" name="${name}" value="${escapeHtml(opt)}" onclick="limitarCheckbox(this)"> 
         <span>${escapeHtml(opt)}</span>
       </label>
-    `).join('')}</div>`;
-case 'checkbox': return `
-    <div class="checkbox-group" id="${id}" data-max="${q.maxSelections || 0}">
-        ${(q.options||[]).map(opt => `
-            <label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
-                <input type="checkbox" name="${name}" value="${escapeHtml(opt)}" onclick="limitarCheckbox(this)"> 
-                <span>${escapeHtml(opt)}</span>
-            </label>
-        `).join('')}
-    </div>
-    ${(q.maxSelections && q.maxSelections > 0) ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">⚠️ Máximo de ${q.maxSelections} opção(ões)</div>` : ''}
+    `).join('')}
+  </div>
+  ${(q.maxSelections && q.maxSelections > 0) ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">⚠️ Máximo de ${q.maxSelections} opção(ões)</div>` : ''}
 `;
-    case 'select': return `<select class="select" name="${name}" id="${id}" style="width:100%; padding: 14px;">
-      <option value="">Selecione...</option>
-      ${(q.options||[]).map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
-    </select>`;
+case 'select': return `<select class="select" name="${name}" id="${id}" style="width:100%; padding: 14px;">
+  <option value="">Selecione...</option>
+  ${(opcoesParaExibir || []).map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
+</select>`;
 case 'scale': return `
     <div class="scale-container" data-name="${name}" data-qid="${q.id}">
         ${[1,2,3,4,5].map(n => `
@@ -878,6 +889,63 @@ function limitarCheckbox(checkboxClicado) {
         checkboxClicado.checked = false;
         alert(`⚠️ Você só pode selecionar até ${maxSelecoes} opção(ões).`);
     }
+}
+
+
+// ==================== BUSCAR SETORES ====================
+async function buscarSetores(nomeFormulario) {
+  try {
+    const url = `${SHEETS_URL}?acao=carregarSetores&nomeFormulario=${encodeURIComponent(nomeFormulario)}`;
+    console.log('🔍 Buscando setores:', url);
+    const response = await fetch(url);
+    const result = await response.json();
+    console.log('📦 Setores recebidos:', result);
+    
+    if (result.status === 'sucesso') {
+      return {
+        setores: result.setores || [],
+        maxSelecoes: result.maxSelecoes || 0
+      };
+    }
+    return { setores: [], maxSelecoes: 0 };
+  } catch (e) {
+    console.error('Erro ao buscar setores:', e);
+    return { setores: [], maxSelecoes: 0 };
+  }
+}
+
+// ==================== CARREGAR SETORES PARA FORMULÁRIO ====================
+async function carregarSetoresParaFormulario(form) {
+  try {
+    const resultado = await buscarSetores(form.name);
+    
+    if (!resultado.setores || resultado.setores.length === 0) {
+      renderizarPerguntas(form);
+      return;
+    }
+    
+    const setoresAtivos = resultado.setores.filter(s => s.ativo !== false);
+    const nomesSetores = setoresAtivos.map(s => s.setor);
+    
+    let atualizou = false;
+    for (const q of form.form.questions) {
+      if (q.linkedToSectors) {
+        q.options = nomesSetores;
+        q.sectorIds = nomesSetores;
+        atualizou = true;
+      }
+    }
+    
+    renderizarPerguntas(form);
+    
+    if (atualizou) {
+      console.log(`✅ ${nomesSetores.length} setores carregados para ${form.name}`);
+    }
+    
+  } catch (erro) {
+    console.error('❌ Erro ao carregar setores:', erro);
+    renderizarPerguntas(form);
+  }
 }
 
 init();
