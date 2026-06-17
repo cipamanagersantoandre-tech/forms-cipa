@@ -355,10 +355,6 @@ function renderizarFormulario(form) {
   // 🔥 CARREGA SETORES ANTES DE RENDERIZAR
   carregarSetoresParaFormulario(form);
 }
-  
-  // 🆕 LINHA ADICIONADA
-  carregarSetoresEAdicionarPergunta(form);
-}
 
 function renderizarPerguntas(form) {
   const container = document.getElementById('perguntas-container');
@@ -889,29 +885,6 @@ function limitarCheckbox(checkboxClicado) {
         checkboxClicado.checked = false;
         alert(`⚠️ Você só pode selecionar até ${maxSelecoes} opção(ões).`);
     }
-}
-
-
-// ==================== BUSCAR SETORES ====================
-async function buscarSetores(nomeFormulario) {
-  try {
-    const url = `${SHEETS_URL}?acao=carregarSetores&nomeFormulario=${encodeURIComponent(nomeFormulario)}`;
-    console.log('🔍 Buscando setores:', url);
-    const response = await fetch(url);
-    const result = await response.json();
-    console.log('📦 Setores recebidos:', result);
-    
-    if (result.status === 'sucesso') {
-      return {
-        setores: result.setores || [],
-        maxSelecoes: result.maxSelecoes || 0
-      };
-    }
-    return { setores: [], maxSelecoes: 0 };
-  } catch (e) {
-    console.error('Erro ao buscar setores:', e);
-    return { setores: [], maxSelecoes: 0 };
-  }
 }
 
 // ==================== CARREGAR SETORES PARA FORMULÁRIO ====================
