@@ -1940,6 +1940,7 @@ function renderQuestionsList() {
                     <span class="badge">#${idx+1}</span>
                     <span class="badge">${getTypeLabel(q.type)}</span>
                     ${q.condition?.dependsOn ? '<span class="badge-warning">🔗 Condicionada</span>' : ''}
+                    ${q.linkedToSectors ? '<span class="badge" style="background: #dbeafe; color: #2563eb;">🔗 Setores</span>' : ''}
                 </div>
                 <div style="display:flex;gap:4px;">
                     <button class="btn btn-sm" onclick="openConditionModal('${q.id}')" style="background:none;" title="Condição">🔗</button>
@@ -1979,24 +1980,46 @@ function renderQuestionsList() {
             ${(q.type === 'radio' || q.type === 'checkbox' || q.type === 'select') ? `
                 <div class="form-group">
                     <label class="label">Opções</label>
-                    ${q.options.map((opt, i) => `
-                        <div class="option-row">
-                            <input type="text" class="input" value="${escapeHtml(opt)}" onchange="updateOption('${q.id}', ${i}, this.value)">
-                            <button class="btn btn-sm" onclick="deleteOption('${q.id}', ${i})" style="background:none;">✕</button>
+                    ${q.linkedToSectors ? `
+                        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">
+                            🔗 Opções vinculadas aos setores selecionados abaixo.
                         </div>
-                    `).join('')}
-                    <button class="btn btn-sm" onclick="addOption('${q.id}')">➕ Opção</button>
+                    ` : `
+                        ${q.options.map((opt, i) => `
+                            <div class="option-row">
+                                <input type="text" class="input" value="${escapeHtml(opt)}" onchange="updateOption('${q.id}', ${i}, this.value)">
+                                <button class="btn btn-sm" onclick="deleteOption('${q.id}', ${i})" style="background:none;">✕</button>
+                            </div>
+                        `).join('')}
+                        <button class="btn btn-sm" onclick="addOption('${q.id}')">➕ Opção</button>
+                    `}
                 </div>
-                ${q.type === 'checkbox' ? `
-                    <div class="form-group">
-                        <label class="label">🔢 Limite máximo de seleções</label>
-                        <input type="number" class="input" value="${q.maxSelections || 0}" min="0" 
-                               onchange="updateQuestion('${q.id}', 'maxSelections', this.value)">
-                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                            💡 0 = sem limite | 1 = só uma opção | 2 = até duas opções
+                
+                <!-- 🆕 SEÇÃO DE VÍNCULO COM SETORES -->
+                <div style="margin-top: 12px; padding: 12px; background: var(--bg-elev-2); border-radius: 10px; border: 1px solid var(--border);">
+                    <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
+                        <input type="checkbox" ${q.linkedToSectors ? 'checked' : ''} 
+                               onchange="toggleSectorLink('${q.id}', this.checked)">
+                        🔗 Vincular a setores
+                    </label>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                        As opções serão preenchidas automaticamente com os setores configurados.
+                    </div>
+                    
+                    <div id="sector-selector-${q.id}" style="${q.linkedToSectors ? '' : 'display: none;'} margin-top: 12px;">
+                        <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">📌 Selecione os setores que aparecerão:</div>
+                        <div id="sector-options-${q.id}" style="display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow-y: auto; padding: 4px;">
+                            <!-- Preenchido pelo JavaScript -->
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <label class="label" style="font-size: 13px;">🔢 Máximo de seleções</label>
+                            <input type="number" class="input" value="${q.maxSelections || 0}" min="0" 
+                                   style="width: 100px; padding: 6px 12px;"
+                                   onchange="updateQuestion('${q.id}', 'maxSelections', this.value)">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">0 = sem limite</div>
                         </div>
                     </div>
-                ` : ''}
+                </div>
             ` : ''}
             
             <label class="checkbox-option" style="margin-top:12px;">
@@ -2014,8 +2037,16 @@ function renderQuestionsList() {
         </div>
     `).join('');
     
+    // Renderizar os seletores de setores para cada pergunta vinculada
+    formData.form.questions.forEach(q => {
+        if (q.linkedToSectors) {
+            setTimeout(() => renderSectorSelector(q.id), 50);
+        }
+    });
+    
     setTimeout(() => setupDragAndDrop(), 50);
 }
+
 function deleteQuestion(id) {
     const formData = getCurrentForm();
     if (!formData) return;
@@ -4742,6 +4773,147 @@ async function toggleLockForm(formId) {
 }
 
 // ==================== SETORES ====================
+
+// ==================== VINCULAR PERGUNTA A SETORES ====================
+
+// Alternar visibilidade do seletor de setores
+function toggleSectorLink(questionId, checked) {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const question = formData.form.questions.find(q => q.id === questionId);
+    if (!question) return;
+    
+    question.linkedToSectors = checked;
+    
+    if (checked) {
+        // Inicializar com setores salvos ou todos os setores ativos
+        if (!question.sectorIds || question.sectorIds.length === 0) {
+            const setores = formData.form.setores || [];
+            const setoresAtivos = setores.filter(s => s.ativo !== false);
+            question.sectorIds = setoresAtivos.map(s => s.setor);
+        }
+        // Se não tiver setores, tenta carregar
+        if (!question.sectorIds || question.sectorIds.length === 0) {
+            carregarSetoresParaPergunta(questionId);
+        }
+    } else {
+        question.sectorIds = [];
+        question.options = ['Opção 1', 'Opção 2'];
+        question.maxSelections = 0;
+    }
+    
+    saveData();
+    renderQuestionsList();
+    renderLivePreview();
+}
+
+// Carregar setores para uma pergunta específica
+async function carregarSetoresParaPergunta(questionId) {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const question = formData.form.questions.find(q => q.id === questionId);
+    if (!question) return;
+    
+    // Buscar setores do formData
+    const setores = formData.form.setores || [];
+    const setoresAtivos = setores.filter(s => s.ativo !== false);
+    
+    // Se não tiver setores salvos localmente, buscar da nuvem
+    if (setoresAtivos.length === 0) {
+        try {
+            const url = `${CONFIG.googleApiUrl}?acao=carregarSetores&nomeFormulario=${encodeURIComponent(formData.name)}`;
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            if (result.status === 'sucesso' && result.setores) {
+                const setoresNuvem = result.setores.filter(s => s.ativo !== false);
+                if (setoresNuvem.length > 0) {
+                    question.sectorIds = setoresNuvem.map(s => s.setor);
+                    formData.form.setores = result.setores;
+                    saveData();
+                }
+            }
+        } catch(e) {
+            console.error('Erro ao buscar setores:', e);
+        }
+    } else {
+        // Usar os setores locais
+        if (!question.sectorIds || question.sectorIds.length === 0) {
+            question.sectorIds = setoresAtivos.map(s => s.setor);
+        }
+    }
+    
+    // Atualizar as opções da pergunta
+    question.options = question.sectorIds || [];
+    saveData();
+    renderQuestionsList();
+}
+
+// Renderizar os checkboxes de seleção de setores
+function renderSectorSelector(questionId) {
+    const container = document.getElementById(`sector-options-${questionId}`);
+    if (!container) return;
+    
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const question = formData.form.questions.find(q => q.id === questionId);
+    if (!question) return;
+    
+    const setores = formData.form.setores || [];
+    const setoresAtivos = setores.filter(s => s.ativo !== false);
+    
+    // Se não tiver setores configurados, mostrar mensagem
+    if (setoresAtivos.length === 0) {
+        container.innerHTML = `
+            <div style="color: var(--text-muted); font-size: 13px; padding: 8px; text-align: center; background: var(--bg); border-radius: 8px;">
+                ℹ️ Nenhum setor configurado. Vá na aba "Aparência" para configurar.
+            </div>
+        `;
+        return;
+    }
+    
+    // Criar checkbox para cada setor
+    const sectorIds = question.sectorIds || [];
+    
+    container.innerHTML = setoresAtivos.map(s => `
+        <label style="display: flex; align-items: center; gap: 8px; padding: 4px 8px; cursor: pointer; border-radius: 6px; hover:background: var(--bg);">
+            <input type="checkbox" ${sectorIds.includes(s.setor) ? 'checked' : ''} 
+                   onchange="toggleSectorInQuestion('${questionId}', '${escapeHtml(s.setor)}', this.checked)">
+            <span>${escapeHtml(s.setor)}</span>
+            <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">${escapeHtml(s.email)}</span>
+        </label>
+    `).join('');
+}
+
+// Adicionar/remover setor da pergunta
+function toggleSectorInQuestion(questionId, sectorName, checked) {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const question = formData.form.questions.find(q => q.id === questionId);
+    if (!question) return;
+    
+    if (!question.sectorIds) question.sectorIds = [];
+    
+    if (checked) {
+        if (!question.sectorIds.includes(sectorName)) {
+            question.sectorIds.push(sectorName);
+        }
+    } else {
+        question.sectorIds = question.sectorIds.filter(s => s !== sectorName);
+    }
+    
+    // Atualizar as opções da pergunta
+    question.options = question.sectorIds || [];
+    saveData();
+    renderLivePreview();
+}
+
+// Modificar a função renderQuestionsList para incluir o seletor de setores
+// (vamos sobrescrever a função existente)
 
 // Adicionar uma nova linha de setor
 function adicionarSetor() {
