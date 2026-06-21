@@ -1977,50 +1977,54 @@ function renderQuestionsList() {
                 </div>
             ` : ''}
             
-            ${(q.type === 'radio' || q.type === 'checkbox' || q.type === 'select') ? `
-                <div class="form-group">
-                    <label class="label">Opções</label>
-                    ${q.linkedToSectors ? `
-                        <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">
-                            🔗 Opções vinculadas aos setores selecionados abaixo.
-                        </div>
-                    ` : `
-                        ${q.options.map((opt, i) => `
-                            <div class="option-row">
-                                <input type="text" class="input" value="${escapeHtml(opt)}" onchange="updateOption('${q.id}', ${i}, this.value)">
-                                <button class="btn btn-sm" onclick="deleteOption('${q.id}', ${i})" style="background:none;">✕</button>
-                            </div>
-                        `).join('')}
-                        <button class="btn btn-sm" onclick="addOption('${q.id}')">➕ Opção</button>
-                    `}
+${(q.type === 'radio' || q.type === 'checkbox' || q.type === 'select') ? `
+    <div class="form-group">
+        <label class="label">Opções</label>
+        ${q.linkedToSectors ? `
+            <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">
+                🔗 Opções vinculadas aos setores selecionados abaixo.
+            </div>
+        ` : `
+            ${q.options.map((opt, i) => `
+                <div class="option-row">
+                    <input type="text" class="input" value="${escapeHtml(opt)}" onchange="updateOption('${q.id}', ${i}, this.value)">
+                    <button class="btn btn-sm" onclick="deleteOption('${q.id}', ${i})" style="background:none;">✕</button>
                 </div>
-                
-                <!-- 🆕 SEÇÃO DE VÍNCULO COM SETORES -->
-                <div style="margin-top: 12px; padding: 12px; background: var(--bg-elev-2); border-radius: 10px; border: 1px solid var(--border);">
-                    <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
-                        <input type="checkbox" ${q.linkedToSectors ? 'checked' : ''} 
-                               onchange="toggleSectorLink('${q.id}', this.checked)">
-                        🔗 Vincular a setores
-                    </label>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                        As opções serão preenchidas automaticamente com os setores configurados.
-                    </div>
-                    
-                    <div id="sector-selector-${q.id}" style="${q.linkedToSectors ? '' : 'display: none;'} margin-top: 12px;">
-                        <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">📌 Selecione os setores que aparecerão:</div>
-                        <div id="sector-options-${q.id}" style="display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow-y: auto; padding: 4px;">
-                            <!-- Preenchido pelo JavaScript -->
-                        </div>
-                        <div style="margin-top: 8px;">
-                            <label class="label" style="font-size: 13px;">🔢 Máximo de seleções</label>
-                            <input type="number" class="input" value="${q.maxSelections || 0}" min="0" 
-                                   style="width: 100px; padding: 6px 12px;"
-                                   onchange="updateQuestion('${q.id}', 'maxSelections', this.value)">
-                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">0 = sem limite</div>
-                        </div>
-                    </div>
-                </div>
-            ` : ''}
+            `).join('')}
+            <button class="btn btn-sm" onclick="addOption('${q.id}')">➕ Opção</button>
+        `}
+    </div>
+    
+    <!-- 🔢 CAMPO DE MÁXIMO DE SELEÇÕES (AGORA FORA DO VÍNCULO) -->
+    ${q.type === 'checkbox' ? `
+        <div style="margin-top: 12px; padding: 12px; background: var(--bg-elev-2); border-radius: 10px; border: 1px solid var(--border);">
+            <label class="label" style="font-size: 13px;">🔢 Máximo de seleções</label>
+            <input type="number" class="input" value="${q.maxSelections || 0}" min="0" 
+                   style="width: 100px; padding: 6px 12px;"
+                   onchange="updateQuestion('${q.id}', 'maxSelections', this.value)">
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">0 = sem limite</div>
+        </div>
+    ` : ''}
+    
+    <!-- 🆕 SEÇÃO DE VÍNCULO COM SETORES (MANTIDA IGUAL) -->
+    <div style="margin-top: 12px; padding: 12px; background: var(--bg-elev-2); border-radius: 10px; border: 1px solid var(--border);">
+        <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
+            <input type="checkbox" ${q.linkedToSectors ? 'checked' : ''} 
+                   onchange="toggleSectorLink('${q.id}', this.checked)">
+            🔗 Vincular a setores
+        </label>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+            As opções serão preenchidas automaticamente com os setores configurados.
+        </div>
+        
+        <div id="sector-selector-${q.id}" style="${q.linkedToSectors ? '' : 'display: none;'} margin-top: 12px;">
+            <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">📌 Selecione os setores que aparecerão:</div>
+            <div id="sector-options-${q.id}" style="display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow-y: auto; padding: 4px;">
+                <!-- Preenchido pelo JavaScript -->
+            </div>
+        </div>
+    </div>
+` : ''}
             
             <label class="checkbox-option" style="margin-top:12px;">
                 <input type="checkbox" ${q.required ? 'checked' : ''} onchange="updateQuestion('${q.id}', 'required', this.checked)">
