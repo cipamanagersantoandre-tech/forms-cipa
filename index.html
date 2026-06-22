@@ -2194,21 +2194,39 @@ function renderLivePreview() {
     if (!container || !formData) return;
     const f = formData.form;
     
-    // 🔥 APLICA A COR DO FORMULÁRIO NO PREVIEW
+    // Aplica a cor do formulário no preview
     const corForm = f.theme?.primary || '#4f46e5';
     container.style.setProperty('--primary', corForm);
     container.style.setProperty('--primary-hover', corForm);
     
+    // Layout igual ao formulário público real
     container.innerHTML = `
-        ${f.banner ? `<div class="banner-preview"><img src="${f.banner}" alt="Banner"></div>` : ''}
-        <h2 class="form-title">${escapeHtml(f.title)}</h2>
-        ${f.subtitle ? `<p class="form-subtitle">${escapeHtml(f.subtitle)}</p>` : ''}
-        ${f.description ? `<div style="color:var(--text-muted);margin-bottom:24px;">${escapeHtml(f.description)}</div>` : ''}
-        <form id="dynamic-preview-form" onsubmit="return false;">
-            <div id="dynamic-questions-container"></div>
-            <button type="button" class="btn btn-primary" onclick="submitDynamicPreview()" style="width:100%;justify-content:center;margin-top:20px;">📤 Enviar resposta</button>
-        </form>
-        ${f.footer ? `<div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border);text-align:center;font-size:13px;">${escapeHtml(f.footer)}</div>` : ''}
+        <div class="preview-card" style="background: var(--bg-elev); border-radius: 16px; padding: 24px; border: 1px solid var(--border); max-width: 600px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+            ${f.banner ? `<div class="banner-preview"><img src="${f.banner}" alt="Banner" style="width:100%; border-radius:12px;"></div>` : ''}
+            <h2 style="font-size: 24px; margin-bottom: 8px; margin-top: ${f.banner ? '20px' : '0'};">${escapeHtml(f.title || formData.name)}</h2>
+            ${f.subtitle ? `<p style="color: var(--text-muted); margin-bottom: 16px;">${escapeHtml(f.subtitle)}</p>` : ''}
+            ${f.description ? `<div style="margin-bottom: 24px; color: var(--text-muted);">${escapeHtml(f.description)}</div>` : ''}
+            
+            <form id="dynamic-preview-form" onsubmit="return false;">
+                <div id="dynamic-questions-container"></div>
+                <button type="button" class="btn btn-primary" id="dynamic-submit-btn" onclick="submitDynamicPreview()" style="width:100%;justify-content:center;margin-top:24px;padding:14px;font-size:16px;">
+                    📤 Enviar resposta
+                </button>
+            </form>
+            
+            ${f.footer ? `<div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--text-muted);">${escapeHtml(f.footer)}</div>` : ''}
+        </div>
+        
+        <!-- Tela de agradecimento (escondida inicialmente) -->
+        <div id="dynamic-thankyou" class="thankyou-screen" style="display: none; max-width: 600px; margin: 0 auto;">
+            <div class="thankyou-icon">🎉</div>
+            <div class="thankyou-title">Resposta enviada!</div>
+            <div class="thankyou-message">Teste concluído com sucesso. Obrigado por testar seu formulário!</div>
+            <div class="thankyou-buttons">
+                <button class="btn" onclick="resetDynamicPreview()">📝 Testar novamente</button>
+                <button class="btn btn-primary" onclick="resetDynamicPreview()">✕ Fechar</button>
+            </div>
+        </div>
     `;
     setupDynamicPreview();
 }
@@ -2234,20 +2252,23 @@ function setupDynamicPreview() {
             }
         });
 
-        const visible = formData.form.questions.filter(q => {
-            if (!q.condition?.dependsOn) return true;
-            const dep = answers[q.condition.dependsOn];
-            if (!dep) return false;
-            
-            const expectedValue = q.condition.expectedValue;
-            const valoresEsperados = expectedValue.split(',').map(v => v.trim());
-            
-            if (Array.isArray(dep)) {
-                return dep.some(valor => valoresEsperados.includes(valor));
-            } else {
-                return valoresEsperados.includes(dep);
-            }
-        });
+const visible = formData.form.questions.filter(q => {
+    if (!q.condition?.dependsOn) return true;
+    const dep = answers[q.condition.dependsOn];
+    if (!dep) return false;
+    
+    // 🔥 NOVO: Suporte para múltiplos valores separados por vírgula
+    const expectedValue = q.condition.expectedValue;
+    const valoresEsperados = expectedValue.split(',').map(v => v.trim());
+    
+    if (Array.isArray(dep)) {
+        // Para checkbox: verifica se alguma opção marcada está na lista de valores esperados
+        return dep.some(valor => valoresEsperados.includes(valor));
+    } else {
+        // Para outros tipos: verifica se o valor está na lista
+        return valoresEsperados.includes(dep);
+    }
+});
 
         container.innerHTML = visible.map(q => `
             <div class="form-group" data-qid="${q.id}">
@@ -2255,10 +2276,6 @@ function setupDynamicPreview() {
                 ${renderDynamicInput(q)}
             </div>
         `).join('');
-        
-        // 🔥 INICIALIZAR ESCALAS NO PREVIEW DINÂMICO
-        initDynamicScales();
-        
         attach();
     }
     
@@ -2272,157 +2289,380 @@ function setupDynamicPreview() {
             inp.addEventListener('input', updateQuestions);
         });
     }
-    updateQuestions();
+        updateQuestions();
+    
+    // 🔥 NOVA LINHA - Inicializar escalas e eventos de clique
+    setTimeout(() => initDynamicScales(), 100);
 }
 
-// 🔥 FUNÇÃO PARA INICIALIZAR ESCALAS NO PREVIEW DINÂMICO
+// Inicializar escalas na prévia dinâmica
 function initDynamicScales() {
+    document.querySelectorAll('.dynamic-scale-container').forEach(container => {
+        const labels = container.querySelectorAll('.dynamic-scale-option');
+        const name = container.getAttribute('data-name');
+        
+        labels.forEach(label => {
+            // Remove evento antigo (se existir)
+            label.removeEventListener('click', dynamicScaleHandler);
+            // Adiciona novo evento
+            label.addEventListener('click', dynamicScaleHandler);
+        });
+    });
+    
+    // Também configurar os radio options para disparar evento change
+    document.querySelectorAll('#dynamic-preview-form input, #dynamic-preview-form select, #dynamic-preview-form textarea').forEach(inp => {
+        inp.removeEventListener('change', triggerDynamicUpdate);
+        inp.addEventListener('change', triggerDynamicUpdate);
+        inp.removeEventListener('input', triggerDynamicUpdate);
+        inp.addEventListener('input', triggerDynamicUpdate);
+    });
+}
+
+// Handler para clique nas escalas
+function dynamicScaleHandler(e) {
+    const label = e.currentTarget;
+    const container = label.closest('.dynamic-scale-container');
+    const radio = label.querySelector('input[type="radio"]');
+    
+    if (radio) {
+        radio.checked = true;
+        
+        // Resetar todos os labels do mesmo container
+        container.querySelectorAll('.dynamic-scale-option').forEach(l => {
+            l.style.background = 'var(--bg)';
+            l.style.borderColor = 'var(--border)';
+            l.style.color = 'var(--text)';
+        });
+        
+        // Destacar o selecionado
+        label.style.background = 'var(--primary-light)';
+        label.style.borderColor = 'var(--primary)';
+        label.style.color = 'var(--primary)';
+        
+        // Disparar evento change para atualizar condições
+        const changeEvent = new Event('change', { bubbles: true });
+        radio.dispatchEvent(changeEvent);
+    }
+}
+
+// Handler para clique nos radios normais
+function dynamicRadioSelect(label, radioName) {
+    const radio = label.querySelector('input[type="radio"]');
+    if (radio) {
+        radio.checked = true;
+        
+        // Resetar estilo dos labels irmãos
+        const container = label.parentElement;
+        container.querySelectorAll('.radio-option').forEach(l => {
+            l.style.background = 'var(--bg)';
+            l.style.borderColor = 'var(--border)';
+        });
+        
+        // Destacar o selecionado
+        label.style.background = 'var(--primary-light)';
+        label.style.borderColor = 'var(--primary)';
+        
+        // Disparar evento change
+        const changeEvent = new Event('change', { bubbles: true });
+        radio.dispatchEvent(changeEvent);
+    }
+}
+
+// Handler para checkbox
+function dynamicCheckboxToggle(label) {
+    const checkbox = label.querySelector('input[type="checkbox"]');
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        
+        // Destacar visualmente se marcado
+        if (checkbox.checked) {
+            label.style.background = 'var(--primary-light)';
+            label.style.borderColor = 'var(--primary)';
+        } else {
+            label.style.background = 'var(--bg)';
+            label.style.borderColor = 'var(--border)';
+        }
+        
+        // Disparar evento change
+        const changeEvent = new Event('change', { bubbles: true });
+        checkbox.dispatchEvent(changeEvent);
+    }
+}
+
+// Gatilho para atualizar condições quando algo muda
+function triggerDynamicUpdate() {
+    // Chama a função update que está dentro de setupDynamicPreview
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    const container = document.getElementById('dynamic-questions-container');
+    if (!container) return;
+    
+    // Reexecuta a lógica de visibilidade das condições
     const form = document.getElementById('dynamic-preview-form');
     if (!form) return;
     
-    form.querySelectorAll('.scale-container').forEach(container => {
-        const radios = container.querySelectorAll('input[type="radio"]');
-        const labels = container.querySelectorAll('.scale-option');
-        
-        labels.forEach(label => {
-            label.removeEventListener('click', dynamicScaleClickHandler);
-            label.addEventListener('click', dynamicScaleClickHandler);
-        });
-        
-        function dynamicScaleClickHandler(e) {
-            const label = e.currentTarget;
-            const radio = label.querySelector('input[type="radio"]');
-            if (radio) {
-                radio.checked = true;
-                // Resetar todos os estilos
-                labels.forEach(l => {
-                    l.style.background = 'var(--bg)';
-                    l.style.borderColor = 'var(--border)';
-                });
-                // Destacar o selecionado
-                label.style.background = 'var(--primary-light)';
-                label.style.borderColor = 'var(--primary)';
-                
-                // Disparar evento change para condições
-                const changeEvent = new Event('change', { bubbles: true });
-                radio.dispatchEvent(changeEvent);
-            }
+    const answers = {};
+    form.querySelectorAll('input, select, textarea').forEach(inp => {
+        if (inp.name?.startsWith('q_')) {
+            const qid = inp.name.replace('q_', '');
+            if (inp.type === 'radio' && inp.checked) answers[qid] = inp.value;
+            else if (inp.type === 'checkbox') {
+                if (!answers[qid]) answers[qid] = [];
+                if (inp.checked) answers[qid].push(inp.value);
+            } else if (inp.type !== 'radio') answers[qid] = inp.value;
         }
     });
+    
+    const visible = formData.form.questions.filter(q => {
+        if (!q.condition?.dependsOn) return true;
+        const dep = answers[q.condition.dependsOn];
+        if (!dep) return false;
+        const expectedValue = q.condition.expectedValue;
+        const valoresEsperados = expectedValue.split(',').map(v => v.trim());
+        if (Array.isArray(dep)) return dep.some(valor => valoresEsperados.includes(valor));
+        return valoresEsperados.includes(String(dep));
+    });
+    
+    container.innerHTML = visible.map(q => `
+        <div class="form-group" data-dynamic-qid="${q.id}" style="margin-bottom: 20px;">
+            <label class="label" style="font-weight: 600; margin-bottom: 8px; display: block;">
+                ${escapeHtml(q.title)}${q.required ? '<span style="color: var(--error); margin-left: 4px;">*</span>' : ''}
+            </label>
+            ${renderDynamicInput(q)}
+        </div>
+    `).join('');
+    
+    // Reinicializar escalas e eventos
+    setTimeout(() => initDynamicScales(), 50);
 }
+
 
 function renderDynamicInput(q) {
     const name = `q_${q.id}`;
     switch (q.type) {
-        case 'text': return `<input type="text" class="input" name="${name}" placeholder="...">`;
-        case 'email': return `<input type="email" class="input" name="${name}" placeholder="...">`;
-        case 'number': return `<input type="number" class="input" name="${name}" placeholder="...">`;
-        case 'textarea': return `<textarea class="textarea" name="${name}" placeholder="..."></textarea>`;
-        case 'radio': return `<div class="radio-group">${q.options.map(opt => `<label class="radio-option"><input type="radio" name="${name}" value="${escapeHtml(opt)}"><span>${escapeHtml(opt)}</span></label>`).join('')}</div>`;
-        case 'checkbox': return `<div class="checkbox-group">${q.options.map(opt => `<label class="checkbox-option"><input type="checkbox" name="${name}" value="${escapeHtml(opt)}"><span>${escapeHtml(opt)}</span></label>`).join('')}</div>`;
-        case 'select': return `<select class="select" name="${name}"><option value="">Selecione...</option>${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}</select>`;
-        case 'date': return `<input type="date" class="input" name="${name}">`;
-        case 'time': return `<input type="time" class="input" name="${name}">`;
-        case 'scale': return `<div style="display:flex;gap:12px;">${[1,2,3,4,5].map(n => `<label style="flex:1;text-align:center;padding:12px;background:var(--bg);border-radius:10px;border:1px solid var(--border);cursor:pointer;" onclick="this.querySelector('input').checked=true; this.style.background='var(--primary-light)'; this.style.borderColor='var(--primary)';">${n}<input type="radio" name="${name}" value="${n}" style="display:none;"></label>`).join('')}</div>`;
-        default: return `<input type="text" class="input" name="${name}" placeholder="...">`;
+        case 'text': return `<input type="text" class="input" name="${name}" placeholder="..." style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'email': return `<input type="email" class="input" name="${name}" placeholder="..." style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'number': return `<input type="number" class="input" name="${name}" placeholder="..." style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'textarea': return `<textarea class="textarea" name="${name}" placeholder="..." style="width:100%; padding: 14px; font-size: 16px; min-height: 100px;"></textarea>`;
+        
+        case 'radio': 
+            return `<div class="radio-group">${q.options.map(opt => `
+                <label class="radio-option" style="display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; background: var(--bg);" 
+                       onclick="dynamicRadioSelect(this, '${name}')">
+                    <input type="radio" name="${name}" value="${escapeHtml(opt)}" style="accent-color: var(--primary); width: 18px; height: 18px;"> 
+                    <span style="font-size: 16px;">${escapeHtml(opt)}</span>
+                </label>
+            `).join('')}</div>`;
+        
+        case 'checkbox': 
+            return `<div class="checkbox-group">${q.options.map(opt => `
+                <label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; background: var(--bg);" 
+                       onclick="dynamicCheckboxToggle(this)">
+                    <input type="checkbox" name="${name}" value="${escapeHtml(opt)}" style="accent-color: var(--primary); width: 18px; height: 18px;"> 
+                    <span style="font-size: 16px;">${escapeHtml(opt)}</span>
+                </label>
+            `).join('')}</div>`;
+        
+        case 'select': 
+            return `<select class="select" name="${name}" style="width:100%; padding: 14px; font-size: 16px;">
+                <option value="">Selecione...</option>
+                ${q.options.map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
+            </select>`;
+        
+        case 'scale': 
+            return `<div class="dynamic-scale-container" data-name="${name}" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                ${[1,2,3,4,5].map(n => `
+                    <label class="dynamic-scale-option" style="flex: 1; text-align: center; padding: 14px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; font-size: 16px; font-weight: 600;" 
+                           data-value="${n}">
+                        ${n}
+                        <input type="radio" name="${name}" value="${n}" style="display: none;">
+                    </label>
+                `).join('')}
+            </div>`;
+        
+        case 'date': return `<input type="date" class="input" name="${name}" style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'time': return `<input type="time" class="input" name="${name}" style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'info': return `<div style="background: var(--bg-elev-2); padding: 16px; border-radius: 10px; border-left: 4px solid var(--primary); font-size: 14px; line-height: 1.6;">${q.infoContent || ''}</div>`;
+        default: return `<input type="text" class="input" name="${name}" placeholder="..." style="width:100%; padding: 14px; font-size: 16px;">`;
     }
 }
 
 async function submitDynamicPreview() {
-    const btn = document.querySelector('#live-preview .btn-primary');
-    if (!btn) return;
-    
     const formData = getCurrentForm();
     if (!formData) return;
     const form = document.getElementById('dynamic-preview-form');
     if (!form) return;
     
-    // Mostrar loading no botão
-    const textoOriginal = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Enviando...';
+    // Limpar erros visuais anteriores
+    limparErrosDinamicos();
     
-    try {
-        const fd = new FormData(form);
-        const response = { 
-            id: generateId(), 
-            timestamp: new Date().toISOString(), 
-            data: {} 
-        };
-        let hasError = false;
+    const fd = new FormData(form);
+    const response = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
+    let temErro = false;
+    let primeiroCampoComErro = null;
+    
+    const visible = getVisibleQuestionsFromPreview(form, formData);
+    
+    for (const q of visible) {
+        const name = `q_${q.id}`;
+        let val = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
         
-        // Pegar apenas as perguntas visíveis no momento
-        const visibleQuestions = [];
-        const container = document.getElementById('dynamic-questions-container');
-        if (container) {
-            const qids = Array.from(container.querySelectorAll('.form-group')).map(el => el.getAttribute('data-qid'));
-            for (const q of formData.form.questions) {
-                if (qids.includes(q.id)) {
-                    visibleQuestions.push(q);
-                }
+        if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
+            // Marcar campo com erro visual
+            marcarErroDinamico(q.id, `Por favor, responda: ${q.title}`);
+            temErro = true;
+            if (!primeiroCampoComErro) {
+                primeiroCampoComErro = document.querySelector(`[data-dynamic-qid="${q.id}"]`);
             }
+            // Não para no primeiro erro - marca todos
         }
-        
-        // Validar e coletar respostas
-        for (const q of visibleQuestions) {
-            const name = `q_${q.id}`;
-            let val = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
-            
-            if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
-                showToast(`Por favor, responda: ${q.title}`, 'error');
-                hasError = true;
-                break;
-            }
-            response.data[q.id] = val || '';
-        }
-        
-        if (!hasError) {
-            // Salvar a resposta
-            if (!formData.responses) formData.responses = [];
-            formData.responses.push(response);
-            saveData();
-            
-            // 🔥 SALVAR NA NUVEM (Google Sheets)
-            try {
-                // Preparar os dados para enviar ao Google Sheets
-                const respostasArray = formData.form.questions.map(q => {
-                    let val = response.data[q.id] || '';
-                    if (Array.isArray(val)) val = val.join(', ');
-                    return val;
-                });
-                
-                const dadosCompletos = [new Date().toISOString(), ...respostasArray];
-                const cabecalhos = JSON.stringify(['Data/Hora', ...formData.form.questions.map(q => q.title)]);
-                
-                const urlSalvar = `${CONFIG.googleApiUrl}?acao=salvarResposta&nomeFormulario=${encodeURIComponent(formData.name)}&dados=${encodeURIComponent(JSON.stringify(dadosCompletos))}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-                
-                await fetch(urlSalvar);
-                console.log('✅ Resposta salva no Google Sheets');
-            } catch (erroSheets) {
-                console.error('Erro ao salvar no Sheets:', erroSheets);
-            }
-            
-            // Mostrar confetti e mensagem de sucesso
-            createConfetti();
-            showToast('🎉 Resposta enviada com sucesso!', 'success');
-            
-            // Limpar o formulário
-            form.reset();
-            
-            // Restaurar o preview
-            setupDynamicPreview();
-            
-            // Recarregar a lista de perguntas para atualizar contadores
-            renderQuestionsList();
-        }
-        
-    } catch (erro) {
-        console.error('Erro:', erro);
-        showToast('❌ Erro ao enviar resposta', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = textoOriginal;
+        response.data[q.id] = val || '';
     }
+    
+    if (temErro) {
+        // Rolar até o primeiro campo com erro
+        if (primeiroCampoComErro) {
+            primeiroCampoComErro.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        showToast('⚠️ Preencha todos os campos obrigatórios', 'error');
+        return;
+    }
+    
+    // === ENVIO COM SUCESSO ===
+    const btn = document.getElementById('dynamic-submit-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Enviando...';
+    }
+    
+    // Simular barra de progresso
+    await simularProgressoDinamico();
+    
+    // Salvar resposta
+    if (!formData.responses) formData.responses = [];
+    formData.responses.push(response);
+    saveData();
+    
+    // Esconder o formulário e mostrar agradecimento
+    const previewCard = document.querySelector('#live-preview .preview-card');
+    const thankyou = document.getElementById('dynamic-thankyou');
+    
+    if (previewCard) previewCard.style.display = 'none';
+    if (thankyou) thankyou.style.display = 'flex';
+    
+    // Confetes!
+    createConfetti();
+    showToast('✅ Teste enviado com sucesso!', 'success');
+}
+
+// ========== FUNÇÕES AUXILIARES NOVAS ==========
+
+// Limpar todos os erros visuais
+function limparErrosDinamicos() {
+    document.querySelectorAll('#dynamic-preview-form .input, #dynamic-preview-form .textarea, #dynamic-preview-form .select').forEach(el => {
+        el.style.borderColor = '';
+        el.style.boxShadow = '';
+    });
+    document.querySelectorAll('#dynamic-preview-form .radio-group, #dynamic-preview-form .checkbox-group').forEach(el => {
+        el.style.border = '';
+        el.style.borderRadius = '';
+        el.style.padding = '';
+    });
+    document.querySelectorAll('.dynamic-error-msg').forEach(el => el.remove());
+}
+
+// Marcar campo com erro visual
+function marcarErroDinamico(questionId, mensagem) {
+    const container = document.querySelector(`[data-dynamic-qid="${questionId}"]`);
+    if (!container) return;
+    
+    // Marcar inputs dentro do container
+    const inputs = container.querySelectorAll('.input, .textarea, .select');
+    inputs.forEach(inp => {
+        inp.style.borderColor = 'var(--error)';
+        inp.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.15)';
+    });
+    
+    // Marcar grupos de radio/checkbox
+    const grupos = container.querySelectorAll('.radio-group, .checkbox-group');
+    grupos.forEach(g => {
+        g.style.border = '2px solid var(--error)';
+        g.style.borderRadius = '10px';
+        g.style.padding = '8px';
+    });
+    
+    // Adicionar mensagem de erro (se não existir)
+    if (!container.querySelector('.dynamic-error-msg')) {
+        const erroMsg = document.createElement('div');
+        erroMsg.className = 'dynamic-error-msg';
+        erroMsg.style.cssText = 'color: var(--error); font-size: 12px; margin-top: 6px; font-weight: 500;';
+        erroMsg.textContent = mensagem;
+        container.appendChild(erroMsg);
+    }
+}
+
+// Simular barra de progresso durante o envio
+async function simularProgressoDinamico() {
+    const etapas = [
+        { pct: 25, msg: 'Validando respostas...', delay: 300 },
+        { pct: 50, msg: 'Salvando dados...', delay: 400 },
+        { pct: 75, msg: 'Processando...', delay: 300 },
+        { pct: 90, msg: 'Finalizando...', delay: 200 },
+        { pct: 100, msg: '✅ Concluído!', delay: 300 }
+    ];
+    
+    // Criar barra de progresso temporária
+    const progressBar = document.createElement('div');
+    progressBar.id = 'dynamic-progress-bar';
+    progressBar.style.cssText = `
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        background: var(--bg-elev); border-radius: 12px; padding: 16px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 3000;
+        border: 1px solid var(--border); width: 90%; max-width: 400px;
+    `;
+    progressBar.innerHTML = `
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;">
+            <span style="font-weight:600;color:var(--primary);">📤 Enviando teste...</span>
+            <span style="color:var(--text-muted);" id="dynamic-progress-pct">0%</span>
+        </div>
+        <div style="background:var(--bg-elev-2);border-radius:20px;height:8px;overflow:hidden;">
+            <div id="dynamic-progress-fill" style="background:linear-gradient(90deg,var(--primary),#8b5cf6);width:0%;height:100%;border-radius:20px;transition:width 0.3s;"></div>
+        </div>
+        <div id="dynamic-progress-status" style="margin-top:8px;font-size:12px;color:var(--text-muted);text-align:center;">Preparando...</div>
+    `;
+    document.body.appendChild(progressBar);
+    
+    for (const etapa of etapas) {
+        await new Promise(r => setTimeout(r, etapa.delay));
+        document.getElementById('dynamic-progress-pct').textContent = etapa.pct + '%';
+        document.getElementById('dynamic-progress-fill').style.width = etapa.pct + '%';
+        document.getElementById('dynamic-progress-status').textContent = etapa.msg;
+    }
+    
+    await new Promise(r => setTimeout(r, 400));
+    if (progressBar.parentNode) progressBar.remove();
+}
+
+// Resetar preview dinâmica (voltar ao formulário)
+function resetDynamicPreview() {
+    const previewCard = document.querySelector('#live-preview .preview-card');
+    const thankyou = document.getElementById('dynamic-thankyou');
+    const form = document.getElementById('dynamic-preview-form');
+    
+    if (previewCard) previewCard.style.display = '';
+    if (thankyou) thankyou.style.display = 'none';
+    if (form) form.reset();
+    
+    // Limpar erros visuais
+    limparErrosDinamicos();
+    
+    // Reconfigurar preview
+    setupDynamicPreview();
+    
+    // Scroll para o topo do preview
+    const livePreview = document.getElementById('live-preview');
+    if (livePreview) livePreview.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function getVisibleQuestionsFromPreview(form, formData) {
@@ -5178,7 +5418,7 @@ if (setores.length === 0) {
     if (!confirm('⚠️ Você está removendo TODOS os setores. Deseja continuar?')) {
         return;
     }
-    // Continua para salvar vazio
+    // Continua para salvar vazio  
 }
     
     // Salvar no formData (local)
