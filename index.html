@@ -4650,6 +4650,9 @@ function renderizarArvore() {
         return;
     }
     
+    // 🔥 PEGAR AS CORES SALVAS
+    const opcaoCores = formData.form.opcaoCores || {};
+    
     // Identificar a pergunta principal (primeira sem condição ou a primeira da lista)
     let perguntaPrincipal = null;
     let indicePrincipal = -1;
@@ -4664,18 +4667,18 @@ function renderizarArvore() {
     }
     
     // Construir a estrutura em árvore
-    let html = `<div class="arvore-container" style="font-family: monospace; font-size: 14px;">`;
+    let html = `<div class="arvore-container" style="font-family: system-ui; font-size: 14px;">`;
     
     if (perguntaPrincipal) {
         // Mostrar a pergunta principal
         html += `
             <div class="arvore-item arvore-root" data-qid="${perguntaPrincipal.id}" data-indice="${indicePrincipal}" style="margin-bottom: 16px;">
-                <div class="arvore-header" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--primary-light); border-radius: 8px; margin-bottom: 8px;">
+                <div class="arvore-header" style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--primary-light); border-radius: 10px; margin-bottom: 12px;">
                     <span class="drag-handle-arvore" draggable="true" data-qid="${perguntaPrincipal.id}" data-tipo="pergunta" style="cursor: grab; padding: 4px 8px; background: var(--bg-elev-2); border-radius: 6px;">⋮⋮</span>
-                    <span style="font-weight: bold;">📌 ${escapeHtml(perguntaPrincipal.title)}</span>
-                    ${perguntaPrincipal.type === 'radio' || perguntaPrincipal.type === 'select' ? '<span style="font-size: 11px; color: var(--text-muted);">(pergunta com opções)</span>' : ''}
+                    <span style="font-weight: bold; font-size: 15px;">📌 ${escapeHtml(perguntaPrincipal.title)}</span>
+                    ${perguntaPrincipal.type === 'radio' || perguntaPrincipal.type === 'select' || perguntaPrincipal.type === 'checkbox' ? '<span style="font-size: 11px; color: var(--text-muted); background: var(--bg); padding: 2px 8px; border-radius: 10px;">(pergunta com opções)</span>' : ''}
                 </div>
-                <div class="arvore-filhos" style="margin-left: 24px; border-left: 2px solid var(--border); padding-left: 16px;">
+                <div class="arvore-filhos" style="margin-left: 20px; border-left: 2px solid var(--border); padding-left: 20px;">
         `;
         
         // Agrupar perguntas por condição (opção esperada)
@@ -4705,29 +4708,31 @@ function renderizarArvore() {
             }
         }
         
-        // Renderizar cada opção como um bloco
+        // Renderizar cada opção como um bloco COM A COR ESCOLHIDA
         for (const opcao of opcoesDaPrincipal) {
             const perguntasDoBloco = perguntasPorOpcao[opcao] || [];
+            const corBloco = opcaoCores[opcao] || '#f1f5f9';
             
             html += `
-                <div class="arvore-bloco" data-opcao="${escapeHtml(opcao)}" data-pergunta-mãe="${perguntaPrincipal.id}" style="margin-bottom: 20px;">
-                    <div class="arvore-bloco-header" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg-elev-2); border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--primary);">
+                <div class="arvore-bloco" data-opcao="${escapeHtml(opcao)}" data-pergunta-mãe="${perguntaPrincipal.id}" style="margin-bottom: 20px; background: ${corBloco}; border-radius: 12px; padding: 12px; border-left: 5px solid ${corBloco};">
+                    <div class="arvore-bloco-header" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.6); border-radius: 8px; margin-bottom: 10px;">
                         <span class="drag-handle-bloco" draggable="true" data-opcao="${escapeHtml(opcao)}" data-tipo="bloco" style="cursor: grab; padding: 4px 8px; background: var(--bg-elev); border-radius: 6px;">⋮⋮</span>
+                        <span style="display: inline-block; width: 16px; height: 16px; border-radius: 4px; background: ${corBloco}; border: 2px solid rgba(0,0,0,0.15); flex-shrink: 0;"></span>
                         <span style="font-weight: 600;">📍 ${escapeHtml(opcao)}</span>
                         <span style="font-size: 11px; color: var(--text-muted);">(${perguntasDoBloco.length} perguntas)</span>
                     </div>
-                    <div class="arvore-bloco-perguntas" style="margin-left: 32px;">
+                    <div class="arvore-bloco-perguntas" style="margin-left: 12px;">
             `;
             
             if (perguntasDoBloco.length === 0) {
-                html += `<div style="padding: 8px; color: var(--text-muted); font-style: italic; font-size: 12px;">— Nenhuma pergunta vinculada a esta opção —</div>`;
+                html += `<div style="padding: 12px; color: var(--text-muted); font-style: italic; font-size: 13px; background: rgba(255,255,255,0.5); border-radius: 8px;">— Nenhuma pergunta vinculada a esta opção —</div>`;
             } else {
                 for (const pergunta of perguntasDoBloco) {
                     html += `
-                        <div class="arvore-pergunta" data-qid="${pergunta.id}" data-indice="${pergunta.indice}" data-opcao="${escapeHtml(opcao)}" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 4px 0; background: var(--bg); border-radius: 6px; border: 1px solid var(--border);">
+                        <div class="arvore-pergunta" data-qid="${pergunta.id}" data-indice="${pergunta.indice}" data-opcao="${escapeHtml(opcao)}" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 6px 0; background: rgba(255,255,255,0.8); border-radius: 8px; border: 1px solid rgba(0,0,0,0.08);">
                             <span class="drag-handle-pergunta" draggable="true" data-qid="${pergunta.id}" data-tipo="pergunta" data-opcao-atual="${escapeHtml(opcao)}" style="cursor: grab; padding: 4px 8px; background: var(--bg-elev-2); border-radius: 6px;">⋮⋮</span>
                             <span style="flex: 1;">❓ ${escapeHtml(pergunta.title)}</span>
-                            <span style="font-size: 11px; color: var(--text-muted); background: var(--bg-elev-2); padding: 2px 6px; border-radius: 10px;">${pergunta.type === 'radio' ? 'Escolha' : pergunta.type === 'text' ? 'Texto' : pergunta.type === 'textarea' ? 'Texto longo' : pergunta.type === 'checkbox' ? 'Múltipla' : pergunta.type === 'select' ? 'Menu' : pergunta.type === 'scale' ? 'Nota 1-5' : pergunta.type === 'date' ? 'Data' : pergunta.type === 'time' ? 'Hora' : pergunta.type}</span>
+                            <span style="font-size: 11px; color: var(--text-muted); background: var(--bg); padding: 3px 8px; border-radius: 10px;">${pergunta.type === 'radio' ? 'Escolha' : pergunta.type === 'text' ? 'Texto' : pergunta.type === 'textarea' ? 'Texto longo' : pergunta.type === 'checkbox' ? 'Múltipla' : pergunta.type === 'select' ? 'Menu' : pergunta.type === 'scale' ? 'Nota 1-5' : pergunta.type === 'date' ? 'Data' : pergunta.type === 'time' ? 'Hora' : pergunta.type === 'info' ? 'Informativo' : pergunta.type}</span>
                         </div>
                     `;
                 }
@@ -4743,16 +4748,16 @@ function renderizarArvore() {
         const orfas = perguntasPorOpcao['*sem-condicao*'] || [];
         if (orfas.length > 0) {
             html += `
-                <div class="arvore-bloco" data-opcao="*sem-condicao*" style="margin-bottom: 20px; opacity: 0.7;">
-                    <div class="arvore-bloco-header" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: var(--bg-elev-2); border-radius: 8px; margin-bottom: 8px; border-left: 4px solid var(--warning);">
+                <div class="arvore-bloco" data-opcao="*sem-condicao*" style="margin-bottom: 20px; opacity: 0.8; background: #fefce8; border-radius: 12px; padding: 12px; border-left: 5px solid var(--warning);">
+                    <div class="arvore-bloco-header" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: rgba(255,255,255,0.6); border-radius: 8px; margin-bottom: 10px;">
                         <span style="font-weight: 600;">⚠️ Sem condição definida</span>
                         <span style="font-size: 11px;">(não aparecem automaticamente)</span>
                     </div>
-                    <div class="arvore-bloco-perguntas" style="margin-left: 32px;">
+                    <div class="arvore-bloco-perguntas" style="margin-left: 12px;">
             `;
             for (const pergunta of orfas) {
                 html += `
-                    <div class="arvore-pergunta" data-qid="${pergunta.id}" data-indice="${pergunta.indice}" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 4px 0; background: var(--bg); border-radius: 6px; border: 1px solid var(--border);">
+                    <div class="arvore-pergunta" data-qid="${pergunta.id}" data-indice="${pergunta.indice}" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 6px 0; background: rgba(255,255,255,0.8); border-radius: 8px; border: 1px solid rgba(0,0,0,0.08);">
                         <span class="drag-handle-pergunta" draggable="true" data-qid="${pergunta.id}" data-tipo="pergunta" data-opcao-atual="*sem-condicao*" style="cursor: grab; padding: 4px 8px; background: var(--bg-elev-2); border-radius: 6px;">⋮⋮</span>
                         <span style="flex: 1;">❓ ${escapeHtml(pergunta.title)}</span>
                         <span style="font-size: 11px; color: var(--warning);">(sem condição)</span>
