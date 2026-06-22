@@ -1970,6 +1970,27 @@ function renderQuestionsList() {
     const formData = getCurrentForm();
     const container = document.getElementById('questions-list');
     const empty = document.getElementById('empty-questions');
+    
+    // Inicializar opcaoCores no formData se não existir
+    if (!formData.form.opcaoCores) {
+        formData.form.opcaoCores = {};
+    }
+    const opcaoCores = formData.form.opcaoCores;
+    
+    // Procurar a primeira pergunta de múltipla escolha (radio/select/checkbox)
+    const perguntaPrincipal = formData.form.questions.find(q => 
+        q.type === 'radio' || q.type === 'select' || q.type === 'checkbox'
+    );
+    
+    // Garantir que todas as opções tenham entrada no opcaoCores (cor padrão = cinza claro)
+    if (perguntaPrincipal && perguntaPrincipal.options) {
+        perguntaPrincipal.options.forEach(opt => {
+            if (!opcaoCores[opt]) {
+                opcaoCores[opt] = '#f1f5f9'; // cor padrão: cinza claro
+            }
+        });
+    }
+    
     if (!formData || !formData.form.questions || formData.form.questions.length === 0) {
         if (container) container.innerHTML = '';
         if (empty) empty.classList.remove('hidden');
@@ -1979,7 +2000,10 @@ function renderQuestionsList() {
     if (!container) return;
 
     container.innerHTML = formData.form.questions.map((q, idx) => `
-        <div class="question-item" data-question-id="${q.id}">
+        <div class="question-item" data-question-id="${q.id}" 
+             style="${q.condition && q.condition.dependsOn && opcaoCores[q.condition.expectedValue] 
+                 ? 'background: ' + opcaoCores[q.condition.expectedValue] + '; border-left: 4px solid ' + opcaoCores[q.condition.expectedValue] + ';' 
+                 : ''}">
             <div class="question-header">
                 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                     <span class="drag-handle" draggable="true" data-question-id="${q.id}" title="Arrastar">⋮⋮</span>
@@ -2032,8 +2056,14 @@ ${(q.type === 'radio' || q.type === 'checkbox' || q.type === 'select') ? `
             </div>
         ` : `
             ${q.options.map((opt, i) => `
-                <div class="option-row">
-                    <input type="text" class="input" value="${escapeHtml(opt)}" onchange="updateOption('${q.id}', ${i}, this.value)">
+                <div class="option-row" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="color" 
+                           value="${opcaoCores[opt] || '#f1f5f9'}" 
+                           onchange="mudarCorOpcao('${escapeHtml(opt)}', this.value)" 
+                           onclick="event.stopPropagation();"
+                           title="Clique para escolher a cor de '${escapeHtml(opt)}'"
+                           style="width: 28px; height: 28px; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; padding: 0; flex-shrink: 0;">
+                    <input type="text" class="input" value="${escapeHtml(opt)}" onchange="updateOption('${q.id}', ${i}, this.value)" style="flex: 1;">
                     <button class="btn btn-sm" onclick="deleteOption('${q.id}', ${i})" style="background:none;">✕</button>
                 </div>
             `).join('')}
@@ -2041,7 +2071,6 @@ ${(q.type === 'radio' || q.type === 'checkbox' || q.type === 'select') ? `
         `}
     </div>
     
-    <!-- 🔢 CAMPO DE MÁXIMO DE SELEÇÕES (AGORA FORA DO VÍNCULO) -->
     ${q.type === 'checkbox' ? `
         <div style="margin-top: 12px; padding: 12px; background: var(--bg-elev-2); border-radius: 10px; border: 1px solid var(--border);">
             <label class="label" style="font-size: 13px;">🔢 Máximo de seleções</label>
@@ -2052,7 +2081,6 @@ ${(q.type === 'radio' || q.type === 'checkbox' || q.type === 'select') ? `
         </div>
     ` : ''}
     
-    <!-- 🆕 SEÇÃO DE VÍNCULO COM SETORES (MANTIDA IGUAL) -->
     <div style="margin-top: 12px; padding: 12px; background: var(--bg-elev-2); border-radius: 10px; border: 1px solid var(--border);">
         <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
             <input type="checkbox" ${q.linkedToSectors ? 'checked' : ''} 
@@ -2066,7 +2094,6 @@ ${(q.type === 'radio' || q.type === 'checkbox' || q.type === 'select') ? `
         <div id="sector-selector-${q.id}" style="${q.linkedToSectors ? '' : 'display: none;'} margin-top: 12px;">
             <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px;">📌 Selecione os setores que aparecerão:</div>
             <div id="sector-options-${q.id}" style="display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow-y: auto; padding: 4px;">
-                <!-- Preenchido pelo JavaScript -->
             </div>
         </div>
     </div>
@@ -2095,6 +2122,24 @@ ${(q.type === 'radio' || q.type === 'checkbox' || q.type === 'select') ? `
     });
     
     setTimeout(() => setupDragAndDrop(), 50);
+}
+
+function mudarCorOpcao(nomeOpcao, novaCor) {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    
+    // Inicializar se não existir
+    if (!formData.form.opcaoCores) {
+        formData.form.opcaoCores = {};
+    }
+    
+    // Salvar a cor escolhida
+    formData.form.opcaoCores[nomeOpcao] = novaCor;
+    saveData();
+    
+    // Re-renderizar para aplicar as cores
+    renderQuestionsList();
+    renderLivePreview();
 }
 
 function deleteQuestion(id) {
