@@ -2198,7 +2198,6 @@ function renderLivePreview() {
     container.style.setProperty('--primary', corForm);
     container.style.setProperty('--primary-hover', corForm);
     
-    // Usa a mesma lógica do Modal de Teste (renderiza tudo, não recria)
     container.innerHTML = `
         ${f.banner ? `<div class="banner-preview"><img src="${f.banner}" alt="Banner"></div>` : ''}
         <h2 class="form-title">${escapeHtml(f.title)}</h2>
@@ -2216,8 +2215,51 @@ function renderLivePreview() {
         ${f.footer ? `<div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border);text-align:center;font-size:13px;">${escapeHtml(f.footer)}</div>` : ''}
     `;
     
-    // Usa a MESMA função do Modal de Teste (já funciona perfeitamente)
-    setupTestConditions(formData);
+    // 🔥 NOVA FUNÇÃO EXCLUSIVA PARA A PRÉVIA (usa os IDs corretos)
+    setupPreviewConditions(formData);
+}
+
+// Configurar condições na Prévia Dinâmica (igual ao Modal de Teste, mas com IDs diferentes)
+function setupPreviewConditions(formData) {
+    function update() {
+        const answers = {};
+        document.querySelectorAll('#preview-test-form input, #preview-test-form select, #preview-test-form textarea').forEach(inp => {
+            if (inp.name?.startsWith('q_')) {
+                const qid = inp.name.replace('q_', '');
+                if (inp.type === 'radio' && inp.checked) answers[qid] = inp.value;
+                else if (inp.type === 'checkbox') {
+                    if (!answers[qid]) answers[qid] = [];
+                    if (inp.checked) answers[qid].push(inp.value);
+                } else if (inp.type !== 'radio') answers[qid] = inp.value;
+            }
+        });
+        
+        formData.form.questions.forEach(q => {
+            const el = document.getElementById(`preview-q-${q.id}`);
+            if (!el) return;
+            if (!q.condition?.dependsOn) {
+                el.style.display = 'block';
+            } else {
+                const dep = answers[q.condition.dependsOn];
+                let show = false;
+                if (dep) {
+                    if (Array.isArray(dep)) show = dep.includes(q.condition.expectedValue);
+                    else show = dep === q.condition.expectedValue;
+                }
+                el.style.display = show ? 'block' : 'none';
+            }
+        });
+    }
+    
+    const attach = () => {
+        document.querySelectorAll('#preview-test-form input, #preview-test-form select, #preview-test-form textarea').forEach(inp => {
+            inp.removeEventListener('change', update);
+            inp.addEventListener('change', update);
+        });
+    };
+    
+    attach();
+    update();
 }
 
 function submitPreviewTest() {
