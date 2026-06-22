@@ -1899,18 +1899,35 @@ function getTypeLabel(type) {
     return types[type] || type;
 }
 
-function addQuestion() {
+function addQuestion(questionId = null) {
     const formData = getCurrentForm();
     if (!formData) return;
     if (!formData.form.questions) formData.form.questions = [];
-    formData.form.questions.push({
+    
+    const novaPergunta = {
         id: generateId(),
         type: 'text',
         title: 'Nova pergunta',
         required: false,
         options: ['Opção 1', 'Opção 2'],
         condition: null
-    });
+    };
+    
+    // Se foi passado um questionId, insere logo após essa pergunta
+    if (questionId) {
+        const index = formData.form.questions.findIndex(q => q.id === questionId);
+        if (index !== -1) {
+            // Insere na posição seguinte à pergunta atual
+            formData.form.questions.splice(index + 1, 0, novaPergunta);
+        } else {
+            // Se não encontrou, adiciona no final
+            formData.form.questions.push(novaPergunta);
+        }
+    } else {
+        // Comportamento padrão: adiciona no final
+        formData.form.questions.push(novaPergunta);
+    }
+    
     saveData();
     renderQuestionsList();
     renderLivePreview();
@@ -2035,9 +2052,9 @@ ${(q.type === 'radio' || q.type === 'checkbox' || q.type === 'select') ? `
                     🔗 Só aparece se a resposta for: <strong>${escapeHtml(q.condition.expectedValue)}</strong>
                 </div>
             ` : ''}
-            <button class="btn new-question-after-btn" onclick="addQuestion()" style="margin-top:16px;">
-                ➕ Nova pergunta
-            </button>
+<button class="btn new-question-after-btn" onclick="addQuestion('${q.id}')" style="margin-top:16px;">
+    ➕ Nova pergunta
+</button>
         </div>
     `).join('');
     
