@@ -2206,7 +2206,7 @@ function renderLivePreview() {
         ${f.description ? `<div style="color:var(--text-muted);margin-bottom:24px;">${escapeHtml(f.description)}</div>` : ''}
         <form id="dynamic-preview-form" onsubmit="return false;">
             <div id="dynamic-questions-container"></div>
-            <button type="button" class="btn btn-primary" onclick="submitDynamicPreview()" style="width:100%;justify-content:center;margin-top:20px;">📤 Enviar</button>
+            <button type="button" class="btn btn-primary" onclick="submitDynamicPreview()" style="width:100%;justify-content:center;margin-top:20px;">📤 Enviar resposta</button>
         </form>
         ${f.footer ? `<div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border);text-align:center;font-size:13px;">${escapeHtml(f.footer)}</div>` : ''}
     `;
@@ -2234,23 +2234,20 @@ function setupDynamicPreview() {
             }
         });
 
-const visible = formData.form.questions.filter(q => {
-    if (!q.condition?.dependsOn) return true;
-    const dep = answers[q.condition.dependsOn];
-    if (!dep) return false;
-    
-    // 🔥 NOVO: Suporte para múltiplos valores separados por vírgula
-    const expectedValue = q.condition.expectedValue;
-    const valoresEsperados = expectedValue.split(',').map(v => v.trim());
-    
-    if (Array.isArray(dep)) {
-        // Para checkbox: verifica se alguma opção marcada está na lista de valores esperados
-        return dep.some(valor => valoresEsperados.includes(valor));
-    } else {
-        // Para outros tipos: verifica se o valor está na lista
-        return valoresEsperados.includes(dep);
-    }
-});
+        const visible = formData.form.questions.filter(q => {
+            if (!q.condition?.dependsOn) return true;
+            const dep = answers[q.condition.dependsOn];
+            if (!dep) return false;
+            
+            const expectedValue = q.condition.expectedValue;
+            const valoresEsperados = expectedValue.split(',').map(v => v.trim());
+            
+            if (Array.isArray(dep)) {
+                return dep.some(valor => valoresEsperados.includes(valor));
+            } else {
+                return valoresEsperados.includes(dep);
+            }
+        });
 
         container.innerHTML = visible.map(q => `
             <div class="form-group" data-qid="${q.id}">
@@ -2258,6 +2255,10 @@ const visible = formData.form.questions.filter(q => {
                 ${renderDynamicInput(q)}
             </div>
         `).join('');
+        
+        // 🔥 INICIALIZAR ESCALAS NO PREVIEW DINÂMICO
+        initDynamicScales();
+        
         attach();
     }
     
@@ -2272,6 +2273,42 @@ const visible = formData.form.questions.filter(q => {
         });
     }
     updateQuestions();
+}
+
+// 🔥 FUNÇÃO PARA INICIALIZAR ESCALAS NO PREVIEW DINÂMICO
+function initDynamicScales() {
+    const form = document.getElementById('dynamic-preview-form');
+    if (!form) return;
+    
+    form.querySelectorAll('.scale-container').forEach(container => {
+        const radios = container.querySelectorAll('input[type="radio"]');
+        const labels = container.querySelectorAll('.scale-option');
+        
+        labels.forEach(label => {
+            label.removeEventListener('click', dynamicScaleClickHandler);
+            label.addEventListener('click', dynamicScaleClickHandler);
+        });
+        
+        function dynamicScaleClickHandler(e) {
+            const label = e.currentTarget;
+            const radio = label.querySelector('input[type="radio"]');
+            if (radio) {
+                radio.checked = true;
+                // Resetar todos os estilos
+                labels.forEach(l => {
+                    l.style.background = 'var(--bg)';
+                    l.style.borderColor = 'var(--border)';
+                });
+                // Destacar o selecionado
+                label.style.background = 'var(--primary-light)';
+                label.style.borderColor = 'var(--primary)';
+                
+                // Disparar evento change para condições
+                const changeEvent = new Event('change', { bubbles: true });
+                radio.dispatchEvent(changeEvent);
+            }
+        }
+    });
 }
 
 function renderDynamicInput(q) {
@@ -2292,32 +2329,99 @@ function renderDynamicInput(q) {
 }
 
 async function submitDynamicPreview() {
+    const btn = document.querySelector('#live-preview .btn-primary');
+    if (!btn) return;
+    
     const formData = getCurrentForm();
     if (!formData) return;
     const form = document.getElementById('dynamic-preview-form');
     if (!form) return;
-    const fd = new FormData(form);
-    const response = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
-    let err = false;
-    const visible = getVisibleQuestionsFromPreview(form, formData);
-    for (const q of visible) {
-        const name = `q_${q.id}`;
-        let val = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
-        if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
-            showToast(`Responda: ${q.title}`, 'error');
-            err = true;
-            break;
+    
+    // Mostrar loading no botão
+    const textoOriginal = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Enviando...';
+    
+    try {
+        const fd = new FormData(form);
+        const response = { 
+            id: generateId(), 
+            timestamp: new Date().toISOString(), 
+            data: {} 
+        };
+        let hasError = false;
+        
+        // Pegar apenas as perguntas visíveis no momento
+        const visibleQuestions = [];
+        const container = document.getElementById('dynamic-questions-container');
+        if (container) {
+            const qids = Array.from(container.querySelectorAll('.form-group')).map(el => el.getAttribute('data-qid'));
+            for (const q of formData.form.questions) {
+                if (qids.includes(q.id)) {
+                    visibleQuestions.push(q);
+                }
+            }
         }
-        response.data[q.id] = val || '';
-    }
-    if (!err) {
-        if (!formData.responses) formData.responses = [];
-        formData.responses.push(response);
-        saveData();
-        createConfetti();
-        showToast('Resposta enviada! 🎉', 'success');
-        form.reset();
-        setupDynamicPreview();
+        
+        // Validar e coletar respostas
+        for (const q of visibleQuestions) {
+            const name = `q_${q.id}`;
+            let val = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
+            
+            if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
+                showToast(`Por favor, responda: ${q.title}`, 'error');
+                hasError = true;
+                break;
+            }
+            response.data[q.id] = val || '';
+        }
+        
+        if (!hasError) {
+            // Salvar a resposta
+            if (!formData.responses) formData.responses = [];
+            formData.responses.push(response);
+            saveData();
+            
+            // 🔥 SALVAR NA NUVEM (Google Sheets)
+            try {
+                // Preparar os dados para enviar ao Google Sheets
+                const respostasArray = formData.form.questions.map(q => {
+                    let val = response.data[q.id] || '';
+                    if (Array.isArray(val)) val = val.join(', ');
+                    return val;
+                });
+                
+                const dadosCompletos = [new Date().toISOString(), ...respostasArray];
+                const cabecalhos = JSON.stringify(['Data/Hora', ...formData.form.questions.map(q => q.title)]);
+                
+                const urlSalvar = `${CONFIG.googleApiUrl}?acao=salvarResposta&nomeFormulario=${encodeURIComponent(formData.name)}&dados=${encodeURIComponent(JSON.stringify(dadosCompletos))}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+                
+                await fetch(urlSalvar);
+                console.log('✅ Resposta salva no Google Sheets');
+            } catch (erroSheets) {
+                console.error('Erro ao salvar no Sheets:', erroSheets);
+            }
+            
+            // Mostrar confetti e mensagem de sucesso
+            createConfetti();
+            showToast('🎉 Resposta enviada com sucesso!', 'success');
+            
+            // Limpar o formulário
+            form.reset();
+            
+            // Restaurar o preview
+            setupDynamicPreview();
+            
+            // Recarregar a lista de perguntas para atualizar contadores
+            renderQuestionsList();
+        }
+        
+    } catch (erro) {
+        console.error('Erro:', erro);
+        showToast('❌ Erro ao enviar resposta', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = textoOriginal;
     }
 }
 
