@@ -1089,6 +1089,35 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function formatarInformativo(texto) {
+    if (!texto) return '';
+    
+    // Escapar HTML para segurança, mas preservar a formatação que vamos adicionar
+    let textoEscapado = escapeHtml(texto);
+    
+    // Converter **texto** para <strong>texto</strong>
+    textoEscapado = textoEscapado.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Converter *texto* para <em>texto</em>
+    textoEscapado = textoEscapado.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // Converter listas com marcadores - (hífen espaço)
+    textoEscapado = textoEscapado.replace(/^• (.*?)$/gm, '<li>$1</li>');
+    textoEscapado = textoEscapado.replace(/^- (.*?)$/gm, '<li>$1</li>');
+    
+    // Agrupar <li> em <ul>
+    if (textoEscapado.includes('<li>')) {
+        textoEscapado = textoEscapado.replace(/<li>.*?<\/li>/gs, (match) => {
+            return `<ul style="margin: 10px 0 10px 20px; list-style-type: disc;">${match}</ul>`;
+        });
+    }
+    
+    // Converter quebras de linha para <br>
+    textoEscapado = textoEscapado.replace(/\n/g, '<br>');
+    
+    return textoEscapado;
+}
+
 function closeModal(e) {
     if (!e || e.target.classList.contains('modal')) {
         document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
