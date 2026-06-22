@@ -2198,68 +2198,284 @@ function renderLivePreview() {
     container.style.setProperty('--primary', corForm);
     container.style.setProperty('--primary-hover', corForm);
     
+    // MESMO LAYOUT DO form.html (link público)
     container.innerHTML = `
-        ${f.banner ? `<div class="banner-preview"><img src="${f.banner}" alt="Banner"></div>` : ''}
-        <h2 class="form-title">${escapeHtml(f.title)}</h2>
-        ${f.subtitle ? `<p class="form-subtitle">${escapeHtml(f.subtitle)}</p>` : ''}
-        ${f.description ? `<div style="color:var(--text-muted);margin-bottom:24px;">${escapeHtml(f.description)}</div>` : ''}
-        <form id="preview-test-form" onsubmit="return false;">
-            ${formData.form.questions.map(q => `
-                <div class="form-group" data-qid="${q.id}" id="preview-q-${q.id}">
-                    <label class="label">${escapeHtml(q.title)}${q.required ? '<span style="color:var(--error);"> *</span>' : ''}</label>
-                    ${renderTestInput(q)}
-                </div>
-            `).join('')}
-            <button type="button" class="btn btn-primary" id="preview-submit-btn" onclick="submitPreviewTest()" style="width:100%;justify-content:center;margin-top:20px;">📤 Enviar</button>
-        </form>
-        ${f.footer ? `<div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border);text-align:center;font-size:13px;">${escapeHtml(f.footer)}</div>` : ''}
+        <div class="preview-card" style="background: var(--bg-elev); border-radius: 16px; padding: 24px; border: 1px solid var(--border); max-width: 600px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+            ${f.banner ? `<div class="banner-preview"><img src="${f.banner}" alt="Banner" style="width:100%; border-radius:12px;"></div>` : ''}
+            
+            <div style="text-align: center; margin-bottom: 24px;">
+                <h2 style="font-size: 28px; font-weight: 700; background: linear-gradient(135deg, var(--primary), #8b5cf6); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 12px;">
+                    ${escapeHtml(f.title || formData.name)}
+                </h2>
+                ${f.subtitle ? `<p style="color: var(--text-muted); font-size: 16px; margin-bottom: 8px;">${escapeHtml(f.subtitle)}</p>` : ''}
+                ${f.description ? `<div style="background: var(--bg); padding: 16px; border-radius: 12px; border-left: 4px solid var(--primary); text-align: left; margin-top: 16px; font-size: 14px; color: var(--text-muted);">
+                    <span style="font-weight: 600;">ℹ️ Sobre este formulário</span><br>
+                    ${escapeHtml(f.description)}
+                </div>` : ''}
+            </div>
+            
+            <form id="preview-form" onsubmit="return false;">
+                <div id="preview-questions-container"></div>
+                <button type="button" class="btn btn-primary" id="preview-submit-btn" onclick="submitPreviewForm()" style="width:100%;justify-content:center;margin-top:24px;padding:14px;font-size:16px;">
+                    📤 Enviar resposta
+                </button>
+            </form>
+            
+            ${f.footer ? `<div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; font-size: 12px; color: var(--text-muted);">${escapeHtml(f.footer)}</div>` : ''}
+        </div>
+        
+        <!-- Tela de agradecimento -->
+        <div id="preview-thankyou" class="thankyou-screen" style="display: none; max-width: 600px; margin: 0 auto;">
+            <div class="thankyou-icon">🎉</div>
+            <div class="thankyou-title">Resposta enviada!</div>
+            <div class="thankyou-message">Teste concluído com sucesso!</div>
+            <div class="thankyou-buttons">
+                <button class="btn" onclick="resetPreviewForm()">📝 Testar novamente</button>
+                <button class="btn btn-primary" onclick="resetPreviewForm()">✕ Fechar</button>
+            </div>
+        </div>
     `;
     
-    // 🔥 NOVA FUNÇÃO EXCLUSIVA PARA A PRÉVIA (usa os IDs corretos)
     setupPreviewConditions(formData);
 }
 
-// Configurar condições na Prévia Dinâmica (igual ao Modal de Teste, mas com IDs diferentes)
+
 function setupPreviewConditions(formData) {
-    function update() {
-        const answers = {};
-        document.querySelectorAll('#preview-test-form input, #preview-test-form select, #preview-test-form textarea').forEach(inp => {
-            if (inp.name?.startsWith('q_')) {
-                const qid = inp.name.replace('q_', '');
-                if (inp.type === 'radio' && inp.checked) answers[qid] = inp.value;
+    const container = document.getElementById('preview-questions-container');
+    if (!container) return;
+    
+    function renderizarPerguntasPreview() {
+        const perguntas = formData.form.questions || [];
+        
+        container.innerHTML = perguntas.map(q => `
+            <div class="form-group" data-preview-qid="${q.id}" style="margin-bottom: 20px;">
+                <label class="label" style="font-weight: 600; margin-bottom: 8px; display: block;">
+                    ${escapeHtml(q.title)}${q.required ? '<span style="color: var(--error); margin-left: 4px;">*</span>' : ''}
+                </label>
+                ${renderizarInputPreview(q)}
+            </div>
+        `).join('');
+        
+        // Configurar eventos das escalas
+        document.querySelectorAll('.scale-container').forEach(container => {
+            container.querySelectorAll('.scale-option').forEach(opt => {
+                opt.addEventListener('click', function() {
+                    selecionarEscalaPreview(this);
+                });
+            });
+        });
+    }
+    
+    function atualizarVisibilidade() {
+        const formEl = document.getElementById('preview-form');
+        if (!formEl) return;
+        
+        const respostas = {};
+        formEl.querySelectorAll('input, select, textarea').forEach(inp => {
+            if (inp.name && inp.name.startsWith('prev_')) {
+                const qid = inp.name.replace('prev_', '');
+                if (inp.type === 'radio' && inp.checked) respostas[qid] = inp.value;
                 else if (inp.type === 'checkbox') {
-                    if (!answers[qid]) answers[qid] = [];
-                    if (inp.checked) answers[qid].push(inp.value);
-                } else if (inp.type !== 'radio') answers[qid] = inp.value;
+                    if (!respostas[qid]) respostas[qid] = [];
+                    if (inp.checked) respostas[qid].push(inp.value);
+                } else if (inp.type !== 'radio') {
+                    respostas[qid] = inp.value;
+                }
             }
         });
         
-        formData.form.questions.forEach(q => {
-            const el = document.getElementById(`preview-q-${q.id}`);
-            if (!el) return;
-            if (!q.condition?.dependsOn) {
-                el.style.display = 'block';
+        const perguntas = formData.form.questions || [];
+        perguntas.forEach(q => {
+            const div = document.querySelector(`[data-preview-qid="${q.id}"]`);
+            if (!div) return;
+            
+            let mostrar = false;
+            
+            if (!q.condition || !q.condition.dependsOn) {
+                mostrar = true;
             } else {
-                const dep = answers[q.condition.dependsOn];
-                let show = false;
-                if (dep) {
-                    if (Array.isArray(dep)) show = dep.includes(q.condition.expectedValue);
-                    else show = dep === q.condition.expectedValue;
+                const valorDependencia = respostas[q.condition.dependsOn];
+                if (valorDependencia) {
+                    const expectedValue = q.condition.expectedValue;
+                    const valoresEsperados = expectedValue.split(',').map(v => v.trim());
+                    if (Array.isArray(valorDependencia)) {
+                        mostrar = valorDependencia.some(valor => valoresEsperados.includes(String(valor)));
+                    } else {
+                        mostrar = valoresEsperados.includes(String(valorDependencia));
+                    }
                 }
-                el.style.display = show ? 'block' : 'none';
+            }
+            
+            div.style.display = mostrar ? 'block' : 'none';
+            
+            if (!mostrar) {
+                const inputs = div.querySelectorAll('input, select, textarea');
+                inputs.forEach(inp => {
+                    if (inp.type === 'radio' || inp.type === 'checkbox') inp.checked = false;
+                    else inp.value = '';
+                });
             }
         });
     }
     
     const attach = () => {
-        document.querySelectorAll('#preview-test-form input, #preview-test-form select, #preview-test-form textarea').forEach(inp => {
-            inp.removeEventListener('change', update);
-            inp.addEventListener('change', update);
+        document.querySelectorAll('#preview-form input, #preview-form select, #preview-form textarea').forEach(inp => {
+            inp.removeEventListener('change', atualizarVisibilidade);
+            inp.removeEventListener('input', atualizarVisibilidade);
+            inp.addEventListener('change', atualizarVisibilidade);
+            inp.addEventListener('input', atualizarVisibilidade);
         });
     };
     
+    renderizarPerguntasPreview();
     attach();
-    update();
+    atualizarVisibilidade();
+}
+
+function renderizarInputPreview(q) {
+    const name = `prev_${q.id}`;
+    const id = `prev_campo_${q.id}`;
+    
+    switch(q.type) {
+        case 'info': return `
+            <div style="background: linear-gradient(135deg, var(--primary-light) 0%, var(--bg-elev) 100%); border-left: 4px solid var(--primary); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <span style="font-size: 28px;">ℹ️</span>
+                    <h3 style="color: var(--primary); margin: 0; font-size: 18px;">Informação importante</h3>
+                </div>
+                <div style="color: var(--text); line-height: 1.6; font-size: 14px;">
+                    ${formatarInformativo(q.infoContent || 'Nenhuma informação disponível')}
+                </div>
+            </div>`;
+        case 'text': return `<input type="text" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'email': return `<input type="email" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'number': return `<input type="number" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px;">`;
+        case 'textarea': return `
+            <textarea class="textarea" name="${name}" id="${id}" style="width:100%; padding: 14px; font-size: 16px; min-height: 100px;" placeholder="Digite aqui..."></textarea>`;
+        case 'radio': return `<div class="radio-group">${(q.options || []).map(opt => `
+            <label class="radio-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+                <input type="radio" name="${name}" value="${escapeHtml(opt)}"> 
+                <span>${escapeHtml(opt)}</span>
+            </label>`).join('')}</div>`;
+        case 'checkbox': return `<div class="checkbox-group">${(q.options || []).map(opt => `
+            <label class="checkbox-option" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer;">
+                <input type="checkbox" name="${name}" value="${escapeHtml(opt)}"> 
+                <span>${escapeHtml(opt)}</span>
+            </label>`).join('')}</div>`;
+        case 'select': return `<select class="select" name="${name}" id="${id}" style="width:100%; padding: 14px;">
+            <option value="">Selecione...</option>
+            ${(q.options || []).map(opt => `<option value="${escapeHtml(opt)}">${escapeHtml(opt)}</option>`).join('')}
+        </select>`;
+        case 'scale': return `
+            <div class="scale-container" data-name="${name}">
+                ${[1,2,3,4,5].map(n => `
+                    <div class="scale-option" data-value="${n}" style="flex: 1; text-align: center; padding: 12px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; font-weight: 600;">
+                        ${n}
+                        <input type="radio" name="${name}" value="${n}" style="display: none;">
+                    </div>
+                `).join('')}
+            </div>`;
+        case 'date': return `<input type="date" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
+        case 'time': return `<input type="time" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
+        default: return `<input type="text" class="input" name="${name}" id="${id}" style="width:100%; padding: 14px;">`;
+    }
+}
+
+async function submitPreviewForm() {
+    const formData = getCurrentForm();
+    if (!formData) return;
+    const form = document.getElementById('preview-form');
+    if (!form) return;
+    
+    const fd = new FormData(form);
+    const response = { id: generateId(), timestamp: new Date().toISOString(), data: {} };
+    let err = false;
+    
+    // Pegar apenas perguntas visíveis
+    const perguntasVisiveis = [];
+    document.querySelectorAll('[data-preview-qid]').forEach(div => {
+        if (div.style.display !== 'none') {
+            const qid = div.getAttribute('data-preview-qid');
+            const pergunta = formData.form.questions.find(q => q.id === qid);
+            if (pergunta) perguntasVisiveis.push(pergunta);
+        }
+    });
+    
+    for (const q of perguntasVisiveis) {
+        const name = `prev_${q.id}`;
+        const val = q.type === 'checkbox' ? fd.getAll(name) : fd.get(name);
+        if (q.required && (!val || (Array.isArray(val) && val.length === 0))) {
+            showToast(`Responda: ${q.title}`, 'error');
+            err = true;
+            break;
+        }
+        response.data[q.id] = val || '';
+    }
+    
+    if (!err) {
+        // Simular envio
+        const btn = document.getElementById('preview-submit-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Enviando...';
+        }
+        
+        await new Promise(r => setTimeout(r, 800));
+        
+        if (!formData.responses) formData.responses = [];
+        formData.responses.push(response);
+        saveData();
+        
+        // Mostrar agradecimento
+        const previewCard = document.querySelector('#live-preview .preview-card');
+        const thankyou = document.getElementById('preview-thankyou');
+        if (previewCard) previewCard.style.display = 'none';
+        if (thankyou) thankyou.style.display = 'flex';
+        
+        createConfetti();
+        showToast('✅ Teste enviado com sucesso!', 'success');
+    }
+}
+
+function resetPreviewForm() {
+    const previewCard = document.querySelector('#live-preview .preview-card');
+    const thankyou = document.getElementById('preview-thankyou');
+    const form = document.getElementById('preview-form');
+    
+    if (previewCard) previewCard.style.display = '';
+    if (thankyou) thankyou.style.display = 'none';
+    if (form) form.reset();
+    
+    // Recarregar preview
+    const formData = getCurrentForm();
+    if (formData) setupPreviewConditions(formData);
+    
+    // Scroll para o topo
+    document.getElementById('live-preview').scrollIntoView({ behavior: 'smooth' });
+}
+
+function selecionarEscalaPreview(elemento) {
+    const container = elemento.closest('.scale-container');
+    const todasOpcoes = container.querySelectorAll('.scale-option');
+    
+    todasOpcoes.forEach(opt => {
+        opt.classList.remove('selected');
+        opt.style.background = 'var(--bg)';
+        opt.style.borderColor = 'var(--border)';
+        opt.style.color = 'var(--text)';
+    });
+    
+    elemento.classList.add('selected');
+    elemento.style.background = 'var(--primary)';
+    elemento.style.borderColor = 'var(--primary)';
+    elemento.style.color = 'white';
+    
+    const radio = elemento.querySelector('input[type="radio"]');
+    if (radio) {
+        radio.checked = true;
+        const changeEvent = new Event('change', { bubbles: true });
+        radio.dispatchEvent(changeEvent);
+    }
 }
 
 function submitPreviewTest() {
