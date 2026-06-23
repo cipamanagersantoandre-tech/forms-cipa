@@ -3872,16 +3872,26 @@ const newForm = {
         
         atualizarProgresso(50 + Math.round((i + 1) / importedFormsData.length * 50), `Criando aba: ${newName}...`);
         
-        // 🔥 PASSO 1: CRIAR A ABA NO SHEETS
-        const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
-        const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-        
-        try {
-            await fetch(urlCriarAba);
-            console.log(`✅ Aba criada: ${newName}`);
-        } catch (erro) {
-            console.error(`❌ Erro ao criar aba:`, erro);
-        }
+// 🔥 PASSO 1: CRIAR A ABA NO SHEETS
+const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
+const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+
+try {
+    const respostaCriar = await fetch(urlCriarAba);
+    const resultadoCriar = await respostaCriar.json();
+    console.log(`✅ Aba criada: ${newName}`, resultadoCriar);
+} catch (erro) {
+    console.error(`❌ Erro ao criar aba:`, erro);
+}
+
+// 🔥 FORÇAR ATUALIZAÇÃO DO CABEÇALHO (garantia extra)
+try {
+    const urlAtualizar = `${CONFIG.googleApiUrl}?acao=atualizarCabecalho&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
+    await fetch(urlAtualizar);
+    console.log(`✅ Cabeçalho atualizado para: ${newName}`);
+} catch (erro) {
+    console.error(`❌ Erro ao atualizar cabeçalho:`, erro);
+}
         
         // 🔥 PASSO 2: SALVAR NA ABA 'forms' (É ISSO QUE ESTAVA FALTANDO!)
         const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
