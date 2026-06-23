@@ -1337,10 +1337,10 @@ async function loadData() {
         }
     }
     
-    forms = dadosLocais.forms || [];
-    currentFormId = dadosLocais.currentFormId || null;
+    // 🔥 NÃO carregar do localStorage primeiro - vamos usar a nuvem como fonte principal
+    forms = [];
+    currentFormId = null;
     
-    // 🔥 SEMPRE buscar da nuvem ao abrir o app
     mostrarProgresso('☁️ Carregando dados da nuvem...');
     atualizarProgresso(10, 'Conectando ao Google Sheets...');
     
@@ -1350,39 +1350,34 @@ async function loadData() {
         atualizarProgresso(50, `${formsNuvem.length} formulários encontrados`);
         
         if (formsNuvem && formsNuvem.length > 0) {
-            // Se localStorage estiver vazio (PC novo), usar tudo da nuvem
-            if (forms.length === 0) {
-                forms = formsNuvem;
-                atualizarProgresso(70, 'Carregando do zero...');
-            } else {
-                // Se já tem dados locais, atualizar/merge
-                for (const formCloud of formsNuvem) {
-                    const indexLocal = forms.findIndex(f => f.id === formCloud.id);
-                    if (indexLocal === -1) {
-                        // Formulário novo (não existe localmente)
-                        forms.push(formCloud);
-                    } else {
-                        // Atualizar formulário existente
-                        const respostasLocais = forms[indexLocal].responses || [];
-                        forms[indexLocal] = formCloud;
-                        // Manter respostas locais se forem mais numerosas
-                        if (respostasLocais.length > (formCloud.responses || []).length) {
-                            forms[indexLocal].responses = respostasLocais;
-                        }
+            // 🔥 NUVEM É A FONTE PRINCIPAL - substitui tudo
+            forms = formsNuvem;
+            
+            // 🔥 Merge inteligente: preservar respostas locais que não estão na nuvem
+            const formsLocais = dadosLocais.forms || [];
+            for (const formCloud of forms) {
+                const formLocal = formsLocais.find(f => f.id === formCloud.id);
+                if (formLocal && formLocal.responses && formLocal.responses.length > 0) {
+                    const respostasNuvem = formCloud.responses || [];
+                    // Se tem mais respostas locais, mantém elas
+                    if (formLocal.responses.length > respostasNuvem.length) {
+                        formCloud.responses = formLocal.responses;
                     }
                 }
-                atualizarProgresso(70, 'Atualizando formulários existentes...');
             }
             
-            // Carregar respostas de cada formulário
+            atualizarProgresso(70, 'Atualizando formulários...');
+            
+            // Carregar respostas atualizadas de cada formulário
             atualizarProgresso(80, 'Carregando respostas...');
             for (const form of forms) {
                 try {
                     const respostas = await carregarRespostasDaNuvem(form.name);
                     if (respostas && respostas.length > 0) {
-                        form.responses = respostas;
-                    } else if (!form.responses) {
-                        form.responses = [];
+                        // Só substitui se a nuvem tiver mais respostas
+                        if (respostas.length >= (form.responses || []).length) {
+                            form.responses = respostas;
+                        }
                     }
                 } catch(e) {
                     console.error('Erro ao carregar respostas de', form.name, e);
@@ -1393,10 +1388,14 @@ async function loadData() {
             saveData();
             atualizarProgresso(100, `✅ ${forms.length} formulários carregados!`);
         } else {
-            atualizarProgresso(100, 'ℹ️ Nenhum formulário na nuvem');
+            // Se não tem nada na nuvem, usa o localStorage como fallback
+            forms = dadosLocais.forms || [];
+            atualizarProgresso(100, 'ℹ️ Nenhum formulário na nuvem. Usando dados locais.');
         }
     } catch (erro) {
         console.error('❌ Erro ao carregar da nuvem:', erro);
+        // Fallback para localStorage
+        forms = dadosLocais.forms || [];
         atualizarProgresso(100, '⚠️ Erro de conexão. Usando dados locais.');
         showToast('⚠️ Não foi possível conectar à nuvem', 'warning');
     }
