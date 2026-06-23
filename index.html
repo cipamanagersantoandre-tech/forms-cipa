@@ -1615,10 +1615,19 @@ const newForm = {
         
         // 🔥 CRIA PRIMEIRO A ABA NO SHEETS
         const cabecalhos = JSON.stringify(['Data/Hora']);
-        const urlAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(name)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-        
-        try {
-            await fetch(urlAba);
+// 🔥 USA POST PARA SUPORTAR CABEÇALHOS GRANDES
+const bodyAba = new URLSearchParams();
+bodyAba.append('acao', 'criarAba');
+bodyAba.append('nomeFormulario', name);
+bodyAba.append('cabecalhos', cabecalhos);
+
+await fetch(CONFIG.googleApiUrl, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: bodyAba.toString()
+});
             console.log(`✅ Aba criada: ${name}`);
         } catch (erro) {
             console.error('Erro ao criar aba:', erro);
@@ -1702,10 +1711,17 @@ function duplicateForm(formId) {
     saveData();
     
     const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
-    const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-    
-    fetch(urlCriarAba)
-        .then(res => res.json())
+const bodyAba = new URLSearchParams();
+bodyAba.append('acao', 'criarAba');
+bodyAba.append('nomeFormulario', newName);
+bodyAba.append('cabecalhos', cabecalhos);
+
+fetch(CONFIG.googleApiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: bodyAba.toString()
+})
+    .then(res => res.json())
         .then(resultado => {
             console.log(`📊 Aba criada para "${newName}":`, resultado);
         })
@@ -3874,20 +3890,35 @@ const newForm = {
         
 // 🔥 PASSO 1: CRIAR A ABA NO SHEETS
 const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
-const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-
 try {
-    const respostaCriar = await fetch(urlCriarAba);
+    const bodyAba = new URLSearchParams();
+    bodyAba.append('acao', 'criarAba');
+    bodyAba.append('nomeFormulario', newName);
+    bodyAba.append('cabecalhos', cabecalhos);
+    
+    const respostaCriar = await fetch(CONFIG.googleApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: bodyAba.toString()
+    });
     const resultadoCriar = await respostaCriar.json();
     console.log(`✅ Aba criada: ${newName}`, resultadoCriar);
 } catch (erro) {
     console.error(`❌ Erro ao criar aba:`, erro);
 }
 
-// 🔥 FORÇAR ATUALIZAÇÃO DO CABEÇALHO (garantia extra)
+// 🔥 FORÇAR ATUALIZAÇÃO DO CABEÇALHO (garantia extra) - USA POST
 try {
-    const urlAtualizar = `${CONFIG.googleApiUrl}?acao=atualizarCabecalho&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-    await fetch(urlAtualizar);
+    const bodyAtualizar = new URLSearchParams();
+    bodyAtualizar.append('acao', 'atualizarCabecalho');
+    bodyAtualizar.append('nomeFormulario', newName);
+    bodyAtualizar.append('cabecalhos', cabecalhos);
+    
+    await fetch(CONFIG.googleApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: bodyAtualizar.toString()
+    });
     console.log(`✅ Cabeçalho atualizado para: ${newName}`);
 } catch (erro) {
     console.error(`❌ Erro ao atualizar cabeçalho:`, erro);
@@ -4009,13 +4040,24 @@ async function atualizarCabecalhoAba(formId) {
     const nomeAba = form.name;
     const cabecalhos = JSON.stringify(['Data/Hora', ...form.form.questions.map(q => q.title)]);
     
-    const url = `${CONFIG.googleApiUrl}?acao=atualizarCabecalho&nomeFormulario=${encodeURIComponent(nomeAba)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
-    
-    console.log('📡 Atualizando cabeçalho da aba:', nomeAba);
+    console.log('📡 Atualizando cabeçalho da aba:', nomeAba, '| Tamanho:', cabecalhos.length, 'caracteres');
     
     try {
-        const resposta = await fetch(url);
-        const resultado = await resposta.json();
+        // 🔥 USA POST PARA SUPORTAR DADOS GRANDES
+        const body = new URLSearchParams();
+        body.append('acao', 'atualizarCabecalho');
+        body.append('nomeFormulario', nomeAba);
+        body.append('cabecalhos', cabecalhos);
+        
+        const response = await fetch(CONFIG.googleApiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: body.toString()
+        });
+        
+        const resultado = await response.json();
         console.log('📦 Resposta atualizar cabeçalho:', resultado);
     } catch (erro) {
         console.error('❌ Erro ao atualizar cabeçalho:', erro);
