@@ -1647,35 +1647,38 @@ function duplicateForm(formId) {
     const original = forms.find(f => f.id === formId);
     if (!original) return;
     
-    // Gerar nome único (evitar duplicatas)
     let newName = `${original.name} (cópia)`;
     let contador = 1;
     while (forms.some(f => f.name === newName)) {
         newName = `${original.name} (cópia ${contador++})`;
     }
     
-    // 🔥 GERAR NOVOS IDs PARA TUDO
     const novoId = generateId();
     const emailsImportados = original.form.emails || '';
     
-    // 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs
+    // 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs - AGORA COM TODOS OS CAMPOS
     const novasPerguntas = original.form.questions.map(q => ({
-        id: generateId(),  // NOVO ID para cada pergunta
+        id: generateId(),
         type: q.type || 'text',
         title: q.title || 'Nova pergunta',
         required: q.required || false,
         options: q.options || ['Opção 1', 'Opção 2'],
         condition: q.condition ? {
-            dependsOn: null,  // RESETAR dependência
+            dependsOn: null,
             expectedValue: q.condition.expectedValue
-        } : null
+        } : null,
+        // 🔥 CAMPOS QUE FALTAVAM
+        infoContent: q.infoContent || '',
+        maxSelections: q.maxSelections || 0,
+        linkedToSectors: q.linkedToSectors || false,
+        sectorIds: q.sectorIds || []
     }));
     
-    // 🔥 CRIAR FORMULÁRIO IGUAL AO NATIVO
     const newForm = {
         id: novoId,
         name: newName,
         createdAt: new Date().toISOString(),
+        locked: false,  // Cópia sempre destravada
         form: {
             title: original.form.title,
             subtitle: original.form.subtitle || '',
@@ -1687,15 +1690,17 @@ function duplicateForm(formId) {
             config: original.form.config || { showProgress: true },
             emails: emailsImportados,
             attachment: original.form.attachment ? { ...original.form.attachment } : { maxSize: 10, allowedTypes: 'pdf,jpg,jpeg,png', alternativeEmail: '', customMessage: '' },
+            // 🔥 CAMPOS QUE FALTAVAM
+            opcaoCores: original.form.opcaoCores ? { ...original.form.opcaoCores } : {},
+            setores: original.form.setores ? [...original.form.setores] : [],
+            maxSelecoes: original.form.maxSelecoes || 0
         },
-        responses: []  // ZERA AS RESPOSTAS
+        responses: []
     };
     
-    // Adicionar localmente
     forms.push(newForm);
     saveData();
     
-    // 🔥 NOVO: CRIAR A ABA NO SHEETS (igual ao createFormWithTemplate e confirmImport)
     const cabecalhos = JSON.stringify(['Data/Hora', ...novasPerguntas.map(q => q.title)]);
     const urlCriarAba = `${CONFIG.googleApiUrl}?acao=criarAba&nomeFormulario=${encodeURIComponent(newName)}&cabecalhos=${encodeURIComponent(cabecalhos)}`;
     
@@ -1708,7 +1713,6 @@ function duplicateForm(formId) {
             console.error(`❌ Erro ao criar aba "${newName}":`, erro);
         });
     
-    // 🔥 NOVO: SALVAR NA NUVEM (aba 'forms')
     salvarNaNuvem('forms', newForm.id, newForm).then(sucesso => {
         if (sucesso) {
             console.log(`✅ Formulário "${newName}" salvo na nuvem!`);
@@ -1717,9 +1721,14 @@ function duplicateForm(formId) {
         }
     });
     
-    // 🔥 NOVO: SALVAR CONFIGURAÇÃO DE EMAILS
     if (emailsImportados) {
         salvarEmailConfiguracao(newName, emailsImportados);
+    }
+    
+    // Salvar setores na nuvem também
+    if (original.form.setores && original.form.setores.length > 0) {
+        const urlSetores = `${CONFIG.googleApiUrl}?acao=salvarSetores&nomeFormulario=${encodeURIComponent(newName)}&setores=${encodeURIComponent(JSON.stringify(original.form.setores))}&maxSelecoes=${original.form.maxSelecoes || 0}`;
+        fetch(urlSetores).catch(e => console.error('Erro ao salvar setores:', e));
     }
     
     renderFormsList();
