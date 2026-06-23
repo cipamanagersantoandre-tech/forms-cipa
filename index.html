@@ -3646,24 +3646,43 @@ function toggleAllForms(checked) {
 function confirmExport() {
     if (selectedFormsForExport.length === 0) { showToast('Selecione ao menos um', 'error'); return; }
     const toExport = forms.filter(f => selectedFormsForExport.includes(f.id));
-const exportData = {
-    version: '1.0',
-    exportedAt: new Date().toISOString(),
-    forms: toExport.map(f => ({
-        name: f.name,
-        form: {
-            title: f.form.title,
-            subtitle: f.form.subtitle,
-            description: f.form.description,
-            banner: f.form.banner,
-            footer: f.form.footer,
-            questions: f.form.questions,
-            theme: f.form.theme,
-            config: f.form.config,
-            attachment: f.form.attachment || { maxSize: 10, allowedTypes: 'pdf,jpg,jpeg,png', alternativeEmail: '', customMessage: '' }
-        }
-    }))
-};
+    
+    const exportData = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        forms: toExport.map(f => ({
+            name: f.name,
+            locked: f.locked || false,
+            createdAt: f.createdAt,
+            form: {
+                title: f.form.title,
+                subtitle: f.form.subtitle || '',
+                description: f.form.description || '',
+                banner: f.form.banner || '',
+                footer: f.form.footer || '',
+                emails: f.form.emails || '',
+                theme: f.form.theme || { primary: '#4f46e5' },
+                config: f.form.config || { showProgress: true },
+                attachment: f.form.attachment || { maxSize: 10, allowedTypes: 'pdf,jpg,jpeg,png', alternativeEmail: '', customMessage: '' },
+                opcaoCores: f.form.opcaoCores || {},
+                setores: f.form.setores || [],
+                maxSelecoes: f.form.maxSelecoes || 0,
+                questions: f.form.questions.map(q => ({
+                    id: q.id,
+                    type: q.type || 'text',
+                    title: q.title || '',
+                    required: q.required || false,
+                    options: q.options || [],
+                    condition: q.condition || null,
+                    infoContent: q.infoContent || '',
+                    maxSelections: q.maxSelections || 0,
+                    linkedToSectors: q.linkedToSectors || false,
+                    sectorIds: q.sectorIds || []
+                }))
+            }
+        }))
+    };
+    
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -3775,14 +3794,9 @@ async function confirmImport() {
         const novoId = generateId();
         const emailsImportados = imp.form?.emails || '';
         
-// 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs (PRESERVANDO AS CONDIÇÕES)
+// 🔥 RECONSTRUIR PERGUNTAS COM NOVOS IDs (PRESERVANDO TUDO)
 const novasPerguntas = (imp.form?.questions || []).map(q => {
-    // Para cada pergunta, vamos mapear o ID antigo para o novo ID
-    // para poder preservar o dependsOn
-    
     const novoId = generateId();
-    
-    // Guardar o mapeamento para usar depois
     if (!window.__idMappingImport) window.__idMappingImport = {};
     window.__idMappingImport[q.id] = novoId;
     
@@ -3793,10 +3807,13 @@ const novasPerguntas = (imp.form?.questions || []).map(q => {
         required: q.required || false,
         options: q.options || ['Opção 1', 'Opção 2'],
         condition: q.condition ? {
-            // 🔥 NOVO: preserva o dependsOn original (vai ser ajustado depois)
             dependsOn: q.condition.dependsOn,
             expectedValue: q.condition.expectedValue
-        } : null
+        } : null,
+        infoContent: q.infoContent || '',
+        maxSelections: q.maxSelections || 0,
+        linkedToSectors: q.linkedToSectors || false,
+        sectorIds: q.sectorIds || []
     };
 });
 
@@ -3817,11 +3834,12 @@ novasPerguntas.forEach(pergunta => {
 // Limpar o mapeamento global
 delete window.__idMappingImport;
         
-        // 🔥 CRIAR FORMULÁRIO COM NOVO ID
+// 🔥 CRIAR FORMULÁRIO COM NOVO ID - COM TODOS OS CAMPOS
 const newForm = {
     id: novoId,
     name: newName,
     createdAt: new Date().toISOString(),
+    locked: imp.locked || false,
     form: {
         title: imp.form?.title || imp.name,
         subtitle: imp.form?.subtitle || '',
@@ -3832,7 +3850,10 @@ const newForm = {
         theme: imp.form?.theme || { primary: '#4f46e5' },
         config: imp.form?.config || { showProgress: true },
         emails: emailsImportados,
-        attachment: imp.form?.attachment || { maxSize: 10, allowedTypes: 'pdf,jpg,jpeg,png', alternativeEmail: '', customMessage: '' }
+        attachment: imp.form?.attachment || { maxSize: 10, allowedTypes: 'pdf,jpg,jpeg,png', alternativeEmail: '', customMessage: '' },
+        opcaoCores: imp.form?.opcaoCores || {},
+        setores: imp.form?.setores || [],
+        maxSelecoes: imp.form?.maxSelecoes || 0
     },
     responses: []
 };
