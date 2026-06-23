@@ -1326,17 +1326,82 @@ async function salvarEmailConfiguracao(nomeFormulario, emails) {
 // ==================== FORMULÁRIOS ====================
 async function loadData() {
     const saved = localStorage.getItem(STORAGE_KEY);
+    let dadosLocais = { forms: [], currentFormId: null };
+    
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            forms = parsed.forms || [];
-            currentFormId = parsed.currentFormId || null;
-        } catch(e) { forms = []; }
+            dadosLocais = parsed;
+        } catch(e) { 
+            dadosLocais = { forms: [], currentFormId: null };
+        }
     }
     
-    // Buscar da nuvem automaticamente
-    await buscarTudoDaNuvemSilencioso();
+    forms = dadosLocais.forms || [];
+    currentFormId = dadosLocais.currentFormId || null;
     
+    // 🔥 SEMPRE buscar da nuvem ao abrir o app
+    mostrarProgresso('☁️ Carregando dados da nuvem...');
+    atualizarProgresso(10, 'Conectando ao Google Sheets...');
+    
+    try {
+        const formsNuvem = await carregarTudoDaNuvem('forms');
+        
+        atualizarProgresso(50, `${formsNuvem.length} formulários encontrados`);
+        
+        if (formsNuvem && formsNuvem.length > 0) {
+            // Se localStorage estiver vazio (PC novo), usar tudo da nuvem
+            if (forms.length === 0) {
+                forms = formsNuvem;
+                atualizarProgresso(70, 'Carregando do zero...');
+            } else {
+                // Se já tem dados locais, atualizar/merge
+                for (const formCloud of formsNuvem) {
+                    const indexLocal = forms.findIndex(f => f.id === formCloud.id);
+                    if (indexLocal === -1) {
+                        // Formulário novo (não existe localmente)
+                        forms.push(formCloud);
+                    } else {
+                        // Atualizar formulário existente
+                        const respostasLocais = forms[indexLocal].responses || [];
+                        forms[indexLocal] = formCloud;
+                        // Manter respostas locais se forem mais numerosas
+                        if (respostasLocais.length > (formCloud.responses || []).length) {
+                            forms[indexLocal].responses = respostasLocais;
+                        }
+                    }
+                }
+                atualizarProgresso(70, 'Atualizando formulários existentes...');
+            }
+            
+            // Carregar respostas de cada formulário
+            atualizarProgresso(80, 'Carregando respostas...');
+            for (const form of forms) {
+                try {
+                    const respostas = await carregarRespostasDaNuvem(form.name);
+                    if (respostas && respostas.length > 0) {
+                        form.responses = respostas;
+                    } else if (!form.responses) {
+                        form.responses = [];
+                    }
+                } catch(e) {
+                    console.error('Erro ao carregar respostas de', form.name, e);
+                    if (!form.responses) form.responses = [];
+                }
+            }
+            
+            saveData();
+            atualizarProgresso(100, `✅ ${forms.length} formulários carregados!`);
+        } else {
+            atualizarProgresso(100, 'ℹ️ Nenhum formulário na nuvem');
+        }
+    } catch (erro) {
+        console.error('❌ Erro ao carregar da nuvem:', erro);
+        atualizarProgresso(100, '⚠️ Erro de conexão. Usando dados locais.');
+        showToast('⚠️ Não foi possível conectar à nuvem', 'warning');
+    }
+    
+    setTimeout(() => fecharProgresso(), 1500);
     renderFormsList();
 }
 
@@ -1348,10 +1413,20 @@ async function buscarTudoDaNuvemSilencioso() {
             let mudancas = false;
             
             for (const formCloud of formsNuvem) {
-                const formLocal = forms.find(f => f.id === formCloud.id);
+                const indexLocal = forms.findIndex(f => f.id === formCloud.id);
                 
-                if (!formLocal) {
+                if (indexLocal === -1) {
+                    // Novo formulário
                     forms.push(formCloud);
+                    mudancas = true;
+                } else {
+                    // Atualizar existente (mantém respostas locais se forem mais numerosas)
+                    const respostasLocais = forms[indexLocal].responses || [];
+                    if (respostasLocais.length > (formCloud.responses || []).length) {
+                        forms[indexLocal] = { ...formCloud, responses: respostasLocais };
+                    } else {
+                        forms[indexLocal] = formCloud;
+                    }
                     mudancas = true;
                 }
             }
