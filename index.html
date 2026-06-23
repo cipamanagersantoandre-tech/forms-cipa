@@ -1616,22 +1616,21 @@ const newForm = {
         // 🔥 CRIA PRIMEIRO A ABA NO SHEETS
         const cabecalhos = JSON.stringify(['Data/Hora']);
 // 🔥 USA POST PARA SUPORTAR CABEÇALHOS GRANDES
-const bodyAba = new URLSearchParams();
-bodyAba.append('acao', 'criarAba');
-bodyAba.append('nomeFormulario', name);
-bodyAba.append('cabecalhos', cabecalhos);
-
-await fetch(CONFIG.googleApiUrl, {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: bodyAba.toString()
-});
-            console.log(`✅ Aba criada: ${name}`);
-        } catch (erro) {
-            console.error('Erro ao criar aba:', erro);
-        }
+    try {
+        const bodyAba = new URLSearchParams();
+        bodyAba.append('acao', 'criarAba');
+        bodyAba.append('nomeFormulario', name);
+        bodyAba.append('cabecalhos', cabecalhos);
+        
+        await fetch(CONFIG.googleApiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: bodyAba.toString()
+        });
+        console.log(`✅ Aba criada: ${name}`);
+    } catch (erro) {
+        console.error('Erro ao criar aba:', erro);
+    }
         
         // 🔥 DEPOIS SALVA O FORMULÁRIO
         const sucesso = await salvarNaNuvem('forms', newForm.id, newForm);
